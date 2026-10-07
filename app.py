@@ -13,12 +13,9 @@ NOME_PLANILHA_MOVIMENTACAO = "MOVIMENTACAO_NOMUS"
 @st.cache_resource
 def conectar_google_sheets():
     try:
-        # No Streamlit Cloud, usamos st.secrets para as credenciais
-        # Localmente, pode usar o ficheiro credenciais.json se preferir testar no PC
-        if "gcp_service_account" in st.secrets:
-            gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
-        else:
-            gc = gspread.service_account(filename="credenciais.json")
+        # Lê diretamente das Secrets do Streamlit Cloud de forma segura
+        credenciais_dict = dict(st.secrets["gcp_service_account"])
+        gc = gspread.service_account_from_dict(credenciais_dict)
             
         sheet_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO).sheet1
         sheet_prod = gc.open(NOME_PLANILHA_PRODUTOS).sheet1
