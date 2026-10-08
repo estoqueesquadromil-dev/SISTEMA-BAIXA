@@ -6,9 +6,10 @@
     <title>Sistema de Baixa - Inventário</title>
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .container { max-width: 850px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h1 { color: #0056b3; font-size: 24px; margin-top: 0; }
-        .form-group { margin-bottom: 15px; position: relative; }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-end; }
+        .form-group { flex: 1; position: relative; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
         input[type="date"], input[type="text"], input[type="number"] { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
         #resultados-busca { position: absolute; background: white; border: 1px solid #ccc; width: 100%; max-height: 150px; overflow-y: auto; z-index: 100; border-radius: 0 0 4px 4px; }
@@ -17,10 +18,11 @@
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
         th { background-color: #0056b3; color: white; }
-        button { background-color: #28a745; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 20px; }
-        button:hover { background-color: #218838; }
-        .btn-remover { background-color: #dc3545; padding: 5px 10px; width: auto; margin: 0; }
-        .btn-remover:hover { background-color: #c82333; }
+        .btn-acao { padding: 6px 12px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; color: white; margin-right: 5px; }
+        .btn-editar { background-color: #ffc107; color: #333; }
+        .btn-excluir { background-color: #dc3545; }
+        .btn-adicionar { background-color: #007bff; height: 43px; padding: 0 20px; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .btn-salvar { background-color: #28a745; color: white; border: none; padding: 14px; font-size: 18px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 25px; }
         #mensagem { margin-top: 15px; padding: 10px; border-radius: 4px; font-weight: bold; display: none; }
         .sucesso { background-color: #d4edda; color: #155724; }
         .erro { background-color: #f8d7da; color: #721c24; }
@@ -31,47 +33,59 @@
 <div class="container">
     <h1>Sistema de Baixa de Inventário</h1>
     
-    <div class="form-group">
+    <div class="form-group" style="margin-bottom: 20px; max-width: 250px;">
         <label for="data-lote">Data da Movimentação:</label>
         <input type="date" id="data-lote">
     </div>
 
-    <div class="form-group">
-        <label for="busca-produto">Pesquisar Produto (Código ou Descrição):</label>
-        <input type="text" id="busca-produto" placeholder="Digite para pesquisar na nuvem...">
-        <div id="resultados-busca"></div>
+    <div class="form-row">
+        <div class="form-group">
+            <label for="input-codigo">Código ou Descrição do Produto:</label>
+            <input type="text" id="input-codigo" placeholder="Comece a digitar o código...">
+            <div id="resultados-busca"></div>
+        </div>
+        <div class="form-group" style="max-width: 120px;">
+            <label for="input-qtd">Quantidade:</label>
+            <input type="number" id="input-qtd" value="1" min="1">
+        </div>
+        <button class="btn-adicionar" onclick="adicionarItemLista()">Adicionar</button>
     </div>
 
-    <h3>Itens Selecionados para Baixa</h3>
+    <h3>Itens na Lista</h3>
     <table id="tabela-itens">
         <thead>
             <tr>
                 <th>Código</th>
                 <th>Descrição</th>
                 <th>Quantidade</th>
-                <th>Ações</th>
+                <th style="width: 150px;">Ações</th>
             </tr>
         </thead>
         <tbody>
-            <!-- Os itens adicionados aparecem aqui -->
+            <tr>
+                <td colspan="4" style="text-align: center; color: #777;">Nenhum item adicionado ainda.</td>
+            </tr>
         </tbody>
     </table>
 
-    <button onclick="salvarLote()">Registar Lote no Google Sheets</button>
+    <button class="btn-salvar" onclick="salvarLote()">Registar na Planilha do Google Sheets</button>
     <div id="mensagem"></div>
 </div>
 
 <script>
-    // Preenche a data atual por defeito
     document.getElementById('data-lote').valueAsDate = new Date();
     let itensSelecionados = [];
+    let produtoSelecionadoTemp = null;
 
-    const inputBusca = document.getElementById('busca-produto');
+    const inputCodigo = document.getElementById('input-codigo');
     const divResultados = document.getElementById('resultados-busca');
+    const inputQtd = document.getElementById('input-qtd');
 
-    inputBusca.addEventListener('input', async function() {
+    // Pesquisa com autocomplete na base oficial
+    inputCodigo.addEventListener('input', async function() {
         let termo = this.value.trim();
-        if (termo.length < 2) {
+        produtoSelecionadoTemp = null;
+        if (termo.length < 1) {
             divResultados.innerHTML = '';
             return;
         }
@@ -84,7 +98,11 @@
                 let div = document.createElement('div');
                 div.className = 'item-resultado';
                 div.textContent = `${p.codigo} - ${p.descricao}`;
-                div.onclick = () => adicionarItem(p.codigo, p.descricao);
+                div.onclick = () => {
+                    inputCodigo.value = p.codigo;
+                    produtoSelecionadoTemp = p;
+                    divResultados.innerHTML = '';
+                };
                 divResultados.appendChild(div);
             });
         } catch (err) {
@@ -92,24 +110,29 @@
         }
     });
 
-    function adicionarItem(codigo, descricao) {
-        inputBusca.value = '';
-        divResultados.innerHTML = '';
+    function adicionarItemLista() {
+        let codigoDigitado = inputCodigo.value.trim();
+        let quantidade = parseInt(inputQtd.value) || 1;
 
-        let existente = itensSelecionados.find(i => i.CODIGO === codigo);
+        if (!codigoDigitado) {
+            alert('Informe o código do produto.');
+            return;
+        }
+
+        // Se o utilizador selecionou da lista ou digitou um válido existente no cache
+        let descricaoFinal = produtoSelecionadoTemp ? produtoSelecionadoTemp.descricao : "Produto Oficial";
+        
+        let existente = itensSelecionados.find(i => i.CODIGO === codigoDigitado);
         if (existente) {
-            existente.QUANTIDADE += 1;
+            existente.QUANTIDADE += quantidade;
         } else {
-            itensSelecionados.push({ CODIGO: codigo, DESCRICAO: descricao, QUANTIDADE: 1 });
+            itensSelecionados.push({ CODIGO: codigoDigitado, DESCRICAO: descricaoFinal, QUANTIDADE: quantidade });
         }
-        atualizarTabela();
-    }
 
-    function alterarQtd(codigo, novaQtd) {
-        let item = itensSelecionados.find(i => i.CODIGO === codigo);
-        if (item) {
-            item.QUANTIDADE = parseInt(novaQtd) || 1;
-        }
+        inputCodigo.value = '';
+        inputQtd.value = '1';
+        produtoSelecionadoTemp = null;
+        atualizarTabela();
     }
 
     function removerItem(codigo) {
@@ -117,16 +140,41 @@
         atualizarTabela();
     }
 
+    function editarItem(codigo) {
+        let item = itensSelecionados.find(i => i.CODIGO === codigo);
+        if (item) {
+            let novaQtd = prompt(`Editar quantidade para o produto ${codigo}:`, item.QUANTIDADE);
+            if (novaQtd !== null) {
+                let qtdNum = parseInt(novaQtd);
+                if (qtdNum > 0) {
+                    item.QUANTIDADE = qtdNum;
+                    atualizarTabela();
+                } else {
+                    alert('Quantidade inválida.');
+                }
+            }
+        }
+    }
+
     function atualizarTabela() {
         let tbody = document.querySelector('#tabela-itens tbody');
         tbody.innerHTML = '';
+        
+        if (itensSelecionados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777;">Nenhum item adicionado ainda.</td></tr>';
+            return;
+        }
+
         itensSelecionados.forEach(item => {
             let tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${item.CODIGO}</td>
                 <td>${item.DESCRICAO}</td>
-                <td><input type="number" value="${item.QUANTIDADE}" min="1" onchange="alterarQtd('${item.CODIGO}', this.value)" style="width: 80px;"></td>
-                <td><button class="btn-remover" onclick="removerItem('${item.CODIGO}')">Remover</button></td>
+                <td>${item.QUANTIDADE}</td>
+                <td>
+                    <button class="btn-acao btn-editar" onclick="editarItem('${item.CODIGO}')">Editar</button>
+                    <button class="btn-acao btn-excluir" onclick="removerItem('${item.CODIGO}')">Excluir</button>
+                </td>
             `;
             tbody.appendChild(tr);
         });
@@ -138,7 +186,7 @@
 
         if (!data || itensSelecionados.length === 0) {
             msgDiv.className = 'erro';
-            msgDiv.textContent = 'Por favor, selecione uma data e pelo menos um item.';
+            msgDiv.textContent = 'Por favor, selecione uma data e adicione pelo menos um item à lista.';
             msgDiv.style.display = 'block';
             return;
         }
