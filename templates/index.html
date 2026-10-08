@@ -2,36 +2,172 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Sistema de Inventário - Esquadromil</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Baixa - Inventário</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f4f9; color: #333; }
-        h1 { color: #0056b3; }
-        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #0056b3; font-size: 24px; margin-top: 0; }
+        .form-group { margin-bottom: 15px; position: relative; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="date"], input[type="text"], input[type="number"] { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        #resultados-busca { position: absolute; background: white; border: 1px solid #ccc; width: 100%; max-height: 150px; overflow-y: auto; z-index: 100; border-radius: 0 0 4px 4px; }
+        .item-resultado { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; }
+        .item-resultado:hover { background-color: #f0f0f0; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
         th { background-color: #0056b3; color: white; }
+        button { background-color: #28a745; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 20px; }
+        button:hover { background-color: #218838; }
+        .btn-remover { background-color: #dc3545; padding: 5px 10px; width: auto; margin: 0; }
+        .btn-remover:hover { background-color: #c82333; }
+        #mensagem { margin-top: 15px; padding: 10px; border-radius: 4px; font-weight: bold; display: none; }
+        .sucesso { background-color: #d4edda; color: #155724; }
+        .erro { background-color: #f8d7da; color: #721c24; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Sistema de Baixa de Inventário</h1>
-        <p>Estado da ligação ao Google Sheets: <strong>Ativo / Online</strong></p>
-        
-        <h2>Produtos em Stock</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Código / Produto</th>
-                    <th>Quantidade</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Os dados carregados do Google Sheets pelo app.py podem aparecer aqui -->
-                <tr>
-                    <td colspan="2" style="text-align: center;">Sistema pronto para leitura na nuvem.</td>
-                </tr>
-            </tbody>
-        </table>
+
+<div class="container">
+    <h1>Sistema de Baixa de Inventário</h1>
+    
+    <div class="form-group">
+        <label for="data-lote">Data da Movimentação:</label>
+        <input type="date" id="data-lote">
     </div>
+
+    <div class="form-group">
+        <label for="busca-produto">Pesquisar Produto (Código ou Descrição):</label>
+        <input type="text" id="busca-produto" placeholder="Digite para pesquisar na nuvem...">
+        <div id="resultados-busca"></div>
+    </div>
+
+    <h3>Itens Selecionados para Baixa</h3>
+    <table id="tabela-itens">
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Descrição</th>
+                <th>Quantidade</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Os itens adicionados aparecem aqui -->
+        </tbody>
+    </table>
+
+    <button onclick="salvarLote()">Registar Lote no Google Sheets</button>
+    <div id="mensagem"></div>
+</div>
+
+<script>
+    // Preenche a data atual por defeito
+    document.getElementById('data-lote').valueAsDate = new Date();
+    let itensSelecionados = [];
+
+    const inputBusca = document.getElementById('busca-produto');
+    const divResultados = document.getElementById('resultados-busca');
+
+    inputBusca.addEventListener('input', async function() {
+        let termo = this.value.trim();
+        if (termo.length < 2) {
+            divResultados.innerHTML = '';
+            return;
+        }
+        try {
+            let resposta = await fetch(`/buscar_produtos?termo=${encodeURIComponent(termo)}`);
+            let produtos = await resposta.json();
+            
+            divResultados.innerHTML = '';
+            produtos.forEach(p => {
+                let div = document.createElement('div');
+                div.className = 'item-resultado';
+                div.textContent = `${p.codigo} - ${p.descricao}`;
+                div.onclick = () => adicionarItem(p.codigo, p.descricao);
+                divResultados.appendChild(div);
+            });
+        } catch (err) {
+            console.error("Erro na busca:", err);
+        }
+    });
+
+    function adicionarItem(codigo, descricao) {
+        inputBusca.value = '';
+        divResultados.innerHTML = '';
+
+        let existente = itensSelecionados.find(i => i.CODIGO === codigo);
+        if (existente) {
+            existente.QUANTIDADE += 1;
+        } else {
+            itensSelecionados.push({ CODIGO: codigo, DESCRICAO: descricao, QUANTIDADE: 1 });
+        }
+        atualizarTabela();
+    }
+
+    function alterarQtd(codigo, novaQtd) {
+        let item = itensSelecionados.find(i => i.CODIGO === codigo);
+        if (item) {
+            item.QUANTIDADE = parseInt(novaQtd) || 1;
+        }
+    }
+
+    function removerItem(codigo) {
+        itensSelecionados = itensSelecionados.filter(i => i.CODIGO !== codigo);
+        atualizarTabela();
+    }
+
+    function atualizarTabela() {
+        let tbody = document.querySelector('#tabela-itens tbody');
+        tbody.innerHTML = '';
+        itensSelecionados.forEach(item => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.CODIGO}</td>
+                <td>${item.DESCRICAO}</td>
+                <td><input type="number" value="${item.QUANTIDADE}" min="1" onchange="alterarQtd('${item.CODIGO}', this.value)" style="width: 80px;"></td>
+                <td><button class="btn-remover" onclick="removerItem('${item.CODIGO}')">Remover</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function salvarLote() {
+        let data = document.getElementById('data-lote').value;
+        let msgDiv = document.getElementById('mensagem');
+
+        if (!data || itensSelecionados.length === 0) {
+            msgDiv.className = 'erro';
+            msgDiv.textContent = 'Por favor, selecione uma data e pelo menos um item.';
+            msgDiv.style.display = 'block';
+            return;
+        }
+
+        try {
+            let resposta = await fetch('/salvar_lote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: data, itens: itensSelecionados })
+            });
+            let resultado = await resposta.json();
+
+            msgDiv.style.display = 'block';
+            if (resultado.sucesso) {
+                msgDiv.className = 'sucesso';
+                msgDiv.textContent = resultado.mensagem;
+                itensSelecionados = [];
+                atualizarTabela();
+            } else {
+                msgDiv.className = 'erro';
+                msgDiv.textContent = resultado.mensagem;
+            }
+        } catch (err) {
+            msgDiv.className = 'erro';
+            msgDiv.textContent = 'Erro de comunicação com o servidor.';
+            msgDiv.style.display = 'block';
+        }
+    }
+</script>
+
 </body>
 </html>
