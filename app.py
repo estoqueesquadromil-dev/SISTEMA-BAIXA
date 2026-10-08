@@ -144,3 +144,102 @@ def consultar_movimentacao():
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao consultar: {str(e)}'})
+
+
+
+@app.route('/excluir_movimentacao', methods=['POST'])
+def excluir_movimentacao():
+    dados = request.json
+    data_mov = dados.get('data')
+    codigo = str(dados.get('codigo')).strip()
+
+    if not data_mov or not codigo:
+        return jsonify({'sucesso': False, 'mensagem': 'Data ou código não informados!'})
+
+    try:
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'})
+
+        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+        sheet_mov = planilha_mov.worksheet(data_mov)
+        
+        linhas = sheet_mov.get_all_values()
+        if not linhas:
+            return jsonify({'sucesso': False, 'mensagem': 'Aba vazia.'})
+        
+        cabecalho = linhas[0]
+        idx_codigo = -1
+        for i, col in enumerate(cabecalho):
+            if col.upper() in ['CODIGO', 'CÓDIGO']:
+                idx_codigo = i
+                break
+        
+        if idx_codigo == -1:
+            return jsonify({'sucesso': False, 'mensagem': 'Coluna de código não encontrada.'})
+
+        linha_encontrada = -1
+        for idx in range(1, len(linhas)):
+            if str(linhas[idx][idx_codigo]).strip() == codigo:
+                linha_encontrada = idx + 1 # No gspread as linhas começam em 1
+                break
+
+        if linha_encontrada != -1:
+            sheet_mov.delete_rows(linha_encontrada)
+            return jsonify({'sucesso': True, 'mensagem': 'Item excluído com sucesso da planilha!'})
+        else:
+            return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado na planilha.'})
+
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': f'Erro ao excluir: {str(e)}'})
+
+
+@app.route('/editar_movimentacao', methods=['POST'])
+def editar_movimentacao():
+    dados = request.json
+    data_mov = dados.get('data')
+    codigo = str(dados.get('codigo')).strip()
+    nova_quantidade = dados.get('quantidade')
+
+    if not data_mov or not codigo or nova_quantidade is None:
+        return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos!'})
+
+    try:
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'})
+
+        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+        sheet_mov = planilha_mov.worksheet(data_mov)
+        
+        linhas = sheet_mov.get_all_values()
+        if not linhas:
+            return jsonify({'sucesso': False, 'mensagem': 'Aba vazia.'})
+        
+        cabecalho = linhas[0]
+        idx_codigo = -1
+        idx_qtd = -1
+        for i, col in enumerate(cabecalho):
+            if col.upper() in ['CODIGO', 'CÓDIGO']:
+                idx_codigo = i
+            elif col.upper() in ['QUANTIDADE']:
+                idx_qtd = i
+        
+        if idx_codigo == -1 or idx_qtd == -1:
+            return jsonify({'sucesso': False, 'mensagem': 'Colunas necessárias não encontradas.'})
+
+        linha_encontrada = -1
+        for idx in range(1, len(linhas)):
+            if str(linhas[idx][idx_codigo]).strip() == codigo:
+                linha_encontrada = idx + 1
+                break
+
+        if linha_encontrada != -1:
+            # Atualiza a célula correspondente (coluna no gspread é idx_qtd + 1)
+            sheet_mov.update_cell(linha_encontrada, idx_qtd + 1, nova_quantidade)
+            return jsonify({'sucesso': True, 'mensagem': 'Quantidade atualizada com sucesso!'})
+        else:
+            return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado na planilha.'})
+
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': f'Erro ao editar: {str(e)}'})
