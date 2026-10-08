@@ -81,7 +81,6 @@
     const divResultados = document.getElementById('resultados-busca');
     const inputQtd = document.getElementById('input-qtd');
 
-    // Pesquisa com autocomplete na base oficial
     inputCodigo.addEventListener('input', async function() {
         let termo = this.value.trim();
         produtoSelecionadoTemp = null;
@@ -119,7 +118,6 @@
             return;
         }
 
-        // Se o utilizador selecionou da lista ou digitou um válido existente no cache
         let descricaoFinal = produtoSelecionadoTemp ? produtoSelecionadoTemp.descricao : "Produto Oficial";
         
         let existente = itensSelecionados.find(i => i.CODIGO === codigoDigitado);
