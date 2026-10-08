@@ -8,13 +8,28 @@
         body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
         .container { max-width: 850px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h1 { color: #0056b3; font-size: 24px; margin-top: 0; }
+        
+        /* Abas de navegação */
+        .abas { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        .btn-aba { background: #e0e0e0; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; font-weight: bold; color: #555; }
+        .btn-aba.ativo { background: #0056b3; color: white; }
+        .painel { display: none; }
+        .painel.ativo { display: block; }
+
         .form-row { display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-end; }
         .form-group { flex: 1; position: relative; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
         input[type="date"], input[type="text"], input[type="number"] { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
-        #resultados-busca { position: absolute; background: white; border: 1px solid #ccc; width: 100%; max-height: 150px; overflow-y: auto; z-index: 100; border-radius: 0 0 4px 4px; }
-        .item-resultado { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; }
-        .item-resultado:hover { background-color: #f0f0f0; }
+        
+        #resultados-busca { 
+            position: absolute; top: 100%; left: 0; right: 0; 
+            background: white; border: 1px solid #0056b3; max-height: 200px; 
+            overflow-y: auto; z-index: 9999; border-radius: 0 0 4px 4px; 
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15); 
+        }
+        .item-resultado { padding: 12px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 15px; }
+        .item-resultado:hover { background-color: #e8f0fe; color: #0056b3; font-weight: bold; }
+
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
         th { background-color: #0056b3; color: white; }
@@ -23,6 +38,8 @@
         .btn-excluir { background-color: #dc3545; }
         .btn-adicionar { background-color: #007bff; height: 43px; padding: 0 20px; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
         .btn-salvar { background-color: #28a745; color: white; border: none; padding: 14px; font-size: 18px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 25px; }
+        .btn-pesquisar { background-color: #17a2b8; height: 43px; padding: 0 20px; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        
         #mensagem { margin-top: 15px; padding: 10px; border-radius: 4px; font-weight: bold; display: none; }
         .sucesso { background-color: #d4edda; color: #155724; }
         .erro { background-color: #f8d7da; color: #721c24; }
@@ -32,48 +49,89 @@
 
 <div class="container">
     <h1>Sistema de Baixa de Inventário</h1>
-    
-    <div class="form-group" style="margin-bottom: 20px; max-width: 250px;">
-        <label for="data-lote">Data da Movimentação:</label>
-        <input type="date" id="data-lote">
+
+    <!-- Botões para alternar entre as telas -->
+    <div class="abas">
+        <button class="btn-aba ativo" onclick="mudarAba('baixa', this)">Realizar Baixa</button>
+        <button class="btn-aba" onclick="mudarAba('consulta', this)">Consultar Baixas do Dia</button>
     </div>
 
-    <div class="form-row">
-        <div class="form-group">
-            <label for="input-codigo">Código ou Descrição do Produto:</label>
-            <input type="text" id="input-codigo" placeholder="Comece a digitar o código...">
-            <div id="resultados-busca"></div>
+    <!-- PAINEL 1: REALIZAR BAIXA (O seu código original funcional) -->
+    <div id="painel-baixa" class="painel ativo">
+        <div class="form-group" style="margin-bottom: 20px; max-width: 250px;">
+            <label for="data-lote">Data da Movimentação:</label>
+            <input type="date" id="data-lote">
         </div>
-        <div class="form-group" style="max-width: 120px;">
-            <label for="input-qtd">Quantidade:</label>
-            <input type="number" id="input-qtd" value="1" min="1">
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="input-codigo">Código ou Descrição do Produto:</label>
+                <input type="text" id="input-codigo" placeholder="Comece a digitar o código..." autocomplete="off">
+                <div id="resultados-busca"></div>
+            </div>
+            <div class="form-group" style="max-width: 120px;">
+                <label for="input-qtd">Quantidade:</label>
+                <input type="number" id="input-qtd" value="1" min="1">
+            </div>
+            <button class="btn-adicionar" onclick="adicionarItemLista()">Adicionar</button>
         </div>
-        <button class="btn-adicionar" onclick="adicionarItemLista()">Adicionar</button>
+
+        <h3>Itens na Lista</h3>
+        <table id="tabela-itens">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Descrição</th>
+                    <th>Quantidade</th>
+                    <th style="width: 150px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #777;">Nenhum item adicionado ainda.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <button class="btn-salvar" onclick="salvarLote()">Registar na Planilha do Google Sheets</button>
+        <div id="mensagem"></div>
     </div>
 
-    <h3>Itens na Lista</h3>
-    <table id="tabela-itens">
-        <thead>
-            <tr>
-                <th>Código</th>
-                <th>Descrição</th>
-                <th>Quantidade</th>
-                <th style="width: 150px;">Ações</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td colspan="4" style="text-align: center; color: #777;">Nenhum item adicionado ainda.</td>
-            </tr>
-        </tbody>
-    </table>
+    <!-- PAINEL 2: CONSULTAR BAIXAS (Nova função adicionada) -->
+    <div id="painel-consulta" class="painel">
+        <div class="form-row">
+            <div class="form-group" style="max-width: 250px;">
+                <label for="data-consulta">Selecione a Data:</label>
+                <input type="date" id="data-consulta">
+            </div>
+            <button class="btn-pesquisar" onclick="consultarBaixas()">Pesquisar</button>
+        </div>
 
-    <button class="btn-salvar" onclick="salvarLote()">Registar na Planilha do Google Sheets</button>
-    <div id="mensagem"></div>
+        <h3>Itens dados baixa no dia</h3>
+        <table id="tabela-consulta">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Código</th>
+                    <th>Descrição</th>
+                    <th>Quantidade</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #777;">Selecione uma data e clique em Pesquisar.</td>
+                </tr>
+            </tbody>
+        </table>
+        <div id="mensagem-consulta" style="margin-top: 15px; font-weight: bold;"></div>
+    </div>
+
 </div>
 
 <script>
     document.getElementById('data-lote').valueAsDate = new Date();
+    document.getElementById('data-consulta').valueAsDate = new Date();
+    
     let itensSelecionados = [];
     let produtoSelecionadoTemp = null;
 
@@ -81,6 +139,19 @@
     const divResultados = document.getElementById('resultados-busca');
     const inputQtd = document.getElementById('input-qtd');
 
+    function mudarAba(aba, btn) {
+        document.querySelectorAll('.painel').forEach(p => p.classList.remove('ativo'));
+        document.querySelectorAll('.btn-aba').forEach(b => b.classList.remove('ativo'));
+        
+        if (aba === 'baixa') {
+            document.getElementById('painel-baixa').classList.add('ativo');
+        } else {
+            document.getElementById('painel-consulta').classList.add('ativo');
+        }
+        btn.classList.add('ativo');
+    }
+
+    // --- Autocomplete Original ---
     inputCodigo.addEventListener('input', async function() {
         let termo = this.value.trim();
         produtoSelecionadoTemp = null;
@@ -93,6 +164,11 @@
             let produtos = await resposta.json();
             
             divResultados.innerHTML = '';
+            if (produtos.length === 0) {
+                divResultados.innerHTML = '<div class="item-resultado" style="color: #999;">Nenhum produto encontrado</div>';
+                return;
+            }
+
             produtos.forEach(p => {
                 let div = document.createElement('div');
                 div.className = 'item-resultado';
@@ -109,6 +185,12 @@
         }
     });
 
+    document.addEventListener('click', function(e) {
+        if (!inputCodigo.contains(e.target) && !divResultados.contains(e.target)) {
+            divResultados.innerHTML = '';
+        }
+    });
+
     function adicionarItemLista() {
         let codigoDigitado = inputCodigo.value.trim();
         let quantidade = parseInt(inputQtd.value) || 1;
@@ -119,8 +201,8 @@
         }
 
         let descricaoFinal = produtoSelecionadoTemp ? produtoSelecionadoTemp.descricao : "Produto Oficial";
+        let existente = itensSelecionados.find(i => i.CODIGO.toLowerCase() === codigoDigitado.toLowerCase());
         
-        let existente = itensSelecionados.find(i => i.CODIGO === codigoDigitado);
         if (existente) {
             existente.QUANTIDADE += quantidade;
         } else {
@@ -130,6 +212,7 @@
         inputCodigo.value = '';
         inputQtd.value = '1';
         produtoSelecionadoTemp = null;
+        divResultados.innerHTML = '';
         atualizarTabela();
     }
 
@@ -211,6 +294,57 @@
             msgDiv.className = 'erro';
             msgDiv.textContent = 'Erro de comunicação com o servidor.';
             msgDiv.style.display = 'block';
+        }
+    }
+
+    // --- Nova Função de Consulta ---
+    async function consultarBaixas() {
+        let dataConsulta = document.getElementById('data-consulta').value;
+        let tbody = document.querySelector('#tabela-consulta tbody');
+        let msgDiv = document.getElementById('mensagem-consulta');
+
+        if (!dataConsulta) {
+            alert('Selecione uma data para pesquisar.');
+            return;
+        }
+
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">A pesquisar...</td></tr>';
+        msgDiv.textContent = '';
+
+        try {
+            let resposta = await fetch(`/consultar_movimentacao?data=${encodeURIComponent(dataConsulta)}`);
+            let resultado = await resposta.json();
+
+            tbody.innerHTML = '';
+
+            if (!resultado.sucesso) {
+                msgDiv.textContent = resultado.mensagem;
+                msgDiv.style.color = 'red';
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777;">Nenhum registo encontrado.</td></tr>';
+                return;
+            }
+
+            let itens = resultado.itens;
+            if (itens.length === 0) {
+                msgDiv.textContent = resultado.mensagem;
+                msgDiv.style.color = '#555';
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777;">Nenhum item registado nesta data.</td></tr>';
+                return;
+            }
+
+            itens.forEach(item => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.Data || item.DATA || dataConsulta}</td>
+                    <td>${item.Código || item.CODIGO || ''}</td>
+                    <td>${item.Descrição || item.DESCRICAO || ''}</td>
+                    <td>${item.Quantidade || item.QUANTIDADE || ''}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
         }
     }
 </script>
