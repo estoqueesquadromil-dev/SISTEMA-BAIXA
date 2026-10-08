@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Sistema de Inventário - Esquadromil</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f4f9; color: #333; }
+        h1 { color: #0056b3; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #0056b3; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sistema de Baixa de Inventário</h1>
+        <p>Estado da ligação ao Google Sheets: <strong>Ativo / Online</strong></p>
+        
+        <h2>Produtos em Stock</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Código / Produto</th>
+                    <th>Quantidade</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Os dados carregados do Google Sheets pelo app.py podem aparecer aqui -->
+                <tr>
+                    <td colspan="2" style="text-align: center;">Sistema pronto para leitura na nuvem.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
