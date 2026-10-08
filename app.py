@@ -5,6 +5,7 @@ import gspread
 
 app = Flask(__name__)
 
+# Nomes exatos das planilhas nativas no Google Drive
 NOME_PLANILHA_PRODUTOS = 'produtos_oficiais'
 NOME_PLANILHA_MOVIMENTACAO = 'MOVIMENTACAO_NOMUS'
 
@@ -24,8 +25,10 @@ def carregar_base_produtos():
     try:
         gc = conectar_google_sheets()
         if not gc:
+            print("[AVISO] Não foi possível ligar ao Google Sheets.")
             return
         
+        # Abre a planilha nativa do Google Sheets
         planilha = gc.open(NOME_PLANILHA_PRODUTOS)
         sheet = planilha.sheet1
         dados = sheet.get_all_records()
@@ -40,10 +43,11 @@ def carregar_base_produtos():
                 produtos_cache.append({'codigo': codigo, 'descricao': descricao})
                 codigos_validos_set.add(codigo)
                 
-        print(f"[INFO] {len(produtos_cache)} produtos carregados com sucesso!")
+        print(f"[INFO] {len(produtos_cache)} produtos carregados com sucesso da planilha Google!")
     except Exception as e:
         print(f"[ERRO] Falha ao carregar produtos: {e}")
 
+# Carrega os produtos na inicialização do servidor
 carregar_base_produtos()
 
 @app.route('/')
@@ -88,6 +92,7 @@ def salvar_lote():
 
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
         
+        # Procura aba com a data; se não existir, cria uma nova
         try:
             sheet_mov = planilha_mov.worksheet(data_lote)
         except gspread.exceptions.WorksheetNotFound:
