@@ -115,3 +115,32 @@ def salvar_lote():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
+
+
+
+
+
+@app.route('/consultar_movimentacao', methods=['GET'])
+def consultar_movimentacao():
+    data_consulta = request.args.get('data', '').strip()
+    if not data_consulta:
+        return jsonify({'sucesso': False, 'mensagem': 'Data não informada!'})
+
+    try:
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'})
+
+        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+        
+        try:
+            sheet_mov = planilha_mov.worksheet(data_consulta)
+        except gspread.exceptions.WorksheetNotFound:
+            return jsonify({'sucesso': True, 'itens': [], 'mensagem': f'Nenhuma baixa encontrada para o dia {data_consulta}.'})
+
+        dados = sheet_mov.get_all_records()
+        return jsonify({'sucesso': True, 'itens': dados})
+
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': f'Erro ao consultar: {str(e)}'})
