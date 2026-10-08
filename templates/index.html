@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Baixa </title>
+    <title>Sistema de Baixa - Inventário</title>
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
         .container { max-width: 850px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -50,13 +50,13 @@
 <div class="container">
     <h1>Sistema de Baixa de Inventário</h1>
 
-    <!-- Botões para alternar entre as telas -->
+    <!-- Abas de navegação -->
     <div class="abas">
         <button class="btn-aba ativo" onclick="mudarAba('baixa', this)">Realizar Baixa</button>
         <button class="btn-aba" onclick="mudarAba('consulta', this)">Consultar Baixas do Dia</button>
     </div>
 
-    <!-- PAINEL 1: REALIZAR BAIXA (O seu código original funcional) -->
+    <!-- PAINEL 1: REALIZAR BAIXA -->
     <div id="painel-baixa" class="painel ativo">
         <div class="form-group" style="margin-bottom: 20px; max-width: 250px;">
             <label for="data-lote">Data da Movimentação:</label>
@@ -97,7 +97,7 @@
         <div id="mensagem"></div>
     </div>
 
-    <!-- PAINEL 2: CONSULTAR BAIXAS (Nova função adicionada) -->
+    <!-- PAINEL 2: CONSULTAR BAIXAS COM EDIÇÃO E EXCLUSÃO -->
     <div id="painel-consulta" class="painel">
         <div class="form-row">
             <div class="form-group" style="max-width: 250px;">
@@ -115,11 +115,12 @@
                     <th>Código</th>
                     <th>Descrição</th>
                     <th>Quantidade</th>
+                    <th style="width: 150px;">Ações</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="4" style="text-align: center; color: #777;">Selecione uma data e clique em Pesquisar.</td>
+                    <td colspan="5" style="text-align: center; color: #777;">Selecione uma data e clique em Pesquisar.</td>
                 </tr>
             </tbody>
         </table>
@@ -297,7 +298,7 @@
         }
     }
 
-    // --- Nova Função de Consulta ---
+    // --- Consulta de Baixas com Ações ---
     async function consultarBaixas() {
         let dataConsulta = document.getElementById('data-consulta').value;
         let tbody = document.querySelector('#tabela-consulta tbody');
@@ -308,7 +309,7 @@
             return;
         }
 
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">A pesquisar...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">A pesquisar...</td></tr>';
         msgDiv.textContent = '';
 
         try {
@@ -320,7 +321,7 @@
             if (!resultado.sucesso) {
                 msgDiv.textContent = resultado.mensagem;
                 msgDiv.style.color = 'red';
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777;">Nenhum registo encontrado.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777;">Nenhum registo encontrado.</td></tr>';
                 return;
             }
 
@@ -328,23 +329,77 @@
             if (itens.length === 0) {
                 msgDiv.textContent = resultado.mensagem;
                 msgDiv.style.color = '#555';
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777;">Nenhum item registado nesta data.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777;">Nenhum item registado nesta data.</td></tr>';
                 return;
             }
 
             itens.forEach(item => {
+                let dataLinha = item.Data || item.DATA || dataConsulta;
+                let codigoLinha = item.Código || item.CODIGO || '';
+                let descLinha = item.Descrição || item.DESCRICAO || '';
+                let qtdLinha = item.Quantidade || item.QUANTIDADE || 1;
+
                 let tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${item.Data || item.DATA || dataConsulta}</td>
-                    <td>${item.Código || item.CODIGO || ''}</td>
-                    <td>${item.Descrição || item.DESCRICAO || ''}</td>
-                    <td>${item.Quantidade || item.QUANTIDADE || ''}</td>
+                    <td>${dataLinha}</td>
+                    <td>${codigoLinha}</td>
+                    <td>${descLinha}</td>
+                    <td>${qtdLinha}</td>
+                    <td>
+                        <button class="btn-acao btn-editar" onclick="editarConsulta('${dataLinha}', '${codigoLinha}', ${qtdLinha})">Editar</button>
+                        <button class="btn-acao btn-excluir" onclick="excluirConsulta('${dataLinha}', '${codigoLinha}')">Excluir</button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
 
         } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
+        }
+    }
+
+    async function excluirConsulta(data, codigo) {
+        if (!confirm(`Tem a certeza que deseja excluir o produto ${codigo} do registo do dia ${data}?`)) return;
+
+        try {
+            let resposta = await fetch('/excluir_movimentacao', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: data, codigo: codigo })
+            });
+            let resultado = await resposta.json();
+            alert(resultado.mensagem);
+            if (resultado.sucesso) {
+                consultarBaixas(); // Atualiza a tabela automaticamente
+            }
+        } catch (err) {
+            alert('Erro de comunicação com o servidor.');
+        }
+    }
+
+    async function editarConsulta(data, codigo, qtdAtual) {
+        let novaQtd = prompt(`Editar quantidade para o produto ${codigo}:`, qtdAtual);
+        if (novaQtd === null) return;
+        
+        let qtdNum = parseInt(novaQtd);
+        if (isNaN(qtdNum) || qtdNum <= 0) {
+            alert('Quantidade inválida.');
+            return;
+        }
+
+        try {
+            let resposta = await fetch('/editar_movimentacao', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: data, codigo: codigo, quantidade: qtdNum })
+            });
+            let resultado = await resposta.json();
+            alert(resultado.mensagem);
+            if (resultado.sucesso) {
+                consultarBaixas(); // Atualiza a tabela automaticamente
+            }
+        } catch (err) {
+            alert('Erro de comunicação com o servidor.');
         }
     }
 </script>
