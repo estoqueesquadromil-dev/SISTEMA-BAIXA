@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Baixa - Inventário</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 900px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h1 { color: #0056b3; font-size: 24px; margin-top: 0; }
+        body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 15px; color: #333; box-sizing: border-box; }
+        .container { max-width: 100%; width: 100%; margin: 0 auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); box-sizing: border-box; }
+        h1 { color: #0056b3; font-size: 22px; margin-top: 0; }
         
         .abas { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
         .btn-aba { background: #e0e0e0; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; font-weight: bold; color: #555; }
@@ -15,32 +15,35 @@
         .painel { display: none; }
         .painel.ativo { display: block; }
 
-        .form-row { display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-end; }
-        .form-group { flex: 1; position: relative; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="date"], input[type="text"], input[type="number"], select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        .form-row { display: flex; gap: 10px; margin-bottom: 15px; align-items: flex-end; flex-wrap: wrap; }
+        .form-group { flex: 1; min-width: 180px; position: relative; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        input[type="date"], input[type="text"], input[type="number"], select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 15px; }
         
         #resultados-busca { 
             position: absolute; top: 100%; left: 0; right: 0; 
             background: white; border: 1px solid #0056b3; max-height: 200px; 
             overflow-y: auto; z-index: 9999; border-radius: 0 0 4px 4px; 
+            box-sizing: border-box;
             box-shadow: 0 6px 12px rgba(0,0,0,0.15); 
         }
-        .item-resultado { padding: 12px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 15px; }
+        .item-resultado { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 14px; }
         .item-resultado:hover { background-color: #e8f0fe; color: #0056b3; font-weight: bold; }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        .table-responsive { width: 100%; overflow-x: auto; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th, td { padding: 8px 10px; border: 1px solid #ddd; text-align: left; font-size: 14px; word-wrap: break-word; overflow: hidden; text-overflow: ellipsis; }
         th { background-color: #0056b3; color: white; }
-        .btn-acao { padding: 6px 12px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; color: white; margin-right: 5px; }
+        
+        .btn-acao { padding: 5px 8px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; color: white; margin-right: 3px; display: inline-block; }
         .btn-editar { background-color: #ffc107; color: #333; }
         .btn-excluir { background-color: #dc3545; }
-        .btn-adicionar { background-color: #007bff; height: 43px; padding: 0 20px; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
-        .btn-salvar { background-color: #28a745; color: white; border: none; padding: 14px; font-size: 18px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 25px; }
-        .btn-pesquisar { background-color: #17a2b8; height: 43px; padding: 0 20px; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .btn-adicionar { background-color: #007bff; height: 42px; padding: 0 15px; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; }
+        .btn-salvar { background-color: #28a745; color: white; border: none; padding: 12px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 20px; }
+        .btn-pesquisar { background-color: #17a2b8; height: 42px; padding: 0 15px; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; }
         
-        .painel-lote-status { background: #f8f9fa; padding: 12px; border: 1px solid #ddd; border-radius: 4px; margin-top: 15px; display: flex; gap: 15px; align-items: flex-end; }
-        .contador-badge { background: #e9ecef; padding: 8px 12px; border-radius: 4px; font-weight: bold; font-size: 14px; margin-bottom: 15px; display: inline-block; }
+        .painel-lote-status { background: #f8f9fa; padding: 12px; border: 1px solid #ddd; border-radius: 4px; margin-top: 15px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
+        .contador-badge { background: #e9ecef; padding: 8px 12px; border-radius: 4px; font-weight: bold; font-size: 14px; margin-top: 10px; display: inline-block; }
         
         #mensagem { margin-top: 15px; padding: 10px; border-radius: 4px; font-weight: bold; display: none; }
         .sucesso { background-color: #d4edda; color: #155724; }
@@ -78,21 +81,23 @@
         </div>
 
         <h3>Itens na Lista</h3>
-        <table id="tabela-itens">
-            <thead>
-                <tr>
-                    <th>Código</th>
-                    <th>Descrição</th>
-                    <th>Quantidade</th>
-                    <th style="width: 150px;">Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td colspan="4" style="text-align: center; color: #777;">Nenhum item adicionado ainda.</td>
-                </tr>
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table id="tabela-itens">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Descrição</th>
+                        <th>Quantidade</th>
+                        <th style="width: 150px;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #777;">Nenhum item adicionado ainda.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
         <button class="btn-salvar" onclick="salvarLote()">Registar na Planilha do Google Sheets</button>
         <div id="mensagem"></div>
@@ -110,7 +115,6 @@
 
         <div id="contador-ordens" class="contador-badge" style="display: none;">Total de Ordens: 0</div>
 
-        <!-- Painel para alteração em lote de Status (Sim/Não) -->
         <div class="painel-lote-status" id="painel-lote" style="display: none;">
             <div class="form-group" style="max-width: 200px; margin: 0;">
                 <label for="status-lote">Alterar Status Selecionados:</label>
@@ -123,24 +127,26 @@
         </div>
 
         <h3>Itens dados baixa no dia</h3>
-        <table id="tabela-consulta">
-            <thead>
-                <tr>
-                    <th style="width: 40px; text-align: center;"><input type="checkbox" id="check-todos" onclick="alternarTodasSelecoes(this)"></th>
-                    <th>Data</th>
-                    <th>Código</th>
-                    <th>Descrição</th>
-                    <th>Quantidade</th>
-                    <th>Status</th>
-                    <th style="width: 140px;">Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td colspan="7" style="text-align: center; color: #777;">Selecione uma data e clique em Pesquisar.</td>
-                </tr>
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table id="tabela-consulta">
+                <thead>
+                    <tr>
+                        <th style="width: 40px; text-align: center;"><input type="checkbox" id="check-todos" onclick="alternarTodasSelecoes(this)"></th>
+                        <th>Data</th>
+                        <th>Código</th>
+                        <th>Descrição</th>
+                        <th>Quantidade</th>
+                        <th>Status</th>
+                        <th style="width: 140px;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: #777;">Selecione uma data e clique em Pesquisar.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
         <div id="mensagem-consulta" style="margin-top: 15px; font-weight: bold;"></div>
     </div>
 
@@ -314,7 +320,6 @@
         }
     }
 
-    // --- Consulta de Baixas com Checkboxes e Status ---
     async function consultarBaixas() {
         let dataConsulta = document.getElementById('data-consulta').value;
         let tbody = document.querySelector('#tabela-consulta tbody');
@@ -406,7 +411,7 @@
             let resultado = await resposta.json();
             alert(resultado.mensagem);
             if (resultado.sucesso) {
-                consultarBaixas(); // Recarrega a tabela atualizada
+                consultarBaixas();
             }
         } catch (err) {
             alert('Erro de comunicação com o servidor.');
