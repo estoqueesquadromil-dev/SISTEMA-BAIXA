@@ -92,17 +92,19 @@ def salvar_lote():
         try:
             sheet_mov = planilha_mov.worksheet(data_lote)
         except gspread.exceptions.WorksheetNotFound:
-            # Se não existir, cria uma nova aba com o nome da data
-            sheet_mov = planilha_mov.add_worksheet(title=data_lote, rows="1000", cols="4")
-            # Adiciona o cabeçalho na nova aba
-            sheet_mov.append_row(["Data", "Código", "Descrição", "Quantidade"])
+            # Se não existir, cria uma nova aba com 5 colunas (Data, Código, Quantidade, Tipo, Status)
+            sheet_mov = planilha_mov.add_worksheet(title=data_lote, rows="1000", cols="5")
+            sheet_mov.append_row(["Data", "Código", "Quantidade", "Tipo", "Status"])
 
         linhas_para_adicionar = []
         for item in itens:
             codigo = item.get('CODIGO', '')
-            descricao = item.get('DESCRICAO', '')
             quantidade = int(item.get('QUANTIDADE', 1))
-            linhas_para_adicionar.append([data_lote, codigo, descricao, quantidade])
+            tipo = item.get('TIPO', 'Baixa Diaria') # Recolhe o tipo selecionado no tablet
+            status = 'Não' # Valor inicial padrão
+            
+            # Ordem exata: Data, Código, Quantidade, Tipo, Status
+            linhas_para_adicionar.append([data_lote, codigo, quantidade, tipo, status])
 
         # Adiciona os itens na aba correspondente à data
         sheet_mov.append_rows(linhas_para_adicionar)
@@ -111,14 +113,6 @@ def salvar_lote():
     
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao processar: {str(e)}'})
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
-
-
-
-
 
 
 @app.route('/consultar_movimentacao', methods=['GET'])
@@ -144,7 +138,6 @@ def consultar_movimentacao():
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao consultar: {str(e)}'})
-
 
 
 @app.route('/excluir_movimentacao', methods=['POST'])
@@ -181,7 +174,7 @@ def excluir_movimentacao():
         linha_encontrada = -1
         for idx in range(1, len(linhas)):
             if str(linhas[idx][idx_codigo]).strip() == codigo:
-                linha_encontrada = idx + 1 # No gspread as linhas começam em 1
+                linha_encontrada = idx + 1
                 break
 
         if linha_encontrada != -1:
@@ -235,7 +228,6 @@ def editar_movimentacao():
                 break
 
         if linha_encontrada != -1:
-            # Atualiza a célula correspondente (coluna no gspread é idx_qtd + 1)
             sheet_mov.update_cell(linha_encontrada, idx_qtd + 1, nova_quantidade)
             return jsonify({'sucesso': True, 'mensagem': 'Quantidade atualizada com sucesso!'})
         else:
@@ -243,8 +235,6 @@ def editar_movimentacao():
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao editar: {str(e)}'})
-
-
 
 
 @app.route('/atualizar_status_lote', methods=['POST'])
@@ -265,21 +255,19 @@ def atualizar_status_lote():
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
         sheet_mov = planilha_mov.worksheet(data_mov)
         
-        # 1. Lê todos os dados de uma só vez (1 requisição)
         linhas = sheet_mov.get_all_values()
         if not linhas or len(linhas) < 2:
             return jsonify({'sucesso': False, 'mensagem': 'Aba vazia ou sem dados.'})
         
         cabecalho = [col.upper().strip() for col in linhas[0]]
         
-        # Garante que existe coluna de Status
         if 'STATUS' not in cabecalho:
             idx_status = len(cabecalho) + 1
             if idx_status > sheet_mov.col_count:
                 sheet_mov.add_cols(1)
             sheet_mov.update_cell(1, idx_status, 'Status')
             cabecalho.append('STATUS')
-            linhas = sheet_mov.get_all_values() # Atualiza a matriz com a nova coluna
+            linhas = sheet_mov.get_all_values()
         else:
             idx_status = cabecalho.index('STATUS') + 1
 
@@ -292,7 +280,6 @@ def atualizar_status_lote():
         if idx_codigo == -1:
             return jsonify({'sucesso': False, 'mensagem': 'Coluna de código não encontrada.'})
 
-        # 2. Prepara as alterações em lote na memória
         atualizados = 0
         cell_updates = []
         
@@ -307,7 +294,6 @@ def atualizar_status_lote():
                     })
                     atualizados += 1
 
-        # 3. Envia todas as alterações num único comando em lote (Evita o erro 429)
         if cell_updates:
             sheet_mov.batch_update(cell_updates)
 
@@ -315,3 +301,7 @@ def atualizar_status_lote():
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao atualizar status: {str(e)}'})
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
