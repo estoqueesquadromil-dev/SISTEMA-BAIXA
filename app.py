@@ -243,3 +243,60 @@ def editar_movimentacao():
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao editar: {str(e)}'})
+
+
+
+
+@app.route('/atualizar_status_lote', methods=['POST'])
+def atualizar_status_lote():
+    dados = request.json
+    data_mov = dados.get('data')
+    codigos = dados.get('codigos', []) # Lista de códigos selecionados
+    novo_status = dados.get('status') # 'Sim' ou 'Não'
+
+    if not data_mov or not codigos or not novo_status:
+        return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos!'})
+
+    try:
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'})
+
+        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+        sheet_mov = planilha_mov.worksheet(data_mov)
+        
+        linhas = sheet_mov.get_all_values()
+        if not linhas:
+            return jsonify({'sucesso': False, 'mensagem': 'Aba vazia.'})
+        
+        cabecalho = [col.upper().strip() for col in linhas[0]]
+        
+        # Garante que existe coluna de Status, senão avisa ou cria
+        if 'STATUS' not in cabecalho:
+            # Se não existir, podemos adicionar a coluna no cabeçalho na primeira linha livre
+            idx_status = len(cabecalho) + 1
+            sheet_mov.update_cell(1, idx_status, 'Status')
+            cabecalho.append('STATUS')
+        else:
+            idx_status = cabecalho.index('STATUS') + 1
+
+        idx_codigo = -1
+        for i, col in enumerate(cabecalho):
+            if col in ['CODIGO', 'CÓDIGO']:
+                idx_codigo = i + 1
+                break
+
+        if idx_codigo == -1:
+            return jsonify({'sucesso': False, 'mensagem': 'Coluna de código não encontrada.'})
+
+        atualizados = 0
+        for idx in range(2, len(linhas) + 1):
+            val_codigo = str(sheet_mov.cell(idx, idx_codigo).value).strip()
+            if val_codigo in [str(c).strip() for c in codigos]:
+                sheet_mov.update_cell(idx, idx_status, novo_status)
+                atualizados += 1
+
+        return jsonify({'sucesso': True, 'mensagem': f'Status atualizado para "{novo_status}" em {atualizados} itens com sucesso!'})
+
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': f'Erro ao atualizar status: {str(e)}'})
