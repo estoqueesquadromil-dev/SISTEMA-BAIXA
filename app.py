@@ -251,7 +251,7 @@ def editar_movimentacao():
 def atualizar_status_lote():
     dados = request.json
     data_mov = dados.get('data')
-    codigos = dados.get('codigos', []) # Lista de códigos selecionados
+    codigos = [str(c).strip() for c in dados.get('codigos', [])]
     novo_status = dados.get('status') # 'Sim' ou 'Não'
 
     if not data_mov or not codigos or not novo_status:
@@ -265,18 +265,21 @@ def atualizar_status_lote():
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
         sheet_mov = planilha_mov.worksheet(data_mov)
         
+        # 1. Lê todos os dados de uma só vez (1 requisição)
         linhas = sheet_mov.get_all_values()
-        if not linhas:
-            return jsonify({'sucesso': False, 'mensagem': 'Aba vazia.'})
+        if not linhas or len(linhas) < 2:
+            return jsonify({'sucesso': False, 'mensagem': 'Aba vazia ou sem dados.'})
         
         cabecalho = [col.upper().strip() for col in linhas[0]]
         
-        # Garante que existe coluna de Status, senão avisa ou cria
+        # Garante que existe coluna de Status
         if 'STATUS' not in cabecalho:
-            # Se não existir, podemos adicionar a coluna no cabeçalho na primeira linha livre
             idx_status = len(cabecalho) + 1
+            if idx_status > sheet_mov.col_count:
+                sheet_mov.add_cols(1)
             sheet_mov.update_cell(1, idx_status, 'Status')
             cabecalho.append('STATUS')
+            linhas = sheet_mov.get_all_values() # Atualiza a matriz com a nova coluna
         else:
             idx_status = cabecalho.index('STATUS') + 1
 
@@ -289,12 +292,24 @@ def atualizar_status_lote():
         if idx_codigo == -1:
             return jsonify({'sucesso': False, 'mensagem': 'Coluna de código não encontrada.'})
 
+        # 2. Prepara as alterações em lote na memória
         atualizados = 0
-        for idx in range(2, len(linhas) + 1):
-            val_codigo = str(sheet_mov.cell(idx, idx_codigo).value).strip()
-            if val_codigo in [str(c).strip() for c in codigos]:
-                sheet_mov.update_cell(idx, idx_status, novo_status)
-                atualizados += 1
+        cell_updates = []
+        
+        for row_idx, row in enumerate(linhas[1:], start=2):
+            if len(row) >= idx_codigo:
+                val_codigo = str(row[idx_codigo - 1]).strip()
+                if val_codigo in codigos:
+                    cell_address = gspread.utils.rowcol_to_a1(row_idx, idx_status)
+                    cell_updates.append({
+                        'range': cell_address,
+                        'values': [[novo_status]]
+                    })
+                    atualizados += 1
+
+        # 3. Envia todas as alterações num único comando em lote (Evita o erro 429)
+        if cell_updates:
+            sheet_mov.batch_update(cell_updates)
 
         return jsonify({'sucesso': True, 'mensagem': f'Status atualizado para "{novo_status}" em {atualizados} itens com sucesso!'})
 
