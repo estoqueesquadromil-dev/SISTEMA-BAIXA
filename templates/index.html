@@ -16,7 +16,10 @@
         .painel.ativo { display: block; }
 
         .form-row { display: flex; gap: 10px; margin-bottom: 15px; align-items: flex-end; flex-wrap: wrap; }
-        .form-group { flex: 1; min-width: 180px; position: relative; }
+        
+        .form-group { flex: 1; min-width: 150px; position: relative; }
+        .form-group-codigo { flex: 3; min-width: 280px; position: relative; }
+
         label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
         input[type="date"], input[type="text"], input[type="number"], select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 15px; }
         
@@ -68,7 +71,7 @@
         </div>
 
         <div class="form-row">
-            <div class="form-group">
+            <div class="form-group-codigo">
                 <label for="input-codigo">Código do Produto:</label>
                 <input type="text" id="input-codigo" placeholder="Comece a digitar o código..." autocomplete="off">
                 <div id="resultados-busca"></div>
@@ -283,6 +286,7 @@
     async function salvarLote() {
         let data = document.getElementById('data-lote').value;
         let msgDiv = document.getElementById('mensagem');
+        let btnSalvar = document.querySelector('.btn-salvar');
 
         if (!data || itensSelecionados.length === 0) {
             msgDiv.className = 'erro';
@@ -290,6 +294,12 @@
             msgDiv.style.display = 'block';
             return;
         }
+
+        // BLOQUEIO CONTRA DUPLO CLIQUE: Desativa o botão e altera o texto instantaneamente
+        btnSalvar.disabled = true;
+        btnSalvar.style.opacity = '0.6';
+        btnSalvar.style.cursor = 'not-allowed';
+        btnSalvar.textContent = 'A registar na planilha...';
 
         try {
             let resposta = await fetch('/salvar_lote', {
@@ -313,6 +323,12 @@
             msgDiv.className = 'erro';
             msgDiv.textContent = 'Erro de comunicação com o servidor.';
             msgDiv.style.display = 'block';
+        } finally {
+            // RESTAURA O BOTÃO: Volta ao normal independentemente do resultado
+            btnSalvar.disabled = false;
+            btnSalvar.style.opacity = '1';
+            btnSalvar.style.cursor = 'pointer';
+            btnSalvar.textContent = 'Registar na Planilha do Google Sheets';
         }
     }
 
@@ -432,31 +448,3 @@
     }
 
     async function editarConsulta(data, codigo, qtdAtual) {
-        let novaQtd = prompt(`Editar quantidade para o produto ${codigo}:`, qtdAtual);
-        if (novaQtd === null) return;
-        
-        let qtdNum = parseInt(novaQtd);
-        if (isNaN(qtdNum) || qtdNum <= 0) {
-            alert('Quantidade inválida.');
-            return;
-        }
-
-        try {
-            let resposta = await fetch('/editar_movimentacao', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data: data, codigo: codigo, quantidade: qtdNum })
-            });
-            let resultado = await resposta.json();
-            alert(resultado.mensagem);
-            if (resultado.sucesso) {
-                consultarBaixas();
-            }
-        } catch (err) {
-            alert('Erro de comunicação com o servidor.');
-        }
-    }
-</script>
-
-</body>
-</html>
