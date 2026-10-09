@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Baixa - Inventário</title>
-<style>
+    <style>
         body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 15px; color: #333; box-sizing: border-box; }
         .container { max-width: 100%; width: 100%; margin: 0 auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); box-sizing: border-box; }
         h1 { color: #0056b3; font-size: 22px; margin-top: 0; }
@@ -38,13 +38,14 @@
         th, td { padding: 8px 6px; border: 1px solid #ddd; text-align: left; font-size: 13px; word-wrap: break-word; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         th { background-color: #0056b3; color: white; font-size: 13px; }
         
-        /* Larguras personalizadas para a tabela de consulta não quebrar o código */
-        #tabela-consulta th:nth-child(1), #tabela-consulta td:nth-child(1) { width: 45px; text-align: center; white-space: normal; } /* Checkbox */
-        #tabela-consulta th:nth-child(2), #tabela-consulta td:nth-child(2) { width: 100px; } /* Data */
-        #tabela-consulta th:nth-child(3), #tabela-consulta td:nth-child(3) { width: 130px; font-weight: bold; } /* Código (espaço alargado e sem quebra) */
-        #tabela-consulta th:nth-child(4), #tabela-consulta td:nth-child(4) { width: 75px; text-align: center; } /* Quantidade */
-        #tabela-consulta th:nth-child(5), #tabela-consulta td:nth-child(5) { width: 70px; text-align: center; } /* Status */
-        #tabela-consulta th:nth-child(6), #tabela-consulta td:nth-child(6) { width: 125px; text-align: center; white-space: normal; } /* Ações */
+        /* Larguras personalizadas para a tabela de consulta */
+        #tabela-consulta th:nth-child(1), #tabela-consulta td:nth-child(1) { width: 40px; text-align: center; white-space: normal; } /* Checkbox */
+        #tabela-consulta th:nth-child(2), #tabela-consulta td:nth-child(2) { width: 95px; } /* Data */
+        #tabela-consulta th:nth-child(3), #tabela-consulta td:nth-child(3) { width: 110px; font-weight: bold; } /* Código */
+        #tabela-consulta th:nth-child(4), #tabela-consulta td:nth-child(4) { width: 70px; text-align: center; } /* Quantidade */
+        #tabela-consulta th:nth-child(5), #tabela-consulta td:nth-child(5) { width: 130px; } /* Tipo */
+        #tabela-consulta th:nth-child(6), #tabela-consulta td:nth-child(6) { width: 65px; text-align: center; } /* Status */
+        #tabela-consulta th:nth-child(7), #tabela-consulta td:nth-child(7) { width: 120px; text-align: center; white-space: normal; } /* Ações */
 
         .btn-acao { padding: 4px 6px; font-size: 11px; border: none; border-radius: 4px; cursor: pointer; color: white; margin-right: 2px; display: inline-block; }
         .btn-editar { background-color: #ffc107; color: #333; }
@@ -88,6 +89,16 @@
                 <label for="input-qtd">Quantidade:</label>
                 <input type="number" id="input-qtd" value="1" min="1">
             </div>
+            <div class="form-group" style="max-width: 220px;">
+                <label for="input-tipo">Tipo de Baixa:</label>
+                <select id="input-tipo">
+                    <option value="Baixa Diaria" selected>Baixa Diaria</option>
+                    <option value="Aproveitamento de Sucata">Aproveitamento de Sucata</option>
+                    <option value="Erro no corte">Erro no corte</option>
+                    <option value="Perfil Menor">Perfil Menor</option>
+                    <option value="Perfil Maior">Perfil Maior</option>
+                </select>
+            </div>
             <button class="btn-adicionar" onclick="adicionarItemLista()">Adicionar</button>
         </div>
 
@@ -98,12 +109,13 @@
                     <tr>
                         <th>Código</th>
                         <th>Quantidade</th>
-                        <th style="width: 150px;">Ações</th>
+                        <th>Tipo</th>
+                        <th style="width: 130px;">Ações</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="3" style="text-align: center; color: #777;">Nenhum item adicionado ainda.</td>
+                        <td colspan="4" style="text-align: center; color: #777;">Nenhum item adicionado ainda.</td>
                     </tr>
                 </tbody>
             </table>
@@ -116,9 +128,20 @@
     <!-- PAINEL 2: CONSULTAR BAIXAS COM SELEÇÃO E STATUS -->
     <div id="painel-consulta" class="painel">
         <div class="form-row">
-            <div class="form-group" style="max-width: 250px;">
+            <div class="form-group" style="max-width: 200px;">
                 <label for="data-consulta">Selecione a Data:</label>
                 <input type="date" id="data-consulta">
+            </div>
+            <div class="form-group" style="max-width: 220px;">
+                <label for="filtro-tipo">Filtrar por Tipo:</label>
+                <select id="filtro-tipo" onchange="filtrarTabelaConsulta()">
+                    <option value="TODOS" selected>Todos os Tipos</option>
+                    <option value="Baixa Diaria">Baixa Diaria</option>
+                    <option value="Aproveitamento de Sucata">Aproveitamento de Sucata</option>
+                    <option value="Erro no corte">Erro no corte</option>
+                    <option value="Perfil Menor">Perfil Menor</option>
+                    <option value="Perfil Maior">Perfil Maior</option>
+                </select>
             </div>
             <button class="btn-pesquisar" onclick="consultarBaixas()">Pesquisar</button>
         </div>
@@ -145,13 +168,14 @@
                         <th>Data</th>
                         <th>Código</th>
                         <th>Quantidade</th>
+                        <th>Tipo</th>
                         <th>Status</th>
-                        <th style="width: 140px;">Ações</th>
+                        <th style="width: 120px;">Ações</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="6" style="text-align: center; color: #777;">Selecione uma data e clique em Pesquisar.</td>
+                        <td colspan="7" style="text-align: center; color: #777;">Selecione uma data e clique em Pesquisar.</td>
                     </tr>
                 </tbody>
             </table>
@@ -166,6 +190,7 @@
     document.getElementById('data-consulta').valueAsDate = new Date();
     
     let itensSelecionados = [];
+    let listaItensConsultaAtual = [];
     let produtoSelecionadoTemp = null;
 
     const inputCodigo = document.getElementById('input-codigo');
@@ -226,18 +251,19 @@
     function adicionarItemLista() {
         let codigoDigitado = inputCodigo.value.trim();
         let quantidade = parseInt(inputQtd.value) || 1;
+        let tipoSelecionado = document.getElementById('input-tipo').value;
 
         if (!codigoDigitado) {
             alert('Informe o código do produto.');
             return;
         }
 
-        let existente = itensSelecionados.find(i => i.CODIGO.toLowerCase() === codigoDigitado.toLowerCase());
+        let existente = itensSelecionados.find(i => i.CODIGO.toLowerCase() === codigoDigitado.toLowerCase() && i.TIPO === tipoSelecionado);
         
         if (existente) {
             existente.QUANTIDADE += quantidade;
         } else {
-            itensSelecionados.push({ CODIGO: codigoDigitado, QUANTIDADE: quantidade });
+            itensSelecionados.push({ CODIGO: codigoDigitado, QUANTIDADE: quantidade, TIPO: tipoSelecionado });
         }
 
         inputCodigo.value = '';
@@ -273,7 +299,7 @@
         tbody.innerHTML = '';
         
         if (itensSelecionados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #777;">Nenhum item adicionado ainda.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777;">Nenhum item adicionado ainda.</td></tr>';
             return;
         }
 
@@ -282,6 +308,7 @@
             tr.innerHTML = `
                 <td>${item.CODIGO}</td>
                 <td>${item.QUANTIDADE}</td>
+                <td>${item.TIPO}</td>
                 <td>
                     <button class="btn-acao btn-editar" onclick="editarItem('${item.CODIGO}')">Editar</button>
                     <button class="btn-acao btn-excluir" onclick="removerItem('${item.CODIGO}')">Excluir</button>
@@ -303,7 +330,6 @@
             return;
         }
 
-        // BLOQUEIO CONTRA DUPLO CLIQUE: Desativa o botão e altera o texto instantaneamente
         btnSalvar.disabled = true;
         btnSalvar.style.opacity = '0.6';
         btnSalvar.style.cursor = 'not-allowed';
@@ -332,7 +358,6 @@
             msgDiv.textContent = 'Erro de comunicação com o servidor.';
             msgDiv.style.display = 'block';
         } finally {
-            // RESTAURA O BOTÃO: Volta ao normal independentemente do resultado
             btnSalvar.disabled = false;
             btnSalvar.style.opacity = '1';
             btnSalvar.style.cursor = 'pointer';
@@ -352,7 +377,7 @@
             return;
         }
 
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">A pesquisar...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">A pesquisar...</td></tr>';
         msgDiv.textContent = '';
         contadorBadge.style.display = 'none';
         painelLote.style.display = 'none';
@@ -362,44 +387,77 @@
             let resposta = await fetch(`/consultar_movimentacao?data=${encodeURIComponent(dataConsulta)}`);
             let resultado = await resposta.json();
 
-            tbody.innerHTML = '';
-
             if (!resultado.sucesso || !resultado.itens || resultado.itens.length === 0) {
                 msgDiv.textContent = resultado.mensagem || "Nenhum registo encontrado.";
                 msgDiv.style.color = '#777';
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #777;">Nenhum item registado nesta data.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #777;">Nenhum item registado nesta data.</td></tr>';
+                listaItensConsultaAtual = [];
                 return;
             }
 
-            let itens = resultado.itens;
-            contadorBadge.textContent = `Total de Ordens: ${itens.length}`;
-            contadorBadge.style.display = 'inline-block';
-            painelLote.style.display = 'flex';
-
-            itens.forEach(item => {
-                let dataLinha = item.Data || item.DATA || dataConsulta;
-                let codigoLinha = item.Código || item.CODIGO || '';
-                let qtdLinha = item.Quantidade || item.QUANTIDADE || 1;
-                let statusLinha = item.Status || item.STATUS || 'Não';
-
-                let tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td style="text-align: center;"><input type="checkbox" class="check-item" value="${codigoLinha}"></td>
-                    <td>${dataLinha}</td>
-                    <td>${codigoLinha}</td>
-                    <td>${qtdLinha}</td>
-                    <td><strong>${statusLinha}</strong></td>
-                    <td>
-                        <button class="btn-acao btn-editar" onclick="editarConsulta('${dataLinha}', '${codigoLinha}', ${qtdLinha})">Editar</button>
-                        <button class="btn-acao btn-excluir" onclick="excluirConsulta('${dataLinha}', '${codigoLinha}')">Excluir</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
+            listaItensConsultaAtual = resultado.itens;
+            document.getElementById('filtro-tipo').value = 'TODOS';
+            renderizarTabelaConsulta(listaItensConsultaAtual);
 
         } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
         }
+    }
+
+    function renderizarTabelaConsulta(itens) {
+        let tbody = document.querySelector('#tabela-consulta tbody');
+        let contadorBadge = document.getElementById('contador-ordens');
+        let painelLote = document.getElementById('painel-lote');
+        let tipoFiltro = document.getElementById('filtro-tipo').value;
+
+        tbody.innerHTML = '';
+
+        let itensFiltrados = itens.filter(item => {
+            let tipoLinha = item.Tipo || item.TIPO || 'Baixa Diaria';
+            if (tipoFiltro === 'TODOS') return true;
+            return tipoLinha.trim().toLowerCase() === tipoFiltro.trim().toLowerCase();
+        });
+
+        if (itensFiltrados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #777;">Nenhum item encontrado com este filtro.</td></tr>';
+            contadorBadge.textContent = `Total de Ordens: 0`;
+            contadorBadge.style.display = 'inline-block';
+            painelLote.style.display = 'none';
+            return;
+        }
+
+        contadorBadge.textContent = `Total de Ordens: ${itensFiltrados.length}`;
+        contadorBadge.style.display = 'inline-block';
+        painelLote.style.display = 'flex';
+
+        let dataConsulta = document.getElementById('data-consulta').value;
+
+        itensFiltrados.forEach(item => {
+            let dataLinha = item.Data || item.DATA || dataConsulta;
+            let codigoLinha = item.Código || item.CODIGO || '';
+            let qtdLinha = item.Quantidade || item.QUANTIDADE || 1;
+            let tipoLinha = item.Tipo || item.TIPO || 'Baixa Diaria';
+            let statusLinha = item.Status || item.STATUS || 'Não';
+
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="text-align: center;"><input type="checkbox" class="check-item" value="${codigoLinha}"></td>
+                <td>${dataLinha}</td>
+                <td>${codigoLinha}</td>
+                <td>${qtdLinha}</td>
+                <td>${tipoLinha}</td>
+                <td><strong>${statusLinha}</strong></td>
+                <td>
+                    <button class="btn-acao btn-editar" onclick="editarConsulta('${dataLinha}', '${codigoLinha}', ${qtdLinha})">Editar</button>
+                    <button class="btn-acao btn-excluir" onclick="excluirConsulta('${dataLinha}', '${codigoLinha}')">Excluir</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function filtrarTabelaConsulta() {
+        renderizarTabelaConsulta(listaItensConsultaAtual);
     }
 
     function alternarTodasSelecoes(master) {
