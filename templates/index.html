@@ -448,3 +448,31 @@
     }
 
     async function editarConsulta(data, codigo, qtdAtual) {
+        let novaQtd = prompt(`Editar quantidade para o produto ${codigo}:`, qtdAtual);
+        if (novaQtd === null) return;
+        
+        let qtdNum = parseInt(novaQtd);
+        if (isNaN(qtdNum) || qtdNum <= 0) {
+            alert('Quantidade inválida.');
+            return;
+        }
+
+        try {
+            let resposta = await fetch('/editar_movimentacao', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: data, codigo: codigo, quantidade: qtdNum })
+            });
+            let resultado = await resposta.json();
+            alert(resultado.mensagem);
+            if (resultado.sucesso) {
+                consultarBaixas();
+            }
+        } catch (err) {
+            alert('Erro de comunicação com o servidor.');
+        }
+    }
+</script>
+
+</body>
+</html>
