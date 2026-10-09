@@ -6,10 +6,9 @@
     <title>Sistema de Baixa - Inventário</title>
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 850px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h1 { color: #0056b3; font-size: 24px; margin-top: 0; }
         
-        /* Abas de navegação */
         .abas { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
         .btn-aba { background: #e0e0e0; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; font-weight: bold; color: #555; }
         .btn-aba.ativo { background: #0056b3; color: white; }
@@ -19,7 +18,7 @@
         .form-row { display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-end; }
         .form-group { flex: 1; position: relative; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="date"], input[type="text"], input[type="number"] { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        input[type="date"], input[type="text"], input[type="number"], select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
         
         #resultados-busca { 
             position: absolute; top: 100%; left: 0; right: 0; 
@@ -30,7 +29,7 @@
         .item-resultado { padding: 12px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 15px; }
         .item-resultado:hover { background-color: #e8f0fe; color: #0056b3; font-weight: bold; }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
         th { background-color: #0056b3; color: white; }
         .btn-acao { padding: 6px 12px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; color: white; margin-right: 5px; }
@@ -39,6 +38,9 @@
         .btn-adicionar { background-color: #007bff; height: 43px; padding: 0 20px; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
         .btn-salvar { background-color: #28a745; color: white; border: none; padding: 14px; font-size: 18px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 25px; }
         .btn-pesquisar { background-color: #17a2b8; height: 43px; padding: 0 20px; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        
+        .painel-lote-status { background: #f8f9fa; padding: 12px; border: 1px solid #ddd; border-radius: 4px; margin-top: 15px; display: flex; gap: 15px; align-items: flex-end; }
+        .contador-badge { background: #e9ecef; padding: 8px 12px; border-radius: 4px; font-weight: bold; font-size: 14px; margin-bottom: 15px; display: inline-block; }
         
         #mensagem { margin-top: 15px; padding: 10px; border-radius: 4px; font-weight: bold; display: none; }
         .sucesso { background-color: #d4edda; color: #155724; }
@@ -50,7 +52,6 @@
 <div class="container">
     <h1>Sistema de Baixa de Inventário</h1>
 
-    <!-- Abas de navegação -->
     <div class="abas">
         <button class="btn-aba ativo" onclick="mudarAba('baixa', this)">Realizar Baixa</button>
         <button class="btn-aba" onclick="mudarAba('consulta', this)">Consultar Baixas do Dia</button>
@@ -97,7 +98,7 @@
         <div id="mensagem"></div>
     </div>
 
-    <!-- PAINEL 2: CONSULTAR BAIXAS COM EDIÇÃO E EXCLUSÃO -->
+    <!-- PAINEL 2: CONSULTAR BAIXAS COM SELEÇÃO E STATUS -->
     <div id="painel-consulta" class="painel">
         <div class="form-row">
             <div class="form-group" style="max-width: 250px;">
@@ -107,20 +108,36 @@
             <button class="btn-pesquisar" onclick="consultarBaixas()">Pesquisar</button>
         </div>
 
+        <div id="contador-ordens" class="contador-badge" style="display: none;">Total de Ordens: 0</div>
+
+        <!-- Painel para alteração em lote de Status (Sim/Não) -->
+        <div class="painel-lote-status" id="painel-lote" style="display: none;">
+            <div class="form-group" style="max-width: 200px; margin: 0;">
+                <label for="status-lote">Alterar Status Selecionados:</label>
+                <select id="status-lote">
+                    <option value="Sim">Sim</option>
+                    <option value="Não" selected>Não</option>
+                </select>
+            </div>
+            <button class="btn-pesquisar" style="height: 38px;" onclick="aplicarStatusEmMassa()">Salvar Alteração em Lote</button>
+        </div>
+
         <h3>Itens dados baixa no dia</h3>
         <table id="tabela-consulta">
             <thead>
                 <tr>
+                    <th style="width: 40px; text-align: center;"><input type="checkbox" id="check-todos" onclick="alternarTodasSelecoes(this)"></th>
                     <th>Data</th>
                     <th>Código</th>
                     <th>Descrição</th>
                     <th>Quantidade</th>
-                    <th style="width: 150px;">Ações</th>
+                    <th>Status</th>
+                    <th style="width: 140px;">Ações</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="5" style="text-align: center; color: #777;">Selecione uma data e clique em Pesquisar.</td>
+                    <td colspan="7" style="text-align: center; color: #777;">Selecione uma data e clique em Pesquisar.</td>
                 </tr>
             </tbody>
         </table>
@@ -152,7 +169,6 @@
         btn.classList.add('ativo');
     }
 
-    // --- Autocomplete Original ---
     inputCodigo.addEventListener('input', async function() {
         let termo = this.value.trim();
         produtoSelecionadoTemp = null;
@@ -298,19 +314,24 @@
         }
     }
 
-    // --- Consulta de Baixas com Ações ---
+    // --- Consulta de Baixas com Checkboxes e Status ---
     async function consultarBaixas() {
         let dataConsulta = document.getElementById('data-consulta').value;
         let tbody = document.querySelector('#tabela-consulta tbody');
         let msgDiv = document.getElementById('mensagem-consulta');
+        let contadorBadge = document.getElementById('contador-ordens');
+        let painelLote = document.getElementById('painel-lote');
 
         if (!dataConsulta) {
             alert('Selecione uma data para pesquisar.');
             return;
         }
 
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">A pesquisar...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">A pesquisar...</td></tr>';
         msgDiv.textContent = '';
+        contadorBadge.style.display = 'none';
+        painelLote.style.display = 'none';
+        document.getElementById('check-todos').checked = false;
 
         try {
             let resposta = await fetch(`/consultar_movimentacao?data=${encodeURIComponent(dataConsulta)}`);
@@ -318,33 +339,33 @@
 
             tbody.innerHTML = '';
 
-            if (!resultado.sucesso) {
-                msgDiv.textContent = resultado.mensagem;
-                msgDiv.style.color = 'red';
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777;">Nenhum registo encontrado.</td></tr>';
+            if (!resultado.sucesso || !resultado.itens || resultado.itens.length === 0) {
+                msgDiv.textContent = resultado.mensagem || "Nenhum registo encontrado.";
+                msgDiv.style.color = '#777';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #777;">Nenhum item registado nesta data.</td></tr>';
                 return;
             }
 
             let itens = resultado.itens;
-            if (itens.length === 0) {
-                msgDiv.textContent = resultado.mensagem;
-                msgDiv.style.color = '#555';
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777;">Nenhum item registado nesta data.</td></tr>';
-                return;
-            }
+            contadorBadge.textContent = `Total de Ordens: ${itens.length}`;
+            contadorBadge.style.display = 'inline-block';
+            painelLote.style.display = 'flex';
 
             itens.forEach(item => {
                 let dataLinha = item.Data || item.DATA || dataConsulta;
                 let codigoLinha = item.Código || item.CODIGO || '';
                 let descLinha = item.Descrição || item.DESCRICAO || '';
                 let qtdLinha = item.Quantidade || item.QUANTIDADE || 1;
+                let statusLinha = item.Status || item.STATUS || 'Não';
 
                 let tr = document.createElement('tr');
                 tr.innerHTML = `
+                    <td style="text-align: center;"><input type="checkbox" class="check-item" value="${codigoLinha}"></td>
                     <td>${dataLinha}</td>
                     <td>${codigoLinha}</td>
                     <td>${descLinha}</td>
                     <td>${qtdLinha}</td>
+                    <td><strong>${statusLinha}</strong></td>
                     <td>
                         <button class="btn-acao btn-editar" onclick="editarConsulta('${dataLinha}', '${codigoLinha}', ${qtdLinha})">Editar</button>
                         <button class="btn-acao btn-excluir" onclick="excluirConsulta('${dataLinha}', '${codigoLinha}')">Excluir</button>
@@ -354,7 +375,41 @@
             });
 
         } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
+        }
+    }
+
+    function alternarTodasSelecoes(master) {
+        let checkboxes = document.querySelectorAll('.check-item');
+        checkboxes.forEach(cb => cb.checked = master.checked);
+    }
+
+    async function aplicarStatusEmMassa() {
+        let dataConsulta = document.getElementById('data-consulta').value;
+        let novoStatus = document.getElementById('status-lote').value;
+        let checkboxes = document.querySelectorAll('.check-item:checked');
+        
+        let codigosSelecionados = [];
+        checkboxes.forEach(cb => codigosSelecionados.push(cb.value));
+
+        if (codigosSelecionados.length === 0) {
+            alert('Selecione pelo menos uma ordem na tabela para alterar o status!');
+            return;
+        }
+
+        try {
+            let resposta = await fetch('/atualizar_status_lote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: dataConsulta, codigos: codigosSelecionados, status: novoStatus })
+            });
+            let resultado = await resposta.json();
+            alert(resultado.mensagem);
+            if (resultado.sucesso) {
+                consultarBaixas(); // Recarrega a tabela atualizada
+            }
+        } catch (err) {
+            alert('Erro de comunicação com o servidor.');
         }
     }
 
@@ -370,7 +425,7 @@
             let resultado = await resposta.json();
             alert(resultado.mensagem);
             if (resultado.sucesso) {
-                consultarBaixas(); // Atualiza a tabela automaticamente
+                consultarBaixas();
             }
         } catch (err) {
             alert('Erro de comunicação com o servidor.');
@@ -396,7 +451,7 @@
             let resultado = await resposta.json();
             alert(resultado.mensagem);
             if (resultado.sucesso) {
-                consultarBaixas(); // Atualiza a tabela automaticamente
+                consultarBaixas();
             }
         } catch (err) {
             alert('Erro de comunicação com o servidor.');
