@@ -243,3 +243,220 @@
 
     function editarItem(codigo) {
         let item = itensSelecionados.find(i => i.CODIGO === codigo);
+        if (item) {
+            let novaQtd = prompt(`Editar quantidade para o produto ${codigo}:`, item.QUANTIDADE);
+            if (novaQtd !== null) {
+                let qtdNum = parseInt(novaQtd);
+                if (qtdNum > 0) {
+                    item.QUANTIDADE = qtdNum;
+                    atualizarTabela();
+                } else {
+                    alert('Quantidade inválida.');
+                }
+            }
+        }
+    }
+
+    function atualizarTabela() {
+        let tbody = document.querySelector('#tabela-itens tbody');
+        tbody.innerHTML = '';
+        
+        if (itensSelecionados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #777;">Nenhum item adicionado ainda.</td></tr>';
+            return;
+        }
+
+        itensSelecionados.forEach(item => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.CODIGO}</td>
+                <td>${item.QUANTIDADE}</td>
+                <td>
+                    <button class="btn-acao btn-editar" onclick="editarItem('${item.CODIGO}')">Editar</button>
+                    <button class="btn-acao btn-excluir" onclick="removerItem('${item.CODIGO}')">Excluir</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function salvarLote() {
+        let data = document.getElementById('data-lote').value;
+        let msgDiv = document.getElementById('mensagem');
+
+        if (!data || itensSelecionados.length === 0) {
+            msgDiv.className = 'erro';
+            msgDiv.textContent = 'Por favor, selecione uma data e adicione pelo menos um item à lista.';
+            msgDiv.style.display = 'block';
+            return;
+        }
+
+        try {
+            let resposta = await fetch('/salvar_lote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: data, itens: itensSelecionados })
+            });
+            let resultado = await resposta.json();
+
+            msgDiv.style.display = 'block';
+            if (resultado.sucesso) {
+                msgDiv.className = 'sucesso';
+                msgDiv.textContent = resultado.mensagem;
+                itensSelecionados = [];
+                atualizarTabela();
+            } else {
+                msgDiv.className = 'erro';
+                msgDiv.textContent = resultado.mensagem;
+            }
+        } catch (err) {
+            msgDiv.className = 'erro';
+            msgDiv.textContent = 'Erro de comunicação com o servidor.';
+            msgDiv.style.display = 'block';
+        }
+    }
+
+    async function consultarBaixas() {
+        let dataConsulta = document.getElementById('data-consulta').value;
+        let tbody = document.querySelector('#tabela-consulta tbody');
+        let msgDiv = document.getElementById('mensagem-consulta');
+        let contadorBadge = document.getElementById('contador-ordens');
+        let painelLote = document.getElementById('painel-lote');
+
+        if (!dataConsulta) {
+            alert('Selecione uma data para pesquisar.');
+            return;
+        }
+
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">A pesquisar...</td></tr>';
+        msgDiv.textContent = '';
+        contadorBadge.style.display = 'none';
+        painelLote.style.display = 'none';
+        document.getElementById('check-todos').checked = false;
+
+        try {
+            let resposta = await fetch(`/consultar_movimentacao?data=${encodeURIComponent(dataConsulta)}`);
+            let resultado = await resposta.json();
+
+            tbody.innerHTML = '';
+
+            if (!resultado.sucesso || !resultado.itens || resultado.itens.length === 0) {
+                msgDiv.textContent = resultado.mensagem || "Nenhum registo encontrado.";
+                msgDiv.style.color = '#777';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #777;">Nenhum item registado nesta data.</td></tr>';
+                return;
+            }
+
+            let itens = resultado.itens;
+            contadorBadge.textContent = `Total de Ordens: ${itens.length}`;
+            contadorBadge.style.display = 'inline-block';
+            painelLote.style.display = 'flex';
+
+            itens.forEach(item => {
+                let dataLinha = item.Data || item.DATA || dataConsulta;
+                let codigoLinha = item.Código || item.CODIGO || '';
+                let qtdLinha = item.Quantidade || item.QUANTIDADE || 1;
+                let statusLinha = item.Status || item.STATUS || 'Não';
+
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="text-align: center;"><input type="checkbox" class="check-item" value="${codigoLinha}"></td>
+                    <td>${dataLinha}</td>
+                    <td>${codigoLinha}</td>
+                    <td>${qtdLinha}</td>
+                    <td><strong>${statusLinha}</strong></td>
+                    <td>
+                        <button class="btn-acao btn-editar" onclick="editarConsulta('${dataLinha}', '${codigoLinha}', ${qtdLinha})">Editar</button>
+                        <button class="btn-acao btn-excluir" onclick="excluirConsulta('${dataLinha}', '${codigoLinha}')">Excluir</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
+        }
+    }
+
+    function alternarTodasSelecoes(master) {
+        let checkboxes = document.querySelectorAll('.check-item');
+        checkboxes.forEach(cb => cb.checked = master.checked);
+    }
+
+    async function aplicarStatusEmMassa() {
+        let dataConsulta = document.getElementById('data-consulta').value;
+        let novoStatus = document.getElementById('status-lote').value;
+        let checkboxes = document.querySelectorAll('.check-item:checked');
+        
+        let codigosSelecionados = [];
+        checkboxes.forEach(cb => codigosSelecionados.push(cb.value));
+
+        if (codigosSelecionados.length === 0) {
+            alert('Selecione pelo menos uma ordem na tabela para alterar o status!');
+            return;
+        }
+
+        try {
+            let resposta = await fetch('/atualizar_status_lote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: dataConsulta, codigos: codigosSelecionados, status: novoStatus })
+            });
+            let resultado = await resposta.json();
+            alert(resultado.mensagem);
+            if (resultado.sucesso) {
+                consultarBaixas();
+            }
+        } catch (err) {
+            alert('Erro de comunicação com o servidor.');
+        }
+    }
+
+    async function excluirConsulta(data, codigo) {
+        if (!confirm(`Tem a certeza que deseja excluir o produto ${codigo} do registo do dia ${data}?`)) return;
+
+        try {
+            let resposta = await fetch('/excluir_movimentacao', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: data, codigo: codigo })
+            });
+            let resultado = await resposta.json();
+            alert(resultado.mensagem);
+            if (resultado.sucesso) {
+                consultarBaixas();
+            }
+        } catch (err) {
+            alert('Erro de comunicação com o servidor.');
+        }
+    }
+
+    async function editarConsulta(data, codigo, qtdAtual) {
+        let novaQtd = prompt(`Editar quantidade para o produto ${codigo}:`, qtdAtual);
+        if (novaQtd === null) return;
+        
+        let qtdNum = parseInt(novaQtd);
+        if (isNaN(qtdNum) || qtdNum <= 0) {
+            alert('Quantidade inválida.');
+            return;
+        }
+
+        try {
+            let resposta = await fetch('/editar_movimentacao', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: data, codigo: codigo, quantidade: qtdNum })
+            });
+            let resultado = await resposta.json();
+            alert(resultado.mensagem);
+            if (resultado.sucesso) {
+                consultarBaixas();
+            }
+        } catch (err) {
+            alert('Erro de comunicação com o servidor.');
+        }
+    }
+</script>
+
+</body>
+</html>
