@@ -260,7 +260,7 @@
         }
     });
 
-    function processarValidacaoSucata() {
+function processarValidacaoSucata() {
         let textoColado = document.getElementById('input-saldo-erp').value.trim();
         saldosErpMap = {};
 
@@ -270,21 +270,29 @@
         }
 
         let linhas = textoColado.split('\n');
+        let totalValidos = 0;
+
         linhas.forEach(linha => {
             let partes = linha.trim().split(/\s+/);
             if (partes.length >= 2) {
-                let codigo = partes[0].trim().toLowerCase();
-                let saldo = parseFloat(partes[partes.length - 1].replace(',', '.')) || 0;
-                saldosErpMap[codigo] = saldo;
+                // Pega o primeiro elemento como código e o último como saldo
+                let codigo = partes[0].trim().toUpperCase();
+                let saldoStr = partes[partes.length - 1].replace(',', '.');
+                let saldo = parseFloat(saldoStr);
+
+                if (!isNaN(saldo)) {
+                    saldosErpMap[codigo] = saldo;
+                    totalValidos++;
+                }
             }
         });
 
         if (listaItensConsultaAtual.length > 0) {
             renderizarTabelaConsulta(listaItensConsultaAtual);
         }
-        alert('Saldos do ERP validados! Os itens de Aproveitamento de Sucata foram atualizados com a indicação visual.');
+        
+        alert(`Sucesso! ${totalValidos} saldos do ERP carregados e validados.`);
     }
-
     function adicionarItemLista() {
         let codigoDigitado = inputCodigo.value.trim();
         let quantidade = parseInt(inputQtd.value) || 1;
