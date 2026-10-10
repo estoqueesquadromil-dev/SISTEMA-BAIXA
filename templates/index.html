@@ -38,6 +38,16 @@
         th, td { padding: 8px 6px; border: 1px solid #ddd; text-align: left; font-size: 13px; word-wrap: break-word; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         th { background-color: #0056b3; color: white; font-size: 13px; }
         
+        /* Larguras personalizadas para a tabela de consulta */
+        #tabela-consulta th:nth-child(1), #tabela-consulta td:nth-child(1) { width: 40px; text-align: center; white-space: normal; } /* Checkbox */
+        #tabela-consulta th:nth-child(2), #tabela-consulta td:nth-child(2) { width: 95px; } /* Data */
+        #tabela-consulta th:nth-child(3), #tabela-consulta td:nth-child(3) { width: 110px; font-weight: bold; } /* Código */
+        #tabela-consulta th:nth-child(4), #tabela-consulta td:nth-child(4) { width: 65px; text-align: center; } /* Quantidade */
+        #tabela-consulta th:nth-child(5), #tabela-consulta td:nth-child(5) { width: 120px; } /* Tipo */
+        #tabela-consulta th:nth-child(6), #tabela-consulta td:nth-child(6) { width: 100px; text-align: center; } /* Status ERP */
+        #tabela-consulta th:nth-child(7), #tabela-consulta td:nth-child(7) { width: 65px; text-align: center; } /* Status Baixa */
+        #tabela-consulta th:nth-child(8), #tabela-consulta td:nth-child(8) { width: 110px; text-align: center; white-space: normal; } /* Ações */
+
         .btn-acao { padding: 4px 6px; font-size: 11px; border: none; border-radius: 4px; cursor: pointer; color: white; margin-right: 2px; display: inline-block; }
         .btn-editar { background-color: #ffc107; color: #333; }
         .btn-excluir { background-color: #dc3545; }
@@ -90,6 +100,7 @@
                     <option value="Erro no corte">Erro no corte</option>
                     <option value="Perfil Menor">Perfil Menor</option>
                     <option value="Perfil Maior">Perfil Maior</option>
+                    <option value="Outros">Outros</option>
                 </select>
             </div>
             <button class="btn-adicionar" onclick="adicionarItemLista()">Adicionar</button>
@@ -118,7 +129,7 @@
         <div id="mensagem"></div>
     </div>
 
-    <!-- PAINEL 2: CONSULTAR BAIXAS -->
+    <!-- PAINEL 2: CONSULTAR BAIXAS COM SELEÇÃO, STATUS E VALIDAÇÃO DE ERP -->
     <div id="painel-consulta" class="painel">
         <div class="form-row">
             <div class="form-group" style="max-width: 180px;">
@@ -134,16 +145,18 @@
                     <option value="Erro no corte">Erro no corte</option>
                     <option value="Perfil Menor">Perfil Menor</option>
                     <option value="Perfil Maior">Perfil Maior</option>
+                    <option value="Outros">Outros</option>
                 </select>
             </div>
             <button class="btn-pesquisar" onclick="consultarBaixas()">Pesquisar</button>
         </div>
 
+        <!-- Campo para colar saldo do ERP na aba de Consulta -->
         <div class="form-row" style="margin-top: 10px; background: #eef4fc; padding: 10px; border-radius: 6px; border: 1px solid #cce0f5;">
             <div class="form-group" style="margin: 0;">
                 <label for="input-saldo-erp" style="color: #0056b3;">Cole os Saldos do ERP para validação de Sucata (Ex: C219-500 12):</label>
                 <div style="display: flex; gap: 8px; margin-top: 4px;">
-                    <textarea id="input-saldo-erp" rows="2" placeholder="Cole aqui as linhas copiadas do ERP..." style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; resize: vertical;"></textarea>
+                    <textarea id="input-saldo-erp" rows="2" placeholder="Cole aqui as linhas copiadas do ERP (Código e Saldo)..." style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; resize: vertical;"></textarea>
                     <button class="btn-pesquisar" style="height: auto; white-space: nowrap; background-color: #28a745;" onclick="processarValidacaoSucata()">Validar Saldo ERP</button>
                 </div>
             </div>
@@ -202,7 +215,7 @@
             <button class="btn-excel" onclick="exportarExcelInventario()">Baixar Excel</button>
         </div>
 
-        <h3>Controlo de Inventário (Status: Sim)</h3>
+        <h3>Controlo de Inventário</h3>
         <div class="table-responsive">
             <table id="tabela-inventario">
                 <thead>
@@ -257,6 +270,7 @@
 
     inputCodigo.addEventListener('input', async function() {
         let termo = this.value.trim();
+        produtoSelecionadoTemp = null;
         if (termo.length < 1) {
             divResultados.innerHTML = '';
             return;
@@ -264,17 +278,20 @@
         try {
             let resposta = await fetch(`/buscar_produtos?termo=${encodeURIComponent(termo)}`);
             let produtos = await resposta.json();
+            
             divResultados.innerHTML = '';
             if (produtos.length === 0) {
                 divResultados.innerHTML = '<div class="item-resultado" style="color: #999;">Nenhum produto encontrado</div>';
                 return;
             }
+
             produtos.forEach(p => {
                 let div = document.createElement('div');
                 div.className = 'item-resultado';
                 div.textContent = `${p.codigo} - ${p.descricao}`;
                 div.onclick = () => {
                     inputCodigo.value = p.codigo;
+                    produtoSelecionadoTemp = p;
                     divResultados.innerHTML = '';
                 };
                 divResultados.appendChild(div);
@@ -293,23 +310,33 @@
     function processarValidacaoSucata() {
         let textoColado = document.getElementById('input-saldo-erp').value.trim();
         saldosErpMap = {};
+
         if (!textoColado) {
             alert('Cole os dados de saldo do ERP antes de validar.');
             return;
         }
+
         let linhas = textoColado.split('\n');
+        let totalValidos = 0;
+
         linhas.forEach(linha => {
             let partes = linha.trim().split(/\s+/);
             if (partes.length >= 2) {
                 let codigo = partes[0].trim().toUpperCase();
-                let saldo = parseFloat(partes[partes.length - 1].replace(',', '.')) || 0;
-                saldosErpMap[codigo] = saldo;
+                let saldoStr = partes[partes.length - 1].replace(',', '.');
+                let saldo = parseFloat(saldoStr);
+
+                if (!isNaN(saldo)) {
+                    saldosErpMap[codigo] = saldo;
+                    totalValidos++;
+                }
             }
         });
+
         if (listaItensConsultaAtual.length > 0) {
             renderizarTabelaConsulta(listaItensConsultaAtual);
         }
-        alert('Saldos do ERP validados com sucesso!');
+        alert(`Saldos do ERP validados com sucesso (${totalValidos} itens carregados)!`);
     }
 
     function renderizarTabelaConsulta(itens) {
@@ -317,6 +344,7 @@
         let contadorBadge = document.getElementById('contador-ordens');
         let painelLote = document.getElementById('painel-lote');
         let tipoFiltro = document.getElementById('filtro-tipo').value;
+
         tbody.innerHTML = '';
 
         let itensFiltrados = itens.filter(item => {
@@ -327,7 +355,8 @@
 
         if (itensFiltrados.length === 0) {
             tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item encontrado com este filtro.</td></tr>';
-            contadorBadge.style.display = 'none';
+            contadorBadge.textContent = `Total de Ordens: 0`;
+            contadorBadge.style.display = 'inline-block';
             painelLote.style.display = 'none';
             return;
         }
@@ -349,8 +378,13 @@
             let corStatusErp = "#e0a800";
             let saldoDisponivel = saldosErpMap[codigoLinha.trim().toUpperCase()];
             if (saldoDisponivel !== undefined) {
-                statusErpTexto = saldoDisponivel >= qtdLinha ? `Suficiente (${saldoDisponivel})` : `Insuficiente (${saldoDisponivel})`;
-                corStatusErp = saldoDisponivel >= qtdLinha ? "#28a745" : "#dc3545";
+                if (saldoDisponivel >= qtdLinha) {
+                    statusErpTexto = `Suficiente (${saldoDisponivel})`;
+                    corStatusErp = "#28a745";
+                } else {
+                    statusErpTexto = `Insuficiente (${saldoDisponivel})`;
+                    corStatusErp = "#dc3545";
+                }
             }
 
             let tr = document.createElement('tr');
@@ -375,10 +409,25 @@
         let codigoDigitado = inputCodigo.value.trim();
         let quantidade = parseInt(inputQtd.value) || 1;
         let tipoSelecionado = document.getElementById('input-tipo').value;
-        if (!codigoDigitado) { alert('Informe o código do produto.'); return; }
+
+        if (!codigoDigitado) {
+            alert('Informe o código do produto.');
+            return;
+        }
+
         let existente = itensSelecionados.find(i => i.CODIGO.toLowerCase() === codigoDigitado.toLowerCase() && i.TIPO === tipoSelecionado);
-        if (existente) { existente.QUANTIDADE += quantidade; } else { itensSelecionados.push({ CODIGO: codigoDigitado, QUANTIDADE: quantidade, TIPO: tipoSelecionado }); }
-        inputCodigo.value = ''; inputQtd.value = '1'; atualizarTabela();
+        
+        if (existente) {
+            existente.QUANTIDADE += quantidade;
+        } else {
+            itensSelecionados.push({ CODIGO: codigoDigitado, QUANTIDADE: quantidade, TIPO: tipoSelecionado });
+        }
+
+        inputCodigo.value = '';
+        inputQtd.value = '1';
+        produtoSelecionadoTemp = null;
+        divResultados.innerHTML = '';
+        atualizarTabela();
     }
 
     function removerItem(codigo) {
@@ -390,20 +439,38 @@
         let item = itensSelecionados.find(i => i.CODIGO === codigo);
         if (item) {
             let novaQtd = prompt(`Editar quantidade para o produto ${codigo}:`, item.QUANTIDADE);
-            if (novaQtd !== null && parseInt(novaQtd) > 0) { item.QUANTIDADE = parseInt(novaQtd); atualizarTabela(); }
+            if (novaQtd !== null) {
+                let qtdNum = parseInt(novaQtd);
+                if (qtdNum > 0) {
+                    item.QUANTIDADE = qtdNum;
+                    atualizarTabela();
+                } else {
+                    alert('Quantidade inválida.');
+                }
+            }
         }
     }
 
     function atualizarTabela() {
         let tbody = document.querySelector('#tabela-itens tbody');
         tbody.innerHTML = '';
+        
         if (itensSelecionados.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777;">Nenhum item adicionado ainda.</td></tr>';
             return;
         }
+
         itensSelecionados.forEach(item => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${item.CODIGO}</td><td>${item.QUANTIDADE}</td><td>${item.TIPO}</td><td><button class="btn-acao btn-editar" onclick="editarItem('${item.CODIGO}')">Editar</button><button class="btn-acao btn-excluir" onclick="removerItem('${item.CODIGO}')">Excluir</button></td>`;
+            tr.innerHTML = `
+                <td>${item.CODIGO}</td>
+                <td>${item.QUANTIDADE}</td>
+                <td>${item.TIPO}</td>
+                <td>
+                    <button class="btn-acao btn-editar" onclick="editarItem('${item.CODIGO}')">Editar</button>
+                    <button class="btn-acao btn-excluir" onclick="removerItem('${item.CODIGO}')">Excluir</button>
+                </td>
+            `;
             tbody.appendChild(tr);
         });
     }
@@ -411,55 +478,169 @@
     async function salvarLote() {
         let data = document.getElementById('data-lote').value;
         let msgDiv = document.getElementById('mensagem');
-        if (!data || itensSelecionados.length === 0) { msgDiv.className = 'erro'; msgDiv.textContent = 'Preencha a data e adicione itens.'; msgDiv.style.display = 'block'; return; }
-        try {
-            let resposta = await fetch('/salvar_lote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data, itens: itensSelecionados }) });
-            let resultado = await resposta.json();
+        let btnSalvar = document.querySelector('.btn-salvar');
+
+        if (!data || itensSelecionados.length === 0) {
+            msgDiv.className = 'erro';
+            msgDiv.textContent = 'Por favor, selecione uma data e adicione pelo menos um item à lista.';
             msgDiv.style.display = 'block';
-            if (resultado.sucesso) { msgDiv.className = 'sucesso'; msgDiv.textContent = resultado.mensagem; itensSelecionados = []; atualizarTabela(); }
-            else { msgDiv.className = 'erro'; msgDiv.textContent = resultado.mensagem; }
-        } catch (err) { msgDiv.className = 'erro'; msgDiv.textContent = 'Erro de comunicação.'; msgDiv.style.display = 'block'; }
+            return;
+        }
+
+        btnSalvar.disabled = true;
+        btnSalvar.style.opacity = '0.6';
+        btnSalvar.style.cursor = 'not-allowed';
+        btnSalvar.textContent = 'A registar na planilha...';
+
+        try {
+            let resposta = await fetch('/salvar_lote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: data, itens: itensSelecionados })
+            });
+            let resultado = await resposta.json();
+
+            msgDiv.style.display = 'block';
+            if (resultado.sucesso) {
+                msgDiv.className = 'sucesso';
+                msgDiv.textContent = resultado.mensagem;
+                itensSelecionados = [];
+                atualizarTabela();
+            } else {
+                msgDiv.className = 'erro';
+                msgDiv.textContent = resultado.mensagem;
+            }
+        } catch (err) {
+            msgDiv.className = 'erro';
+            msgDiv.textContent = 'Erro de comunicação com o servidor.';
+            msgDiv.style.display = 'block';
+        } finally {
+            btnSalvar.disabled = false;
+            btnSalvar.style.opacity = '1';
+            btnSalvar.style.cursor = 'pointer';
+            btnSalvar.textContent = 'Registar na Planilha do Google Sheets';
+        }
     }
 
     async function consultarBaixas() {
         let dataConsulta = document.getElementById('data-consulta').value;
-        if (!dataConsulta) { alert('Selecione uma data.'); return; }
+        let tbody = document.querySelector('#tabela-consulta tbody');
+        let msgDiv = document.getElementById('mensagem-consulta');
+        let contadorBadge = document.getElementById('contador-ordens');
+        let painelLote = document.getElementById('painel-lote');
+
+        if (!dataConsulta) {
+            alert('Selecione uma data para pesquisar.');
+            return;
+        }
+
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">A pesquisar...</td></tr>';
+        msgDiv.textContent = '';
+        contadorBadge.style.display = 'none';
+        painelLote.style.display = 'none';
+        document.getElementById('check-todos').checked = false;
+
         try {
             let resposta = await fetch(`/consultar_movimentacao?data=${encodeURIComponent(dataConsulta)}`);
             let resultado = await resposta.json();
-            if (!resultado.sucesso || !resultado.itens) { alert('Nenhum registo encontrado.'); return; }
+
+            if (!resultado.sucesso || !resultado.itens || resultado.itens.length === 0) {
+                msgDiv.textContent = resultado.mensagem || "Nenhum registo encontrado.";
+                msgDiv.style.color = '#777';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item registado nesta data.</td></tr>';
+                listaItensConsultaAtual = [];
+                return;
+            }
+
             listaItensConsultaAtual = resultado.itens;
+            document.getElementById('filtro-tipo').value = 'TODOS';
             renderizarTabelaConsulta(listaItensConsultaAtual);
-        } catch (err) { alert('Erro ao comunicar com o servidor.'); }
+
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
+        }
     }
 
-    function filtrarTabelaConsulta() { renderizarTabelaConsulta(listaItensConsultaAtual); }
-    function alternarTodasSelecoes(master) { document.querySelectorAll('.check-item').forEach(cb => cb.checked = master.checked); }
+    function filtrarTabelaConsulta() {
+        renderizarTabelaConsulta(listaItensConsultaAtual);
+    }
+
+    function alternarTodasSelecoes(master) {
+        let checkboxes = document.querySelectorAll('.check-item');
+        checkboxes.forEach(cb => cb.checked = master.checked);
+    }
 
     async function aplicarStatusEmMassa() {
         let dataConsulta = document.getElementById('data-consulta').value;
         let novoStatus = document.getElementById('status-lote').value;
-        let codigos = Array.from(document.querySelectorAll('.check-item:checked')).map(cb => cb.value);
-        if (codigos.length === 0) { alert('Selecione ordens.'); return; }
-        let resposta = await fetch('/atualizar_status_lote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: dataConsulta, codigos, status: novoStatus }) });
-        let resultado = await resposta.json();
-        alert(resultado.mensagem);
-        if (resultado.sucesso) consultarBaixas();
+        let checkboxes = document.querySelectorAll('.check-item:checked');
+        
+        let codigosSelecionados = [];
+        checkboxes.forEach(cb => codigosSelecionados.push(cb.value));
+
+        if (codigosSelecionados.length === 0) {
+            alert('Selecione pelo menos uma ordem na tabela para alterar o status!');
+            return;
+        }
+
+        try {
+            let resposta = await fetch('/atualizar_status_lote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: dataConsulta, codigos: codigosSelecionados, status: novoStatus })
+            });
+            let resultado = await resposta.json();
+            alert(resultado.mensagem);
+            if (resultado.sucesso) {
+                consultarBaixas();
+            }
+        } catch (err) {
+            alert('Erro de comunicação com o servidor.');
+        }
     }
 
     async function excluirConsulta(data, codigo) {
-        if (!confirm(`Excluir ${codigo}?`)) return;
-        let resposta = await fetch('/excluir_movimentacao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data, codigo }) });
-        let resultado = await resposta.json();
-        if (resultado.sucesso) consultarBaixas();
+        if (!confirm(`Tem a certeza que deseja excluir o produto ${codigo} do registo do dia ${data}?`)) return;
+
+        try {
+            let resposta = await fetch('/excluir_movimentacao', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: data, codigo: codigo })
+            });
+            let resultado = await resposta.json();
+            alert(resultado.mensagem);
+            if (resultado.sucesso) {
+                consultarBaixas();
+            }
+        } catch (err) {
+            alert('Erro de comunicação com o servidor.');
+        }
     }
 
     async function editarConsulta(data, codigo, qtdAtual) {
-        let novaQtd = prompt(`Editar quantidade para ${codigo}:`, qtdAtual);
-        if (novaQtd && parseInt(novaQtd) > 0) {
-            let resposta = await fetch('/editar_movimentacao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data, codigo, quantidade: parseInt(novaQtd) }) });
+        let novaQtd = prompt(`Editar quantidade para o produto ${codigo}:`, qtdAtual);
+        if (novaQtd === null) return;
+        
+        let qtdNum = parseInt(novaQtd);
+        if (isNaN(qtdNum) || qtdNum <= 0) {
+            alert('Quantidade inválida.');
+            return;
+        }
+
+        try {
+            let resposta = await fetch('/editar_movimentacao', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: data, codigo: codigo, quantidade: qtdNum })
+            });
             let resultado = await resposta.json();
-            if (resultado.sucesso) consultarBaixas();
+            alert(resultado.mensagem);
+            if (resultado.sucesso) {
+                consultarBaixas();
+            }
+        } catch (err) {
+            alert('Erro de comunicação com o servidor.');
         }
     }
 
@@ -477,22 +658,36 @@
         tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">A carregar inventário...</td></tr>';
 
         try {
-            // Varre os dias entre dataInicio e dataFim (ou endpoint unificado se houver)
-            // Aqui fazemos uma requisição simulada recolhendo do intervalo de datas
             let resposta = await fetch(`/consultar_inventario_periodo?inicio=${dataInicio}&fim=${dataFim}`);
             let resultado = await resposta.json();
 
             if (!resultado.sucesso || !resultado.itens || resultado.itens.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #777;">Nenhum item com status "Sim" encontrado neste período para estes tipos.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #777;">Nenhum item encontrado neste período para estes tipos.</td></tr>';
                 dadosInventarioCache = [];
                 return;
             }
 
+            // Regra:
+            // - Erro no corte, Perfil Maior, Perfil Menor e Outros entram SEMPRE automaticamente.
+            // - Aproveitamento de Sucata só entra se o Status for "Sim".
             dadosInventarioCache = resultado.itens.filter(item => {
                 let tipo = (item.Tipo || item.TIPO || '').trim().toLowerCase();
                 let status = (item.Status || item.STATUS || '').trim().toLowerCase();
-                let tiposValidos = ['aproveitamento de sucata', 'erro no corte', 'perfil maior', 'perfil menor'];
-                return status === 'sim' && tiposValidos.includes(tipo);
+
+                let isSucata = tipo.includes('sucata') || tipo.includes('aproveitamento');
+                let isOutros = tipo.includes('corte') || tipo.includes('perfil') || tipo.includes('outros');
+
+                if (!isSucata && !isOutros) return false;
+
+                if (isSucata) {
+                    return status === 'sim'; // Sucata exige Status = Sim
+                }
+
+                if (isOutros) {
+                    return true; // Demais tipos entram automaticamente
+                }
+
+                return false;
             });
 
             renderizarTabelaInventario(dadosInventarioCache);
@@ -522,7 +717,7 @@
             let tagCor = tipoLower.includes('sucata') ? '#0056b3' : '#dc3545'; // Azul para Entrada, Vermelho para Baixa
 
             let inventarioFeito = item.InventarioFeito || 'Não';
-            let selectCor = inventarioFeito === 'Sim' ? '#28a745' : '#dc3545'; // Verde se Sim, Vermelho se Não
+            let selectCor = inventarioFeito === 'Sim' ? '#28a745' : '#dc3545';
 
             let tr = document.createElement('tr');
             tr.innerHTML = `
@@ -544,7 +739,6 @@
 
     function atualizarStatusInventario(index, valor) {
         dadosInventarioCache[index].InventarioFeito = valor;
-        // Atualiza a cor visual do select na hora
         let selects = document.querySelectorAll('#tabela-inventario select');
         if (selects[index]) {
             selects[index].style.color = valor === 'Sim' ? '#28a745' : '#dc3545';
@@ -556,7 +750,6 @@
             alert('Não há dados carregados para exportar.');
             return;
         }
-        // Converte os dados para download em Excel ou envia para o backend
         let dataInicio = document.getElementById('data-inicio-inv').value;
         let dataFim = document.getElementById('data-fim-inv').value;
         window.location.href = `/exportar_excel_inventario?inicio=${dataInicio}&fim=${dataFim}`;
