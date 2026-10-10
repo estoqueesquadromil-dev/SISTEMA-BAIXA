@@ -41,7 +41,7 @@
         /* Larguras personalizadas para a tabela de consulta */
         #tabela-consulta th:nth-child(1), #tabela-consulta td:nth-child(1) { width: 40px; text-align: center; white-space: normal; } /* Checkbox */
         #tabela-consulta th:nth-child(2), #tabela-consulta td:nth-child(2) { width: 95px; } /* Data */
-        #tabela-consulta th:nth-child(3), #tabela-consulta td:nth-child(3) { width: 110px; font-weight: bold; } /* Código */
+        #tabela-consulta th:nth-child(3), #tabela-consulta td:nth-child(3) { width: 120px; font-weight: bold; } /* Código */
         #tabela-consulta th:nth-child(4), #tabela-consulta td:nth-child(4) { width: 70px; text-align: center; } /* Quantidade */
         #tabela-consulta th:nth-child(5), #tabela-consulta td:nth-child(5) { width: 130px; } /* Tipo */
         #tabela-consulta th:nth-child(6), #tabela-consulta td:nth-child(6) { width: 65px; text-align: center; } /* Status */
@@ -74,20 +74,9 @@
 
     <!-- PAINEL 1: REALIZAR BAIXA -->
     <div id="painel-baixa" class="painel ativo">
-        <div style="display: flex; gap: 15px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 20px;">
-            <div class="form-group" style="max-width: 250px; margin: 0;">
-                <label for="data-lote">Data da Movimentação:</label>
-                <input type="date" id="data-lote">
-            </div>
-
-            <!-- Campo de entrada para colar os dados de saldo do ERP -->
-            <div class="form-group" style="flex: 2; min-width: 280px; margin: 0;">
-                <label for="input-saldo-erp">Cole os saldos do ERP (Ex: C219-500 12):</label>
-                <div style="display: flex; gap: 8px;">
-                    <textarea id="input-saldo-erp" rows="2" placeholder="Cole aqui as linhas com Código e Saldo..." style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; resize: vertical;"></textarea>
-                    <button class="btn-pesquisar" style="height: 52px;" onclick="processarValidacaoSucata()">Validar Saldo</button>
-                </div>
-            </div>
+        <div class="form-group" style="margin-bottom: 20px; max-width: 250px;">
+            <label for="data-lote">Data da Movimentação:</label>
+            <input type="date" id="data-lote">
         </div>
 
         <div class="form-row">
@@ -136,14 +125,14 @@
         <div id="mensagem"></div>
     </div>
 
-    <!-- PAINEL 2: CONSULTAR BAIXAS COM SELEÇÃO E STATUS -->
+    <!-- PAINEL 2: CONSULTAR BAIXAS COM SELEÇÃO, STATUS E VALIDAÇÃO DE ERP -->
     <div id="painel-consulta" class="painel">
         <div class="form-row">
-            <div class="form-group" style="max-width: 200px;">
+            <div class="form-group" style="max-width: 180px;">
                 <label for="data-consulta">Selecione a Data:</label>
                 <input type="date" id="data-consulta">
             </div>
-            <div class="form-group" style="max-width: 220px;">
+            <div class="form-group" style="max-width: 200px;">
                 <label for="filtro-tipo">Filtrar por Tipo:</label>
                 <select id="filtro-tipo" onchange="filtrarTabelaConsulta()">
                     <option value="TODOS" selected>Todos os Tipos</option>
@@ -155,6 +144,17 @@
                 </select>
             </div>
             <button class="btn-pesquisar" onclick="consultarBaixas()">Pesquisar</button>
+        </div>
+
+        <!-- Campo para colar saldo do ERP na aba de Consulta -->
+        <div class="form-row" style="margin-top: 10px; background: #eef4fc; padding: 10px; border-radius: 6px; border: 1px solid #cce0f5;">
+            <div class="form-group" style="margin: 0;">
+                <label for="input-saldo-erp" style="color: #0056b3;">Cole os Saldos do ERP para validação de Sucata (Ex: C219-500 12):</label>
+                <div style="display: flex; gap: 8px; margin-top: 4px;">
+                    <textarea id="input-saldo-erp" rows="2" placeholder="Cole aqui as linhas copiadas do ERP (Código e Saldo)..." style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; resize: vertical;"></textarea>
+                    <button class="btn-pesquisar" style="height: auto; white-space: nowrap; background-color: #28a745;" onclick="processarValidacaoSucata()">Validar Saldo ERP</button>
+                </div>
+            </div>
         </div>
 
         <div id="contador-ordens" class="contador-badge" style="display: none;">Total de Ordens: 0</div>
@@ -203,7 +203,7 @@
     let itensSelecionados = [];
     let listaItensConsultaAtual = [];
     let produtoSelecionadoTemp = null;
-    let saldosErpMap = {}; // Guarda os saldos validados do ERP
+    let saldosErpMap = {}; // Guarda os saldos extraídos do ERP
 
     const inputCodigo = document.getElementById('input-codigo');
     const divResultados = document.getElementById('resultados-busca');
@@ -279,8 +279,10 @@
             }
         });
 
-        atualizarTabela();
-        alert('Saldos carregados e validados com sucesso!');
+        if (listaItensConsultaAtual.length > 0) {
+            renderizarTabelaConsulta(listaItensConsultaAtual);
+        }
+        alert('Saldos do ERP validados! Os itens de Aproveitamento de Sucata foram atualizados com a indicação visual.');
     }
 
     function adicionarItemLista() {
@@ -339,19 +341,9 @@
         }
 
         itensSelecionados.forEach(item => {
-            let indicadorBolha = '';
-            
-            // Se o tipo for "Aproveitamento de Sucata", verifica se o saldo do ERP é >= quantidade
-            if (item.TIPO === "Aproveitamento de Sucata") {
-                let saldoDisponivel = saldosErpMap[item.CODIGO.toLowerCase()];
-                if (saldoDisponivel !== undefined && saldoDisponivel >= item.QUANTIDADE) {
-                    indicadorBolha = ' <span title="Saldo suficiente no ERP" style="font-size: 14px;">🔵</span>';
-                }
-            }
-
             let tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${item.CODIGO}${indicadorBolha}</td>
+                <td>${item.CODIGO}</td>
                 <td>${item.QUANTIDADE}</td>
                 <td>${item.TIPO}</td>
                 <td>
@@ -480,15 +472,24 @@
         itensFiltrados.forEach(item => {
             let dataLinha = item.Data || item.DATA || dataConsulta;
             let codigoLinha = item.Código || item.CODIGO || '';
-            let qtdLinha = item.Quantidade || item.QUANTIDADE || 1;
+            let qtdLinha = parseInt(item.Quantidade || item.QUANTIDADE || 1);
             let tipoLinha = item.Tipo || item.TIPO || 'Baixa Diaria';
             let statusLinha = item.Status || item.STATUS || 'Não';
+
+            let indicadorBolha = '';
+            // Se for Aproveitamento de Sucata e o saldo informado for suficiente, coloca a bolinha azul (🔵)
+            if (tipoLinha.trim().toLowerCase() === 'aproveitamento de sucata') {
+                let saldoDisponivel = saldosErpMap[codigoLinha.trim().toLowerCase()];
+                if (saldoDisponivel !== undefined && saldoDisponivel >= qtdLinha) {
+                    indicadorBolha = ' <span title="Saldo do ERP suficiente (>= solicitado)" style="font-size: 14px;">🔵</span>';
+                }
+            }
 
             let tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="text-align: center;"><input type="checkbox" class="check-item" value="${codigoLinha}"></td>
                 <td>${dataLinha}</td>
-                <td>${codigoLinha}</td>
+                <td>${codigoLinha}${indicadorBolha}</td>
                 <td>${qtdLinha}</td>
                 <td>${tipoLinha}</td>
                 <td><strong>${statusLinha}</strong></td>
