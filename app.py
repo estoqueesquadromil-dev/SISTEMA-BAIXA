@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 import pandas as pd
 import gspread
 from datetime import datetime, timedelta
@@ -343,7 +343,6 @@ def consultar_inventario_periodo():
                     }
                     todos_itens.append(item_formatado)
             except Exception:
-                # Se a aba do dia não existir na planilha, passa para o dia seguinte
                 pass
                 
             atual += delta
@@ -380,7 +379,7 @@ def atualizar_inventario():
                 coluna_idx = idx + 1
                 break
                 
-        # Se a coluna "Inventario Feito" não existir na aba, cria-a na coluna 6
+        # Se a coluna não existir, cria-a na coluna 6
         if not coluna_idx:
             coluna_idx = 6
             if coluna_idx > sheet_mov.col_count:
@@ -400,7 +399,6 @@ def exportar_excel_inventario():
     fim_str = request.args.get('fim')
     
     try:
-        # Reaproveita a lógica de busca do período para exportar
         data_inicio = datetime.strptime(inicio_str, '%Y-%m-%d')
         data_fim = datetime.strptime(fim_str, '%Y-%m-%d')
         
@@ -425,7 +423,6 @@ def exportar_excel_inventario():
                     is_sucata = 'sucata' in tipo.lower() or 'aproveitamento' in tipo.lower()
                     is_outros = 'corte' in tipo.lower() or 'perfil' in tipo.lower() or 'outros' in tipo.lower()
                     
-                    # Aplica a mesma regra de filtro da aba Inventário
                     if is_sucata and status != 'sim':
                         continue
                     if not is_sucata and not is_outros:
@@ -448,15 +445,17 @@ def exportar_excel_inventario():
             
         df = pd.DataFrame(todos_itens)
         
-        # Gera o ficheiro Excel em memória e envia para download
-        filepath = f"inventario_{inicio_str}_a_{fim_str}.xlsx"
-        df.to_excel(filepath, index=False)
+        # Gera o ficheiro CSV compatível com Excel
+        csv_data = df.to_csv(index=False, sep=';', encoding='utf-8-sig')
         
-        from flask import send_file
-        return send_file(filepath, as_attachment=True)
+        return Response(
+            csv_data,
+            mimetype="text/csv",
+            headers={"Content-disposition": f"attachment; filename=inventario_{inicio_str}_a_{fim_str}.csv"}
+        )
         
     except Exception as e:
-        return f"Erro ao gerar Excel: {str(e)}", 500
+        return f"Erro ao gerar relatório: {str(e)}", 500
 
 
 if __name__ == '__main__':
