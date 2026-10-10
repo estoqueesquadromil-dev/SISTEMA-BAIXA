@@ -41,11 +41,12 @@
         /* Larguras personalizadas para a tabela de consulta */
         #tabela-consulta th:nth-child(1), #tabela-consulta td:nth-child(1) { width: 40px; text-align: center; white-space: normal; } /* Checkbox */
         #tabela-consulta th:nth-child(2), #tabela-consulta td:nth-child(2) { width: 95px; } /* Data */
-        #tabela-consulta th:nth-child(3), #tabela-consulta td:nth-child(3) { width: 120px; font-weight: bold; } /* Código */
-        #tabela-consulta th:nth-child(4), #tabela-consulta td:nth-child(4) { width: 70px; text-align: center; } /* Quantidade */
-        #tabela-consulta th:nth-child(5), #tabela-consulta td:nth-child(5) { width: 130px; } /* Tipo */
-        #tabela-consulta th:nth-child(6), #tabela-consulta td:nth-child(6) { width: 65px; text-align: center; } /* Status */
-        #tabela-consulta th:nth-child(7), #tabela-consulta td:nth-child(7) { width: 120px; text-align: center; white-space: normal; } /* Ações */
+        #tabela-consulta th:nth-child(3), #tabela-consulta td:nth-child(3) { width: 110px; font-weight: bold; } /* Código */
+        #tabela-consulta th:nth-child(4), #tabela-consulta td:nth-child(4) { width: 65px; text-align: center; } /* Quantidade */
+        #tabela-consulta th:nth-child(5), #tabela-consulta td:nth-child(5) { width: 120px; } /* Tipo */
+        #tabela-consulta th:nth-child(6), #tabela-consulta td:nth-child(6) { width: 100px; text-align: center; } /* Status ERP */
+        #tabela-consulta th:nth-child(7), #tabela-consulta td:nth-child(7) { width: 65px; text-align: center; } /* Status Baixa */
+        #tabela-consulta th:nth-child(8), #tabela-consulta td:nth-child(8) { width: 110px; text-align: center; white-space: normal; } /* Ações */
 
         .btn-acao { padding: 4px 6px; font-size: 11px; border: none; border-radius: 4px; cursor: pointer; color: white; margin-right: 2px; display: inline-block; }
         .btn-editar { background-color: #ffc107; color: #333; }
@@ -180,13 +181,14 @@
                         <th>Código</th>
                         <th>Quantidade</th>
                         <th>Tipo</th>
+                        <th>Status ERP</th>
                         <th>Status</th>
-                        <th style="width: 120px;">Ações</th>
+                        <th style="width: 110px;">Ações</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="7" style="text-align: center; color: #777;">Selecione uma data e clique em Pesquisar.</td>
+                        <td colspan="8" style="text-align: center; color: #777;">Selecione uma data e clique em Pesquisar.</td>
                     </tr>
                 </tbody>
             </table>
@@ -260,7 +262,39 @@
         }
     });
 
-function renderizarTabelaConsulta(itens) {
+    function processarValidacaoSucata() {
+        let textoColado = document.getElementById('input-saldo-erp').value.trim();
+        saldosErpMap = {};
+
+        if (!textoColado) {
+            alert('Cole os dados de saldo do ERP antes de validar.');
+            return;
+        }
+
+        let linhas = textoColado.split('\n');
+        let totalValidos = 0;
+
+        linhas.forEach(linha => {
+            let partes = linha.trim().split(/\s+/);
+            if (partes.length >= 2) {
+                let codigo = partes[0].trim().toUpperCase();
+                let saldoStr = partes[partes.length - 1].replace(',', '.');
+                let saldo = parseFloat(saldoStr);
+
+                if (!isNaN(saldo)) {
+                    saldosErpMap[codigo] = saldo;
+                    totalValidos++;
+                }
+            }
+        });
+
+        if (listaItensConsultaAtual.length > 0) {
+            renderizarTabelaConsulta(listaItensConsultaAtual);
+        }
+        alert(`Saldos do ERP validados com sucesso (${totalValidos} itens carregados)!`);
+    }
+
+    function renderizarTabelaConsulta(itens) {
         let tbody = document.querySelector('#tabela-consulta tbody');
         let contadorBadge = document.getElementById('contador-ordens');
         let painelLote = document.getElementById('painel-lote');
@@ -275,7 +309,7 @@ function renderizarTabelaConsulta(itens) {
         });
 
         if (itensFiltrados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #777;">Nenhum item encontrado com este filtro.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item encontrado com este filtro.</td></tr>';
             contadorBadge.textContent = `Total de Ordens: 0`;
             contadorBadge.style.display = 'inline-block';
             painelLote.style.display = 'none';
@@ -295,14 +329,24 @@ function renderizarTabelaConsulta(itens) {
             let tipoLinha = item.Tipo || item.TIPO || 'Baixa Diaria';
             let statusLinha = item.Status || item.STATUS || 'Não';
 
-            let indicadorBolha = '';
+            let statusErpTexto = "-";
+            let corStatusErp = "#777";
             let tipoFormatado = tipoLinha.trim().toLowerCase();
             
-            // Verifica se é Aproveitamento de Sucata (tolerante a variações)
+            // Verifica se é Aproveitamento de Sucata
             if (tipoFormatado.includes('sucata') || tipoFormatado.includes('aproveitamento')) {
                 let saldoDisponivel = saldosErpMap[codigoLinha.trim().toUpperCase()];
-                if (saldoDisponivel !== undefined && saldoDisponivel >= qtdLinha) {
-                    indicadorBolha = ' <span title="Saldo do ERP suficiente (>= solicitado)" style="font-size: 14px;">🔵</span>';
+                if (saldoDisponivel !== undefined) {
+                    if (saldoDisponivel >= qtdLinha) {
+                        statusErpTexto = `Suficiente (${saldoDisponivel})`;
+                        corStatusErp = "#28a745"; // Verde
+                    } else {
+                        statusErpTexto = `Insuficiente (${saldoDisponivel})`;
+                        corStatusErp = "#dc3545"; // Vermelho
+                    }
+                } else {
+                    statusErpTexto = "Não informado";
+                    corStatusErp = "#e0a800"; // Amarelo/Laranja escuro
                 }
             }
 
@@ -310,9 +354,10 @@ function renderizarTabelaConsulta(itens) {
             tr.innerHTML = `
                 <td style="text-align: center;"><input type="checkbox" class="check-item" value="${codigoLinha}"></td>
                 <td>${dataLinha}</td>
-                <td>${codigoLinha}${indicadorBolha}</td>
+                <td>${codigoLinha}</td>
                 <td>${qtdLinha}</td>
                 <td>${tipoLinha}</td>
+                <td><strong style="color: ${corStatusErp};">${statusErpTexto}</strong></td>
                 <td><strong>${statusLinha}</strong></td>
                 <td>
                     <button class="btn-acao btn-editar" onclick="editarConsulta('${dataLinha}', '${codigoLinha}', ${qtdLinha})">Editar</button>
@@ -322,6 +367,7 @@ function renderizarTabelaConsulta(itens) {
             tbody.appendChild(tr);
         });
     }
+
     function adicionarItemLista() {
         let codigoDigitado = inputCodigo.value.trim();
         let quantidade = parseInt(inputQtd.value) || 1;
@@ -451,7 +497,7 @@ function renderizarTabelaConsulta(itens) {
             return;
         }
 
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">A pesquisar...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">A pesquisar...</td></tr>';
         msgDiv.textContent = '';
         contadorBadge.style.display = 'none';
         painelLote.style.display = 'none';
@@ -464,7 +510,7 @@ function renderizarTabelaConsulta(itens) {
             if (!resultado.sucesso || !resultado.itens || resultado.itens.length === 0) {
                 msgDiv.textContent = resultado.mensagem || "Nenhum registo encontrado.";
                 msgDiv.style.color = '#777';
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #777;">Nenhum item registado nesta data.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item registado nesta data.</td></tr>';
                 listaItensConsultaAtual = [];
                 return;
             }
@@ -474,69 +520,8 @@ function renderizarTabelaConsulta(itens) {
             renderizarTabelaConsulta(listaItensConsultaAtual);
 
         } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
         }
-    }
-
-    function renderizarTabelaConsulta(itens) {
-        let tbody = document.querySelector('#tabela-consulta tbody');
-        let contadorBadge = document.getElementById('contador-ordens');
-        let painelLote = document.getElementById('painel-lote');
-        let tipoFiltro = document.getElementById('filtro-tipo').value;
-
-        tbody.innerHTML = '';
-
-        let itensFiltrados = itens.filter(item => {
-            let tipoLinha = item.Tipo || item.TIPO || 'Baixa Diaria';
-            if (tipoFiltro === 'TODOS') return true;
-            return tipoLinha.trim().toLowerCase() === tipoFiltro.trim().toLowerCase();
-        });
-
-        if (itensFiltrados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #777;">Nenhum item encontrado com este filtro.</td></tr>';
-            contadorBadge.textContent = `Total de Ordens: 0`;
-            contadorBadge.style.display = 'inline-block';
-            painelLote.style.display = 'none';
-            return;
-        }
-
-        contadorBadge.textContent = `Total de Ordens: ${itensFiltrados.length}`;
-        contadorBadge.style.display = 'inline-block';
-        painelLote.style.display = 'flex';
-
-        let dataConsulta = document.getElementById('data-consulta').value;
-
-        itensFiltrados.forEach(item => {
-            let dataLinha = item.Data || item.DATA || dataConsulta;
-            let codigoLinha = item.Código || item.CODIGO || '';
-            let qtdLinha = parseInt(item.Quantidade || item.QUANTIDADE || 1);
-            let tipoLinha = item.Tipo || item.TIPO || 'Baixa Diaria';
-            let statusLinha = item.Status || item.STATUS || 'Não';
-
-            let indicadorBolha = '';
-            // Se for Aproveitamento de Sucata e o saldo informado for suficiente, coloca a bolinha azul (🔵)
-            if (tipoLinha.trim().toLowerCase() === 'aproveitamento de sucata') {
-                let saldoDisponivel = saldosErpMap[codigoLinha.trim().toLowerCase()];
-                if (saldoDisponivel !== undefined && saldoDisponivel >= qtdLinha) {
-                    indicadorBolha = ' <span title="Saldo do ERP suficiente (>= solicitado)" style="font-size: 14px;">🔵</span>';
-                }
-            }
-
-            let tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="text-align: center;"><input type="checkbox" class="check-item" value="${codigoLinha}"></td>
-                <td>${dataLinha}</td>
-                <td>${codigoLinha}${indicadorBolha}</td>
-                <td>${qtdLinha}</td>
-                <td>${tipoLinha}</td>
-                <td><strong>${statusLinha}</strong></td>
-                <td>
-                    <button class="btn-acao btn-editar" onclick="editarConsulta('${dataLinha}', '${codigoLinha}', ${qtdLinha})">Editar</button>
-                    <button class="btn-acao btn-excluir" onclick="excluirConsulta('${dataLinha}', '${codigoLinha}')">Excluir</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
     }
 
     function filtrarTabelaConsulta() {
