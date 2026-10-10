@@ -12,60 +12,6 @@ NOME_PLANILHA_MOVIMENTACAO = 'MOVIMENTACAO_NOMUS'
 produtos_cache = []
 codigos_validos_set = set()
 
-
-
-
-
-
-@app.route('/consultar_inventario_periodo', methods=['GET'])
-def consultar_inventario_periodo():
-    inicio_str = request.args.get('inicio')
-    fim_str = request.args.get('fim')
-    
-    if not inicio_str or not fim_str:
-        return jsonify({'sucesso': False, 'mensagem': 'Datas de início e fim são obrigatórias.'}), 400
-    
-    try:
-        data_inicio = datetime.strptime(inicio_str, '%Y-%m-%d')
-        data_fim = datetime.strptime(fim_str, '%Y-%m-%d')
-        
-        todos_itens = []
-        delta = timedelta(days=1)
-        atual = data_inicio
-        
-        # Percorre dia a dia no intervalo selecionado
-        while atual <= data_fim:
-            data_formatada = atual.strftime('%Y-%m-%d') # Ajuste conforme o formato que salva no Google Sheets (ex: DD/MM/YYYY ou YYYY-MM-DD)
-            
-            # Chama a função interna que você já usa para ler as movimentações de uma data
-            # (Substitua 'buscar_movimentacoes_por_data' pelo nome da função que já usa no seu app.py para a consulta do dia)
-            itens_dia = buscar_movimentacoes_por_data(data_formatada)
-            
-            if itens_dia:
-                for item in itens_dia:
-                    todos_itens.append(item)
-                    
-            atual += delta
-            
-        return jsonify({'sucesso': True, 'itens': todos_itens})
-    
-    except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
-@app.route('/exportar_excel_inventario', methods=['GET'])
-def exportar_excel_inventario():
-    inicio_str = request.args.get('inicio')
-    fim_str = request.args.get('fim')
-    
-    # Aqui você pode implementar a lógica com pandas ou openpyxl para gerar o .xlsx
-    # e retornar como anexo para download.
-    return "Funcionalidade de exportação em desenvolvimento", 200
-
-
-
-
-
-
 def conectar_google_sheets():
     try:
         gc = gspread.service_account(filename='credenciais.json')
@@ -122,7 +68,7 @@ def buscar_produtos():
 @app.route('/salvar_lote', methods=['POST'])
 def salvar_lote():
     dados = request.json
-    data_lote = dados.get('data') # Ex: "2026-10-08"
+    data_lote = dados.get('data')
     itens = dados.get('itens', [])
 
     if not data_lote or not itens:
@@ -143,32 +89,29 @@ def salvar_lote():
 
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
         
-        # Procura se já existe uma aba (worksheet) com o nome da data
         try:
             sheet_mov = planilha_mov.worksheet(data_lote)
         except gspread.exceptions.WorksheetNotFound:
-            # Se não existir, cria uma nova aba com 5 colunas (Data, Código, Quantidade, Tipo, Status)
-            sheet_mov = planilha_mov.add_worksheet(title=data_lote, rows="1000", cols="5")
-            sheet_mov.append_row(["Data", "Código", "Quantidade", "Tipo", "Status"])
+            # Cria a aba com 6 colunas para incluir o 'Inventario Feito'
+            sheet_mov = planilha_mov.add_worksheet(title=data_lote, rows="1000", cols="6")
+            sheet_mov.append_row(["Data", "Código", "Quantidade", "Tipo", "Status", "Inventario Feito"])
 
         linhas_para_adicionar = []
         for item in itens:
             codigo = item.get('CODIGO', '')
             quantidade = int(item.get('QUANTIDADE', 1))
-            tipo = item.get('TIPO', 'Baixa Diaria') # Recolhe o tipo selecionado no tablet
-            status = 'Não' # Valor inicial padrão
+            tipo = item.get('TIPO', 'Baixa Diaria')
+            status = 'Não'
+            inventario_feito = 'Não'
             
-            # Ordem exata: Data, Código, Quantidade, Tipo, Status
-            linhas_para_adicionar.append([data_lote, codigo, quantidade, tipo, status])
+            linhas_para_adicionar.append([data_lote, codigo, quantidade, tipo, status, inventario_feito])
 
-        # Adiciona os itens na aba correspondente à data
         sheet_mov.append_rows(linhas_para_adicionar)
         
         return jsonify({'sucesso': True, 'mensagem': f'Sucesso! Itens guardados na aba do dia {data_lote} em MOVIMENTACAO_NOMUS.'})
     
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao processar: {str(e)}'})
-
 
 @app.route('/consultar_movimentacao', methods=['GET'])
 def consultar_movimentacao():
@@ -193,7 +136,6 @@ def consultar_movimentacao():
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao consultar: {str(e)}'})
-
 
 @app.route('/excluir_movimentacao', methods=['POST'])
 def excluir_movimentacao():
@@ -240,7 +182,6 @@ def excluir_movimentacao():
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao excluir: {str(e)}'})
-
 
 @app.route('/editar_movimentacao', methods=['POST'])
 def editar_movimentacao():
@@ -291,13 +232,12 @@ def editar_movimentacao():
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao editar: {str(e)}'})
 
-
 @app.route('/atualizar_status_lote', methods=['POST'])
 def atualizar_status_lote():
     dados = request.json
     data_mov = dados.get('data')
     codigos = [str(c).strip() for c in dados.get('codigos', [])]
-    novo_status = dados.get('status') # 'Sim' ou 'Não'
+    novo_status = dados.get('status')
 
     if not data_mov or not codigos or not novo_status:
         return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos!'})
@@ -357,12 +297,168 @@ def atualizar_status_lote():
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao atualizar status: {str(e)}'})
 
+
+# --- ROTAS PARA A ABA DE INVENTÁRIO ---
+
+@app.route('/consultar_inventario_periodo', methods=['GET'])
+def consultar_inventario_periodo():
+    inicio_str = request.args.get('inicio')
+    fim_str = request.args.get('fim')
+    
+    if not inicio_str or not fim_str:
+        return jsonify({'sucesso': False, 'mensagem': 'Datas de início e fim são obrigatórias.'}), 400
+    
+    try:
+        data_inicio = datetime.strptime(inicio_str, '%Y-%m-%d')
+        data_fim = datetime.strptime(fim_str, '%Y-%m-%d')
+        
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'})
+
+        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+        todos_itens = []
+        delta = timedelta(days=1)
+        atual = data_inicio
+        
+        while atual <= data_fim:
+            nome_aba = atual.strftime('%Y-%m-%d')
+            
+            try:
+                sheet_mov = planilha_mov.worksheet(nome_aba)
+                registos = sheet_mov.get_all_records()
+                
+                for index, r in enumerate(registos):
+                    linha_planilha = index + 2
+                    
+                    item_formatado = {
+                        "Linha": linha_planilha,
+                        "Aba": nome_aba,
+                        "Data": r.get('Data') or r.get('DATA') or nome_aba,
+                        "Código": r.get('Código') or r.get('CODIGO') or r.get('Codigo') or '',
+                        "Quantidade": r.get('Quantidade') or r.get('QUANTIDADE') or 1,
+                        "Tipo": r.get('Tipo') or r.get('TIPO') or 'Baixa Diaria',
+                        "Status": r.get('Status') or r.get('STATUS') or 'Não',
+                        "InventarioFeito": r.get('Inventario Feito') or r.get('INVENTARIO FEITO') or r.get('Inventario') or 'Não'
+                    }
+                    todos_itens.append(item_formatado)
+            except Exception:
+                # Se a aba do dia não existir na planilha, passa para o dia seguinte
+                pass
+                
+            atual += delta
+            
+        return jsonify({'sucesso': True, 'itens': todos_itens})
+    
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+@app.route('/atualizar_inventario', methods=['POST'])
+def atualizar_inventario():
+    dados = request.json
+    aba = dados.get('aba')
+    linha = dados.get('linha')
+    novo_status = dados.get('inventarioFeito')
+    
+    if not aba or not linha or not novo_status:
+        return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos.'}), 400
+        
+    try:
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'})
+
+        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+        sheet_mov = planilha_mov.worksheet(aba)
+        
+        cabecalho = [col.upper().strip() for col in sheet_mov.row_values(1)]
+        coluna_idx = None
+        
+        for idx, col in enumerate(cabecalho):
+            if col in ['INVENTARIO FEITO', 'INVENTARIO']:
+                coluna_idx = idx + 1
+                break
+                
+        # Se a coluna "Inventario Feito" não existir na aba, cria-a na coluna 6
+        if not coluna_idx:
+            coluna_idx = 6
+            if coluna_idx > sheet_mov.col_count:
+                sheet_mov.add_cols(1)
+            sheet_mov.update_cell(1, coluna_idx, 'Inventario Feito')
+            
+        sheet_mov.update_cell(linha, coluna_idx, novo_status)
+        
+        return jsonify({'sucesso': True, 'mensagem': 'Inventário atualizado com sucesso na planilha!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+@app.route('/exportar_excel_inventario', methods=['GET'])
+def exportar_excel_inventario():
+    inicio_str = request.args.get('inicio')
+    fim_str = request.args.get('fim')
+    
+    try:
+        # Reaproveita a lógica de busca do período para exportar
+        data_inicio = datetime.strptime(inicio_str, '%Y-%m-%d')
+        data_fim = datetime.strptime(fim_str, '%Y-%m-%d')
+        
+        gc = conectar_google_sheets()
+        if not gc:
+            return "Erro de conexão com o Google Sheets", 500
+
+        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+        todos_itens = []
+        delta = timedelta(days=1)
+        atual = data_inicio
+        
+        while atual <= data_fim:
+            nome_aba = atual.strftime('%Y-%m-%d')
+            try:
+                sheet_mov = planilha_mov.worksheet(nome_aba)
+                registos = sheet_mov.get_all_records()
+                for r in registos:
+                    tipo = str(r.get('Tipo') or r.get('TIPO') or '')
+                    status = str(r.get('Status') or r.get('STATUS') or '').strip().lower()
+                    
+                    is_sucata = 'sucata' in tipo.lower() or 'aproveitamento' in tipo.lower()
+                    is_outros = 'corte' in tipo.lower() or 'perfil' in tipo.lower() or 'outros' in tipo.lower()
+                    
+                    # Aplica a mesma regra de filtro da aba Inventário
+                    if is_sucata and status != 'sim':
+                        continue
+                    if not is_sucata and not is_outros:
+                        continue
+                        
+                    todos_itens.append({
+                        "Data": r.get('Data') or r.get('DATA') or nome_aba,
+                        "Código": r.get('Código') or r.get('CODIGO') or '',
+                        "Quantidade": r.get('Quantidade') or r.get('QUANTIDADE') or 1,
+                        "Tipo": tipo,
+                        "Classificação": 'Entrada' if is_sucata else 'Baixa',
+                        "Inventario Feito": r.get('Inventario Feito') or r.get('INVENTARIO FEITO') or 'Não'
+                    })
+            except Exception:
+                pass
+            atual += delta
+            
+        if not todos_itens:
+            return "Nenhum dado encontrado para exportar no período selecionado.", 404
+            
+        df = pd.DataFrame(todos_itens)
+        
+        # Gera o ficheiro Excel em memória e envia para download
+        filepath = f"inventario_{inicio_str}_a_{fim_str}.xlsx"
+        df.to_excel(filepath, index=False)
+        
+        from flask import send_file
+        return send_file(filepath, as_attachment=True)
+        
+    except Exception as e:
+        return f"Erro ao gerar Excel: {str(e)}", 500
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
-
-
-
-
-
