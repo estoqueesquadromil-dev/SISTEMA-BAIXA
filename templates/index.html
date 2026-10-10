@@ -74,9 +74,20 @@
 
     <!-- PAINEL 1: REALIZAR BAIXA -->
     <div id="painel-baixa" class="painel ativo">
-        <div class="form-group" style="margin-bottom: 20px; max-width: 250px;">
-            <label for="data-lote">Data da Movimentação:</label>
-            <input type="date" id="data-lote">
+        <div style="display: flex; gap: 15px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 20px;">
+            <div class="form-group" style="max-width: 250px; margin: 0;">
+                <label for="data-lote">Data da Movimentação:</label>
+                <input type="date" id="data-lote">
+            </div>
+
+            <!-- Campo de entrada para colar os dados de saldo do ERP -->
+            <div class="form-group" style="flex: 2; min-width: 280px; margin: 0;">
+                <label for="input-saldo-erp">Cole os saldos do ERP (Ex: C219-500 12):</label>
+                <div style="display: flex; gap: 8px;">
+                    <textarea id="input-saldo-erp" rows="2" placeholder="Cole aqui as linhas com Código e Saldo..." style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; resize: vertical;"></textarea>
+                    <button class="btn-pesquisar" style="height: 52px;" onclick="processarValidacaoSucata()">Validar Saldo</button>
+                </div>
+            </div>
         </div>
 
         <div class="form-row">
@@ -192,6 +203,7 @@
     let itensSelecionados = [];
     let listaItensConsultaAtual = [];
     let produtoSelecionadoTemp = null;
+    let saldosErpMap = {}; // Guarda os saldos validados do ERP
 
     const inputCodigo = document.getElementById('input-codigo');
     const divResultados = document.getElementById('resultados-busca');
@@ -247,6 +259,29 @@
             divResultados.innerHTML = '';
         }
     });
+
+    function processarValidacaoSucata() {
+        let textoColado = document.getElementById('input-saldo-erp').value.trim();
+        saldosErpMap = {};
+
+        if (!textoColado) {
+            alert('Cole os dados de saldo do ERP antes de validar.');
+            return;
+        }
+
+        let linhas = textoColado.split('\n');
+        linhas.forEach(linha => {
+            let partes = linha.trim().split(/\s+/);
+            if (partes.length >= 2) {
+                let codigo = partes[0].trim().toLowerCase();
+                let saldo = parseFloat(partes[partes.length - 1].replace(',', '.')) || 0;
+                saldosErpMap[codigo] = saldo;
+            }
+        });
+
+        atualizarTabela();
+        alert('Saldos carregados e validados com sucesso!');
+    }
 
     function adicionarItemLista() {
         let codigoDigitado = inputCodigo.value.trim();
@@ -304,9 +339,19 @@
         }
 
         itensSelecionados.forEach(item => {
+            let indicadorBolha = '';
+            
+            // Se o tipo for "Aproveitamento de Sucata", verifica se o saldo do ERP é >= quantidade
+            if (item.TIPO === "Aproveitamento de Sucata") {
+                let saldoDisponivel = saldosErpMap[item.CODIGO.toLowerCase()];
+                if (saldoDisponivel !== undefined && saldoDisponivel >= item.QUANTIDADE) {
+                    indicadorBolha = ' <span title="Saldo suficiente no ERP" style="font-size: 14px;">🔵</span>';
+                }
+            }
+
             let tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${item.CODIGO}</td>
+                <td>${item.CODIGO}${indicadorBolha}</td>
                 <td>${item.QUANTIDADE}</td>
                 <td>${item.TIPO}</td>
                 <td>
