@@ -2,6 +2,7 @@ import os
 from flask import Flask, render_template, request, jsonify
 import pandas as pd
 import gspread
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -10,6 +11,60 @@ NOME_PLANILHA_MOVIMENTACAO = 'MOVIMENTACAO_NOMUS'
 
 produtos_cache = []
 codigos_validos_set = set()
+
+
+
+
+
+
+@app.route('/consultar_inventario_periodo', methods=['GET'])
+def consultar_inventario_periodo():
+    inicio_str = request.args.get('inicio')
+    fim_str = request.args.get('fim')
+    
+    if not inicio_str or not fim_str:
+        return jsonify({'sucesso': False, 'mensagem': 'Datas de início e fim são obrigatórias.'}), 400
+    
+    try:
+        data_inicio = datetime.strptime(inicio_str, '%Y-%m-%d')
+        data_fim = datetime.strptime(fim_str, '%Y-%m-%d')
+        
+        todos_itens = []
+        delta = timedelta(days=1)
+        atual = data_inicio
+        
+        # Percorre dia a dia no intervalo selecionado
+        while atual <= data_fim:
+            data_formatada = atual.strftime('%Y-%m-%d') # Ajuste conforme o formato que salva no Google Sheets (ex: DD/MM/YYYY ou YYYY-MM-DD)
+            
+            # Chama a função interna que você já usa para ler as movimentações de uma data
+            # (Substitua 'buscar_movimentacoes_por_data' pelo nome da função que já usa no seu app.py para a consulta do dia)
+            itens_dia = buscar_movimentacoes_por_data(data_formatada)
+            
+            if itens_dia:
+                for item in itens_dia:
+                    todos_itens.append(item)
+                    
+            atual += delta
+            
+        return jsonify({'sucesso': True, 'itens': todos_itens})
+    
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+@app.route('/exportar_excel_inventario', methods=['GET'])
+def exportar_excel_inventario():
+    inicio_str = request.args.get('inicio')
+    fim_str = request.args.get('fim')
+    
+    # Aqui você pode implementar a lógica com pandas ou openpyxl para gerar o .xlsx
+    # e retornar como anexo para download.
+    return "Funcionalidade de exportação em desenvolvimento", 200
+
+
+
+
+
 
 def conectar_google_sheets():
     try:
@@ -305,3 +360,9 @@ def atualizar_status_lote():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
+
+
+
+
+
