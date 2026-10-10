@@ -260,38 +260,67 @@
         }
     });
 
-function processarValidacaoSucata() {
-        let textoColado = document.getElementById('input-saldo-erp').value.trim();
-        saldosErpMap = {};
+function renderizarTabelaConsulta(itens) {
+        let tbody = document.querySelector('#tabela-consulta tbody');
+        let contadorBadge = document.getElementById('contador-ordens');
+        let painelLote = document.getElementById('painel-lote');
+        let tipoFiltro = document.getElementById('filtro-tipo').value;
 
-        if (!textoColado) {
-            alert('Cole os dados de saldo do ERP antes de validar.');
+        tbody.innerHTML = '';
+
+        let itensFiltrados = itens.filter(item => {
+            let tipoLinha = item.Tipo || item.TIPO || 'Baixa Diaria';
+            if (tipoFiltro === 'TODOS') return true;
+            return tipoLinha.trim().toLowerCase() === tipoFiltro.trim().toLowerCase();
+        });
+
+        if (itensFiltrados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #777;">Nenhum item encontrado com este filtro.</td></tr>';
+            contadorBadge.textContent = `Total de Ordens: 0`;
+            contadorBadge.style.display = 'inline-block';
+            painelLote.style.display = 'none';
             return;
         }
 
-        let linhas = textoColado.split('\n');
-        let totalValidos = 0;
+        contadorBadge.textContent = `Total de Ordens: ${itensFiltrados.length}`;
+        contadorBadge.style.display = 'inline-block';
+        painelLote.style.display = 'flex';
 
-        linhas.forEach(linha => {
-            let partes = linha.trim().split(/\s+/);
-            if (partes.length >= 2) {
-                // Pega o primeiro elemento como código e o último como saldo
-                let codigo = partes[0].trim().toUpperCase();
-                let saldoStr = partes[partes.length - 1].replace(',', '.');
-                let saldo = parseFloat(saldoStr);
+        let dataConsulta = document.getElementById('data-consulta').value;
 
-                if (!isNaN(saldo)) {
-                    saldosErpMap[codigo] = saldo;
-                    totalValidos++;
+        itensFiltrados.forEach(item => {
+            let dataLinha = item.Data || item.DATA || dataConsulta;
+            let codigoLinha = item.Código || item.CODIGO || '';
+            let qtdLinha = parseInt(item.Quantidade || item.QUANTIDADE || 1);
+            let tipoLinha = item.Tipo || item.TIPO || 'Baixa Diaria';
+            let statusLinha = item.Status || item.STATUS || 'Não';
+
+            let indicadorBolha = '';
+            let tipoFormatado = tipoLinha.trim().toLowerCase();
+            
+            // Verifica se é Aproveitamento de Sucata (tolerante a variações)
+            if (tipoFormatado.includes('sucata') || tipoFormatado.includes('aproveitamento')) {
+                let saldoDisponivel = saldosErpMap[codigoLinha.trim().toUpperCase()];
+                if (saldoDisponivel !== undefined && saldoDisponivel >= qtdLinha) {
+                    indicadorBolha = ' <span title="Saldo do ERP suficiente (>= solicitado)" style="font-size: 14px;">🔵</span>';
                 }
             }
-        });
 
-        if (listaItensConsultaAtual.length > 0) {
-            renderizarTabelaConsulta(listaItensConsultaAtual);
-        }
-        
-        alert(`Sucesso! ${totalValidos} saldos do ERP carregados e validados.`);
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="text-align: center;"><input type="checkbox" class="check-item" value="${codigoLinha}"></td>
+                <td>${dataLinha}</td>
+                <td>${codigoLinha}${indicadorBolha}</td>
+                <td>${qtdLinha}</td>
+                <td>${tipoLinha}</td>
+                <td><strong>${statusLinha}</strong></td>
+                <td>
+                    <button class="btn-acao btn-editar" onclick="editarConsulta('${dataLinha}', '${codigoLinha}', ${qtdLinha})">Editar</button>
+                    <button class="btn-acao btn-excluir" onclick="excluirConsulta('${dataLinha}', '${codigoLinha}')">Excluir</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
     }
     function adicionarItemLista() {
         let codigoDigitado = inputCodigo.value.trim();
