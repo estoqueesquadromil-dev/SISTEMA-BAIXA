@@ -203,16 +203,32 @@
     <!-- PAINEL 3: INVENTÁRIO -->
     <div id="painel-inventario" class="painel">
         <div class="form-row">
-            <div class="form-group" style="max-width: 180px;">
+            <div class="form-group" style="max-width: 160px;">
                 <label for="data-inicio-inv">Data Início:</label>
                 <input type="date" id="data-inicio-inv">
             </div>
-            <div class="form-group" style="max-width: 180px;">
+            <div class="form-group" style="max-width: 160px;">
                 <label for="data-fim-inv">Data Fim:</label>
                 <input type="date" id="data-fim-inv">
             </div>
+            <div class="form-group" style="max-width: 160px;">
+                <label for="filtro-classificacao-inv">Classificação:</label>
+                <select id="filtro-classificacao-inv" onchange="filtrarTabelaInventario()">
+                    <option value="TODOS" selected>Todas</option>
+                    <option value="Entrada">Entrada</option>
+                    <option value="Baixa">Baixa</option>
+                </select>
+            </div>
+            <div class="form-group" style="max-width: 160px;">
+                <label for="filtro-status-inv">Inventário Feito:</label>
+                <select id="filtro-status-inv" onchange="filtrarTabelaInventario()">
+                    <option value="TODOS" selected>Todos</option>
+                    <option value="Sim">Sim</option>
+                    <option value="Não">Não</option>
+                </select>
+            </div>
             <button class="btn-pesquisar" onclick="carregarInventario()">Filtrar Inventário</button>
-            <button class="btn-excel" onclick="exportarExcelInventario()">Baixar Excel</button>
+            <button class="btn-excel" onclick="exportarExcelInventario()">Baixar Excel (CSV)</button>
         </div>
 
         <h3>Controlo de Inventário</h3>
@@ -667,9 +683,6 @@
                 return;
             }
 
-            // Regra:
-            // - Erro no corte, Perfil Maior, Perfil Menor e Outros entram SEMPRE automaticamente.
-            // - Aproveitamento de Sucata só entra se o Status for "Sim".
             dadosInventarioCache = resultado.itens.filter(item => {
                 let tipo = (item.Tipo || item.TIPO || '').trim().toLowerCase();
                 let status = (item.Status || item.STATUS || '').trim().toLowerCase();
@@ -680,21 +693,44 @@
                 if (!isSucata && !isOutros) return false;
 
                 if (isSucata) {
-                    return status === 'sim'; // Sucata exige Status = Sim
+                    return status === 'sim';
                 }
 
                 if (isOutros) {
-                    return true; // Demais tipos entram automaticamente
+                    return true;
                 }
 
                 return false;
             });
 
-            renderizarTabelaInventario(dadosInventarioCache);
+            // Aplica os filtros locais após carregar
+            filtrarTabelaInventario();
 
         } catch (err) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: red;">Erro ao carregar dados do inventário.</td></tr>';
         }
+    }
+
+    function filtrarTabelaInventario() {
+        let filtroClassificacao = document.getElementById('filtro-classificacao-inv').value;
+        let filtroStatus = document.getElementById('filtro-status-inv').value;
+
+        let itensFiltrados = dadosInventarioCache.filter(item => {
+            let tipo = (item.Tipo || item.TIPO || '').trim().toLowerCase();
+            let isSucata = tipo.includes('sucata') || tipo.includes('aproveitamento');
+            let classificacao = isSucata ? 'Entrada' : 'Baixa';
+            let invFeito = item.InventarioFeito || 'Não';
+
+            if (filtroClassificacao !== 'TODOS' && classificacao !== filtroClassificacao) {
+                return false;
+            }
+            if (filtroStatus !== 'TODOS' && invFeito !== filtroStatus) {
+                return false;
+            }
+            return true;
+        });
+
+        renderizarTabelaInventario(itensFiltrados);
     }
 
     function renderizarTabelaInventario(itens) {
@@ -702,7 +738,7 @@
         tbody.innerHTML = '';
 
         if (itens.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #777;">Nenhum registo compatível encontrado.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #777;">Nenhum registo compatível encontrado com estes filtros.</td></tr>';
             return;
         }
 
@@ -714,10 +750,13 @@
             let tipoLower = tipoLinha.trim().toLowerCase();
 
             let tagNome = tipoLower.includes('sucata') ? 'Entrada' : 'Baixa';
-            let tagCor = tipoLower.includes('sucata') ? '#0056b3' : '#dc3545'; // Azul para Entrada, Vermelho para Baixa
+            let tagCor = tipoLower.includes('sucata') ? '#0056b3' : '#dc3545';
 
             let inventarioFeito = item.InventarioFeito || 'Não';
             let selectCor = inventarioFeito === 'Sim' ? '#28a745' : '#dc3545';
+
+            // Localiza o índice real no cache global para atualizar corretamente ao interagir com o select
+            let indiceReal = dadosInventarioCache.indexOf(item);
 
             let tr = document.createElement('tr');
             tr.innerHTML = `
@@ -727,7 +766,7 @@
                 <td>${tipoLinha}</td>
                 <td><strong style="color: ${tagCor};">${tagNome} (${tipoLinha})</strong></td>
                 <td style="text-align: center;">
-                    <select onchange="atualizarStatusInventario(${index}, this.value)" style="font-weight: bold; color: ${selectCor}; width: 100px; text-align: center;">
+                    <select onchange="atualizarStatusInventario(${indiceReal}, this.value)" style="font-weight: bold; color: ${selectCor}; width: 100px; text-align: center;">
                         <option value="Não" ${inventarioFeito === 'Não' ? 'selected' : ''} style="color: #dc3545;">Não</option>
                         <option value="Sim" ${inventarioFeito === 'Sim' ? 'selected' : ''} style="color: #28a745;">Sim</option>
                     </select>
@@ -741,12 +780,8 @@
         let item = dadosInventarioCache[index];
         item.InventarioFeito = valor;
         
-        let selects = document.querySelectorAll('#tabela-inventario select');
-        if (selects[index]) {
-            selects[index].style.color = valor === 'Sim' ? '#28a745' : '#dc3545';
-        }
+        filtrarTabelaInventario(); // Atualiza a visualização filtrada
 
-        // Salva automaticamente na coluna "Inventario Feito" do Google Sheets em segundo plano
         try {
             let resposta = await fetch('/atualizar_inventario', {
                 method: 'POST',
