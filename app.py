@@ -685,6 +685,9 @@ def exportar_excel_ordens():
 # ==========================================
 # MÓDULO DE PERDAS (ABA kg-m)
 # ==========================================
+# ==========================================
+# MÓDULO DE PERDAS (ABA kg-m)
+# ==========================================
 NOME_PLANILHA_PERDAS = 'Perdas'
 
 @app.route('/salvar_lote_perdas', methods=['POST'])
@@ -697,7 +700,6 @@ def salvar_lote_perdas():
         return jsonify({'sucesso': False, 'mensagem': 'Data ou itens de perda não informados!'}), 400
 
     try:
-        # Extrai o ano e mês para definir o nome da aba (ex: '2026-10')
         data_obj = datetime.strptime(data_lancamento, '%Y-%m-%d')
         nome_aba_mes = data_obj.strftime('%Y-%m')
 
@@ -708,21 +710,19 @@ def salvar_lote_perdas():
         try:
             planilha_perdas = gc.open(NOME_PLANILHA_PERDAS)
         except gspread.exceptions.SpreadsheetNotFound:
-            # Se a planilha não existir, cria-a (Nota: pode necessitar de partilha prévia na conta de serviço)
-            # Como alternativa segura, criamos com gc.create() ou abrimos
             return jsonify({'sucesso': False, 'mensagem': f'A planilha "{NOME_PLANILHA_PERDAS}" não foi encontrada no Google Drive. Crie-a manualmente.'}), 500
 
         try:
             sheet_mes = planilha_perdas.worksheet(nome_aba_mes)
         except gspread.exceptions.WorksheetNotFound:
-            # Cria a aba mensal com as colunas solicitadas
             sheet_mes = planilha_perdas.add_worksheet(title=nome_aba_mes, rows="1000", cols="5")
             sheet_mes.append_row(["Data", "Tipo de Perda", "Quantidade", "Perfil", "Usuário/Registro"])
 
         linhas_para_adicionar = []
         for item in itens:
             tipo_perda = item.get('tipo', '')
-            quantidade = int(item.get('quantidade', 0))
+            # Alterado de int() para float() para aceitar as 3 casas decimais
+            quantidade = float(item.get('quantidade', 0))
             perfil = item.get('perfil', 'Não') # 'Sim' ou 'Não'
             
             linhas_para_adicionar.append([data_lancamento, tipo_perda, quantidade, perfil, 'Sistema'])
@@ -752,7 +752,6 @@ def consultar_perdas():
         todos_registos = []
         for aba in todas_abas:
             nome_aba = aba.title.strip()
-            # Valida se é aba de mês (YYYY-MM)
             try:
                 datetime.strptime(nome_aba + '-01', '%Y-%m-%d')
             except ValueError:
@@ -762,10 +761,10 @@ def consultar_perdas():
             for r in registos:
                 d = str(r.get('Data') or r.get('DATA') or '')
                 t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '')
-                q = int(r.get('Quantidade') or r.get('QUANTIDADE') or 0)
+                # Alterado de int() para float() para ler com precisão decimal
+                q = float(r.get('Quantidade') or r.get('QUANTIDADE') or 0)
                 p = str(r.get('Perfil') or r.get('PERFIL') or 'Não')
 
-                # Aplicação de filtros
                 if data_inicio and d < data_inicio:
                     continue
                 if data_fim and d > data_fim:
@@ -782,18 +781,21 @@ def consultar_perdas():
                     "Perfil": p
                 })
 
-        # Calcula os totais por tipo para exibir no painel resumido
+        # Calcula os totais por tipo acumulando como float
         totais_por_tipo = {}
         for item in todos_registos:
-            tp = item['Tipo']
-            totais_por_tipo[tp] = totais_por_tipo.get(tp, 0) + item['Quantidade']
+            tp = item["Tipo"]
+            qt = item["Quantidade"]
+            totais_por_tipo[tp] = totais_por_tipo.get(tp, 0.0) + qt
+
+        # Formata os totais para fixar 3 casas decimais no retorno JSON
+        totais_formatados = {k: round(v, 3) for k, v in totais_por_tipo.items()}
 
         return jsonify({
-            'sucesso': True,
+            'sucesso': True, 
             'itens': todos_registos,
-            'totais': totais_por_tipo
+            'totais': totais_formatados
         })
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao consultar perdas: {str(e)}'}), 500
-
