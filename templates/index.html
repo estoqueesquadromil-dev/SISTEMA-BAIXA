@@ -702,17 +702,20 @@ function mudarAba(aba, btn) {
             carregarDadosOrdens();
         }
     } else if (aba === 'kg-m') {
-        let painelOrdensCriadas = document.getElementById('ordens-criadas');
-        if (painelOrdensCriadas) {
-            painelOrdensCriadas.style.display = 'block';
+        let painelKgM = document.getElementById('kg-m');
+        if (painelKgM) {
+            painelKgM.style.display = 'block';
         }
-        if (typeof carregarOrdensCriadas === 'function') {
-            carregarOrdensCriadas();
+        if (typeof consultarPerdasServidor === 'function') {
+            consultarPerdasServidor();
         }
     }
     
     if (btn) btn.classList.add('ativo');
-}    
+}
+
+
+
     
     
     inputCodigo.addEventListener('input', async function() {
