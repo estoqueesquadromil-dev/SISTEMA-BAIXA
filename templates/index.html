@@ -263,8 +263,12 @@
 <script>
     document.getElementById('data-lote').valueAsDate = new Date();
     document.getElementById('data-consulta').valueAsDate = new Date();
-    document.getElementById('data-inicio-inv').valueAsDate = new Date();
+    document.getElementById('data-inicio-inv').value = '2024-01-01';
     document.getElementById('data-fim-inv').valueAsDate = new Date();
+
+    // Carrega automaticamente o inventário completo no arranque
+    carregarInventario();   
+
     
     let itensSelecionados = [];
     let listaItensConsultaAtual = [];
