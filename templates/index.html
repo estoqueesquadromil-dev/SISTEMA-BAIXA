@@ -926,27 +926,14 @@ function carregarDadosOrdens() {
 }
 
 function popularSelectOrdens() {
-    let select = document.getElementById('select-produto-ordem');
-    select.innerHTML = '<option value="">Selecione um produto...</option>';
-    
-    // Extrai produtos e descrições únicos
-    let unicos = {};
-    dadosOrdensCache.forEach(row => {
-        let prod = String(row.PRODUTO || row.Produto || '').trim();
-        let desc = String(row.DESCRICAO || row.Descricao || '').trim();
-        if (prod) {
-            unicos[prod] = desc;
-        }
-    });
-
-    for (let [prod, desc] of Object.entries(unicos)) {
-        let opt = document.createElement('option');
-        opt.value = prod;
-        opt.textContent = `${prod} - ${desc}`;
-        select.appendChild(opt);
+    if (!dadosOrdensCache || dadosOrdensCache.length === 0) {
+        console.warn("Nenhum dado de ordens carregado na cache.");
+        return;
     }
+    console.log("Dados de ordens carregados com sucesso:", dadosOrdensCache.length, "registos.");
 }
 
+    
 function selecionarProdutoOrdem() {
     let codigo = document.getElementById('select-produto-ordem').value;
     let tbody1 = document.querySelector('#tabela-painel-1 tbody');
