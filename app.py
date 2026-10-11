@@ -540,6 +540,10 @@ def salvar_ordem_producao():
 # NOVAS ROTAS PARA O MÓDULO "ORDENS CRIADAS"
 # ==========================================
 
+# ==========================================
+# NOVAS ROTAS PARA O MÓDULO "ORDENS CRIADAS"
+# ==========================================
+
 @app.route('/listar_ordens_criadas', methods=['GET'])
 def listar_ordens_criadas():
     try:
@@ -551,7 +555,7 @@ def listar_ordens_criadas():
         planilha = gc.open(PLANILHA_CRIAR_ORDENS)
         todas_abas = planilha.worksheets()
         
-        ordens_unicas_dict = {} # Agrupa por ordem única para listar na tabela principal
+        lista_ordens = []
         
         for aba in todas_abas:
             nome_aba = aba.title.strip()
@@ -575,19 +579,14 @@ def listar_ordens_criadas():
                 if not codigo_principal:
                     continue
                 
-                # Identificador único combinando a aba (data) e o código/linha para exclusão
-                # Como uma ordem pode ter múltiplos componentes, agrupamos pelo Código Principal e Quantidade na data
-                chave_unica = f"{nome_aba}_{codigo_principal}_{qtd_ordem}"
+                # Adiciona cada linha individualmente, permitindo mostrar ordens duplicadas
+                lista_ordens.append({
+                    "id": f"{nome_aba}|{linha_planilha}", # Guarda a aba e a linha exata para exclusão individual
+                    "data": nome_aba,
+                    "codigoPrincipal": codigo_principal,
+                    "quantidadeOrdem": qtd_ordem
+                })
                 
-                if chave_unica not in ordens_unicas_dict:
-                    ordens_unicas_dict[chave_unica] = {
-                        "id": f"{nome_aba}|{linha_planilha}", # Guarda a aba e a primeira linha de referência
-                        "data": nome_aba,
-                        "codigoPrincipal": codigo_principal,
-                        "quantidadeOrdem": qtd_ordem
-                    }
-                    
-        lista_ordens = list(ordens_unicas_dict.values())
         return jsonify({'sucesso': True, 'ordens': lista_ordens})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
@@ -612,29 +611,14 @@ def excluir_ordem_criada():
         planilha = gc.open(PLANILHA_CRIAR_ORDENS)
         aba = planilha.worksheet(nome_aba)
         
-        # Lê todas as linhas para garantir que removemos todos os componentes associados àquele Código Principal e Quantidade na mesma data
+        # Como agora listamos linha a linha, removemos especificamente a linha exata apontada pelo ID
         linhas = aba.get_all_values()
         if not linhas or len(linhas) < 2:
             return jsonify({'sucesso': False, 'mensagem': 'Aba vazia.'})
             
-        cabecalho = [c.upper().strip() for c in linhas[0]]
-        idx_cod = cabecalho.index('CODIGOPRINCIPAL') if 'CODIGOPRINCIPAL' in cabecalho else (cabecalho.index('CÓDIGO PRINCIPAL') if 'CÓDIGO PRINCIPAL' in cabecalho else 1)
-        idx_qtd = cabecalho.index('QUANTIDADEORDEM') if 'QUANTIDADEORDEM' in cabecalho else (cabecalho.index('QUANTIDADE ORDEM') if 'QUANTIDADE ORDEM' in cabecalho else 2)
-        
-        if linha_alvo - 1 < len(linhas):
-            linha_referencia = linhas[linha_alvo - 1]
-            cod_alvo = linha_referencia[idx_cod]
-            qtd_alvo = linha_referencia[idx_qtd]
-            
-            # Remove de baixo para cima para não alterar os índices durante a remoção
-            linhas_para_remover = []
-            for idx in range(len(linhas) - 1, 0, -1):
-                if linhas[idx][idx_cod] == cod_alvo and linhas[idx][idx_qtd] == qtd_alvo:
-                    linhas_para_remover.append(idx + 1)
-                    
-            for l_num in linhas_para_remover:
-                aba.delete_rows(l_num)
-                
+        if linha_alvo <= len(linhas):
+            # Deleta a linha exata correspondente na planilha
+            aba.delete_rows(linha_alvo)
             return jsonify({'sucesso': True, 'mensagem': 'Ordem excluída com sucesso!'})
         else:
             return jsonify({'sucesso': False, 'mensagem': 'Linha não encontrada na aba.'}), 404
@@ -655,7 +639,6 @@ def exportar_excel_ordens():
         todas_abas = planilha.worksheets()
         
         dados_excel = []
-        chaves_vistas = set()
         
         for aba in todas_abas:
             nome_aba = aba.title.strip()
@@ -674,15 +657,12 @@ def exportar_excel_ordens():
                 if not codigo_principal:
                     continue
                 
-                # Chave única para evitar duplicados na mesma data
-                chave_unica = (nome_aba, codigo_principal, str(quantidade_ordem))
-                if chave_unica not in chaves_vistas:
-                    chaves_vistas.add(chave_unica)
-                    dados_excel.append({
-                        "Data": nome_aba,
-                        "Código Principal": codigo_principal,
-                        "Quantidade Ordem": quantidade_ordem
-                    })
+                # Adiciona todas as linhas para o Excel sem filtrar duplicados
+                dados_excel.append({
+                    "Data": nome_aba,
+                    "Código Principal": codigo_principal,
+                    "Quantidade Ordem": quantidade_ordem
+                })
                 
         if not dados_excel:
             return "Nenhuma ordem encontrada para exportar.", 404
