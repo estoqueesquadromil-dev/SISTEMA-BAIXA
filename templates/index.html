@@ -378,9 +378,11 @@
     const inputQtd = document.getElementById('input-qtd');
 
 function mudarAba(aba, btn) {
-    document.querySelectorAll('.tab-content').forEach(p => p.style.display = 'none');
+    // Oculta todos os painéis e remove a classe ativo dos botões
+    document.querySelectorAll('.painel').forEach(p => p.style.display = 'none');
     document.querySelectorAll('.btn-aba').forEach(b => b.classList.remove('ativo'));
     
+    // Mostra o painel selecionado correspondente
     if (aba === 'baixa') {
         document.getElementById('painel-baixa').style.display = 'block';
     } else if (aba === 'consulta') {
@@ -393,15 +395,17 @@ function mudarAba(aba, btn) {
             carregarDadosOrdens();
         }
     } else if (aba === 'ordens-criadas') {
-        document.getElementById('ordens-criadas').style.display = 'block';
+        let painelOrdensCriadas = document.getElementById('ordens-criadas');
+        if (painelOrdensCriadas) {
+            painelOrdensCriadas.style.display = 'block';
+        }
         if (typeof carregarOrdensCriadas === 'function') {
             carregarOrdensCriadas();
         }
     }
     
     if (btn) btn.classList.add('ativo');
-}
-    
+}    
     
     
     inputCodigo.addEventListener('input', async function() {
