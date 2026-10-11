@@ -972,22 +972,13 @@ function selecionarProdutoOrdem() {
     }
 
     let qtdMultiploBase = Number(componentes[0]['QTD MUTIPLO'] || componentes[0]['Qtd Mutipro'] || 1);
-// Gera uma lista com mais exemplos de múltiplos para ajudar o operador
-    let exemplosArray = [];
+    let exemplosArrayOrdens = [];
     for (let i = 1; i <= 8; i++) {
-        exemplosArray.push(qtdMultiploBase * i);
+        exemplosArrayOrdens.push(qtdMultiploBase * i);
     }
-    let exemplosTexto = exemplosArray.join(', ');
+    let exemplosTexto = exemplosArrayOrdens.join(', ');
 
-// Gera uma lista com mais exemplos de múltiplos para ajudar o operador
-    let exemplosArray = [];
-    for (let i = 1; i <= 10; i++) {
-        exemplosArray.push(qtdMultiploBase * i);
-    }
-    let exemplosTexto = exemplosArray.join(', ');
-
-    document.getElementById('info-multiplo-ordem').innerHTML = `ℹ️ Múltiplo padrão exigido para <strong>${codigo}</strong>: <strong>${qtdMultiploBase}</strong> (Ex: ${exemplosTexto}...)`;
-    
+    document.getElementById('info-multiplo-ordem').innerHTML = `ℹ️ Múltiplo padrão exigido para <strong>${codigo}</strong>: <strong>${qtdMultiploBase}</strong> (Ex: ${exemplosTexto}...)`;    
     // Renderiza Painel 1
     tbody1.innerHTML = '';
     componentes.forEach(row => {
