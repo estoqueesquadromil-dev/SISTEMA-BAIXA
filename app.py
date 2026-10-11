@@ -821,3 +821,47 @@ def consultar_perdas():
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao consultar perdas: {str(e)}'}), 500
+
+
+
+@app.route('/excluir_perda', methods=['POST'])
+def excluir_perda():
+    dados = request.get_json()
+    data_reg = dados.get('data')
+    tipo_reg = dados.get('tipo')
+    
+    if not data_reg or not tipo_reg:
+        return jsonify({'sucesso': False, 'mensagem': 'Dados insuficientes para exclusão.'}), 400
+
+    try:
+        data_obj = datetime.strptime(data_reg, '%Y-%m-%d')
+        nome_aba_mes = data_obj.strftime('%Y-%m')
+
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+
+        planilha_perdas = gc.open(NOME_PLANILHA_PERDAS)
+        sheet_mes = planilha_perdas.worksheet(nome_aba_mes)
+
+        # Obtém todos os registos para encontrar o número exato da linha
+        registos = sheet_mes.get_all_records()
+        
+        linha_para_apagar = None
+        for i, r in enumerate(registos):
+            d = str(r.get('Data') or r.get('DATA') or '')
+            t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '')
+            
+            # Compara a data e o tipo para encontrar a linha exata (começa no índice 2 porque a linha 1 é o cabeçalho)
+            if d == data_reg and t.lower() == tipo_reg.lower():
+                linha_para_apagar = i + 2 
+                break
+
+        if linha_para_apagar:
+            sheet_mes.delete_rows(linha_para_apagar)
+            return jsonify({'sucesso': True, 'mensagem': 'Perda excluída com sucesso!'})
+        else:
+            return jsonify({'sucesso': False, 'mensagem': 'Registo não encontrado na planilha.'}), 404
+
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': f'Erro ao excluir: {str(e)}'}), 500
