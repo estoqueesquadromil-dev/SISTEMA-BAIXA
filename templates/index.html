@@ -698,27 +698,6 @@ async function consultarPerdasServidor() {
     }
 }
 
-
-// Exibir Totais por Tipo com 3 casas decimais
-        let resumoDiv = document.getElementById('resumo-totais-perdas');
-        resumoDiv.innerHTML = '';
-        for (let [tipoItem, totalQtd] of Object.entries(dados.totais)) {
-            let totalNum = parseFloat(String(totalQtd).replace(',', '.')) || 0;
-            let badge = document.createElement('div');
-            badge.style.cssText = 'background: #343a40; color: white; padding: 8px 12px; border-radius: 4px; font-size: 13px; font-weight: bold;';
-            badge.textContent = `${tipoItem}: ${totalNum.toFixed(3)}`;
-            resumoDiv.appendChild(badge);
-        }
-
-    } catch (err) {
-        console.error(err);
-        alert('Erro ao carregar dados de perdas.');
-    }
-}
-
-    
-
-
     
     document.getElementById('data-lote').valueAsDate = new Date();
     document.getElementById('data-consulta').valueAsDate = new Date();
