@@ -73,6 +73,7 @@
         <button class="btn-aba ativo" onclick="mudarAba('baixa', this)">Realizar Baixa</button>
         <button class="btn-aba" onclick="mudarAba('consulta', this)">Consultar Baixas do Dia</button>
         <button class="btn-aba" onclick="mudarAba('inventario', this)">Inventário</button>
+        <button class="btn-aba" onclick="mudarAba('ordens', this)">Ordens</button>
     </div>
 
     <!-- PAINEL 1: REALIZAR BAIXA -->
@@ -260,6 +261,67 @@
 
 </div>
 
+<!-- PAINEL ORDENS -->
+<div id="painel-ordens" class="painel" style="display: none; padding: 20px;">
+    <h2>📦 Sistema de Criação de Ordens de Produção</h2>
+    <hr style="margin-bottom: 20px;">
+
+    <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+        <div style="flex: 2;">
+            <label for="select-produto-ordem"><strong>Digite ou selecione o Código / Descrição:</strong></label>
+            <select id="select-produto-ordem" class="form-control" onchange="selecionarProdutoOrdem()" style="width: 100%; padding: 8px; margin-top: 5px;">
+                <option value="">Selecione um produto...</option>
+            </select>
+        </div>
+        <div style="flex: 1;">
+            <label for="input-qtd-ordem"><strong>Quantidade da Ordem:</strong></label>
+            <input type="number" id="input-qtd-ordem" class="form-control" min="0" step="1" value="0" oninput="calcularPainelOrdem()" style="width: 100%; padding: 8px; margin-top: 5px;">
+        </div>
+    </div>
+
+    <div id="info-multiplo-ordem" style="margin-bottom: 20px; font-weight: bold; color: #0056b3;"></div>
+
+    <!-- PAINEL 1: ESTRUTURA PADRÃO -->
+    <h3>📋 Painel 1: Estrutura Padrão (Múltiplo Base)</h3>
+    <div style="max-height: 250px; overflow-y: auto; margin-bottom: 20px;">
+        <table id="tabela-painel-1" class="table" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background-color: #f2f2f2;">
+                    <th style="padding: 8px; border: 1px solid #ddd;">Código Principal</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">Qtd Base</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">Componente / Perfil</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">Qtd Componente</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="4" style="text-align: center; color: #777; padding: 10px;">Nenhum produto selecionado.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PAINEL 2: AJUSTADO -->
+    <h3>⚙️ Painel 2: Quantidades Ajustadas pela Ordem</h3>
+    <div style="max-height: 250px; overflow-y: auto; margin-bottom: 20px;">
+        <table id="tabela-painel-2" class="table" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background-color: #f2f2f2;">
+                    <th style="padding: 8px; border: 1px solid #ddd;">Código Principal</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">Quantidade Ordem</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">Componente / Perfil</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">Qtd Ajustada</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="4" style="text-align: center; color: #777; padding: 10px;">Insira uma quantidade válida.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="erro-qtd-ordem" style="color: #dc3545; font-weight: bold; margin-bottom: 15px;"></div>
+    
+    <button id="btn-salvar-ordem" onclick="salvarOrdemProducao()" class="btn btn-success" style="display: none; padding: 10px 20px; background-color: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 4px;">💾 Salvar Ordem</button>
+</div>
+    
 <script>
     document.getElementById('data-lote').valueAsDate = new Date();
     document.getElementById('data-consulta').valueAsDate = new Date();
@@ -279,7 +341,7 @@
     const divResultados = document.getElementById('resultados-busca');
     const inputQtd = document.getElementById('input-qtd');
 
-    function mudarAba(aba, btn) {
+function mudarAba(aba, btn) {
         document.querySelectorAll('.painel').forEach(p => p.classList.remove('ativo'));
         document.querySelectorAll('.btn-aba').forEach(b => b.classList.remove('ativo'));
         
@@ -289,10 +351,15 @@
             document.getElementById('painel-consulta').classList.add('ativo');
         } else if (aba === 'inventario') {
             document.getElementById('painel-inventario').classList.add('ativo');
+        } else if (aba === 'ordens') {
+            document.getElementById('painel-ordens').classList.add('ativo');
+            // Carrega os dados de ordens automaticamente na primeira vez que abre a aba
+            if (typeof dadosOrdensCache !== 'undefined' && dadosOrdensCache.length === 0) {
+                carregarDadosOrdens();
+            }
         }
         btn.classList.add('ativo');
     }
-
     inputCodigo.addEventListener('input', async function() {
         let termo = this.value.trim();
         produtoSelecionadoTemp = null;
@@ -836,6 +903,204 @@ function filtrarTabelaInventario() {
         let dataFim = document.getElementById('data-fim-inv').value;
         window.location.href = `/exportar_excel_inventario?inicio=${dataInicio}&fim=${dataFim}`;
     }
+
+
+let dadosOrdensCache = [];
+let produtoSelecionadoCache = null;
+
+function carregarDadosOrdens() {
+    fetch('/buscar_dados_ordens')
+        .then(res => res.json())
+        .then(data => {
+            if (data.sucesso) {
+                dadosOrdensCache = data.itens;
+                popularSelectOrdens();
+            } else {
+                alert('Erro ao carregar dados de ordens: ' + data.mensagem);
+            }
+        })
+        .catch(err => console.error('Erro na requisição de ordens:', err));
+}
+
+function popularSelectOrdens() {
+    let select = document.getElementById('select-produto-ordem');
+    select.innerHTML = '<option value="">Selecione um produto...</option>';
+    
+    // Extrai produtos e descrições únicos
+    let unicos = {};
+    dadosOrdensCache.forEach(row => {
+        let prod = String(row.PRODUTO || row.Produto || '').trim();
+        let desc = String(row.DESCRICAO || row.Descricao || '').trim();
+        if (prod) {
+            unicos[prod] = desc;
+        }
+    });
+
+    for (let [prod, desc] of Object.entries(unicos)) {
+        let opt = document.createElement('option');
+        opt.value = prod;
+        opt.textContent = `${prod} - ${desc}`;
+        select.appendChild(opt);
+    }
+}
+
+function selecionarProdutoOrdem() {
+    let codigo = document.getElementById('select-produto-ordem').value;
+    let tbody1 = document.querySelector('#tabela-painel-1 tbody');
+    let tbody2 = document.querySelector('#tabela-painel-2 tbody');
+    document.getElementById('info-multiplo-ordem').innerHTML = '';
+    document.getElementById('erro-qtd-ordem').innerHTML = '';
+    document.getElementById('btn-salvar-ordem').style.display = 'none';
+    tbody2.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777; padding: 10px;">Insira uma quantidade válida.</td></tr>';
+
+    if (!codigo) {
+        tbody1.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777; padding: 10px;">Nenhum produto selecionado.</td></tr>';
+        produtoSelecionadoCache = null;
+        return;
+    }
+
+    // Filtra componentes do produto
+    let componentes = dadosOrdensCache.filter(row => String(row.PRODUTO || row.Produto || '').trim() === codigo);
+    produtoSelecionadoCache = componentes;
+
+    if (componentes.length === 0) {
+        tbody1.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777; padding: 10px;">Nenhum componente encontrado.</td></tr>';
+        return;
+    }
+
+    let qtdMultiploBase = Number(componentes[0]['QTD MUTIPLO'] || componentes[0]['Qtd Mutipro'] || 1);
+    document.getElementById('info-multiplo-ordem').innerHTML = `ℹ️ Múltiplo padrão exigido para ${codigo}: ${qtdMultiploBase} (Ex: ${qtdMultiploBase}, ${qtdMultiploBase*2}, ${qtdMultiploBase*3}...)`;
+
+    // Renderiza Painel 1
+    tbody1.innerHTML = '';
+    componentes.forEach(row => {
+        let comp = String(row.COMPONENTE || row.Componente || '');
+        let qtdComp = Number(row.QTD || row.Qtd || 0);
+        let isSucata = comp.toUpperCase().startsWith('SUC');
+
+        if (!isSucata) {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="padding: 8px; border: 1px solid #ddd;">${codigo}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">${qtdMultiploBase}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">${comp}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">${qtdComp}</td>
+            `;
+            tbody1.appendChild(tr);
+        }
+    });
+
+    calcularPainelOrdem();
+}
+
+function calcularPainelOrdem() {
+    if (!produtoSelecionadoCache || produtoSelecionadoCache.length === 0) return;
+
+    let qtdDigitada = Number(document.getElementById('input-qtd-ordem').value);
+    let codigo = document.getElementById('select-produto-ordem').value;
+    let qtdMultiploBase = Number(produtoSelecionadoCache[0]['QTD MUTIPLO'] || produtoSelecionadoCache[0]['Qtd Mutipro'] || 1);
+    let tbody2 = document.querySelector('#tabela-painel-2 tbody');
+    let divErro = document.getElementById('erro-qtd-ordem');
+    let btnSalvar = document.getElementById('btn-salvar-ordem');
+
+    tbody2.innerHTML = '';
+    divErro.innerHTML = '';
+    btnSalvar.style.display = 'none';
+
+    if (qtdDigitada <= 0) {
+        tbody2.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777; padding: 10px;">Insira uma quantidade válida.</td></tr>';
+        return;
+    }
+
+    if (qtdDigitada % qtdMultiploBase !== 0) {
+        divErro.innerHTML = `❌ Erro: A quantidade digitada (${qtdDigitada}) não é válida! Deve ser múltiplo de ${qtdMultiploBase} (${qtdMultiploBase}, ${qtdMultiploBase*2}, ${qtdMultiploBase*3}...).`;
+        tbody2.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777; padding: 10px;">Quantidade inválida.</td></tr>';
+        return;
+    }
+
+    let fator = qtdDigitada / qtdMultiploBase;
+    let itensParaSalvar = [];
+
+    produtoSelecionadoCache.forEach(row => {
+        let comp = String(row.COMPONENTE || row.Componente || '');
+        let qtdComp = Number(row.QTD || row.Qtd || 0);
+        let isSucata = comp.toUpperCase().startsWith('SUC');
+
+        if (!isSucata) {
+            let qtdCalculada = qtdComp * fator;
+            itensParaSalvar.push({
+                CodigoPrincipal: codigo,
+                QuantidadeOrdem: qtdDigitada,
+                Componente: comp,
+                QtdAjustada: qtdCalculada
+            });
+
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="padding: 8px; border: 1px solid #ddd;">${codigo}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">${qtdDigitada}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">${comp}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">${qtdCalculada}</td>
+            `;
+            tbody2.appendChild(tr);
+        }
+    });
+
+    if (itensParaSalvar.length > 0) {
+        btnSalvar.style.display = 'inline-block';
+    }
+}
+
+function salvarOrdemProducao() {
+    let codigo = document.getElementById('select-produto-ordem').value;
+    let qtdDigitada = Number(document.getElementById('input-qtd-ordem').value);
+    let tbody2 = document.querySelector('#tabela-painel-2 tbody');
+    let linhasTr = tbody2.querySelectorAll('tr');
+
+    let itensOrdem = [];
+    linhasTr.forEach(tr => {
+        let tds = tr.querySelectorAll('td');
+        if (tds.length >= 4) {
+            itensOrdem.push({
+                CodigoPrincipal: tds[0].textContent,
+                QuantidadeOrdem: Number(tds[1].textContent),
+                Componente: tds[2].textContent,
+                QtdAjustada: Number(tds[3].textContent)
+            });
+        }
+    });
+
+    if (itensOrdem.length === 0) {
+        alert('Não há itens válidos na ordem para salvar.');
+        return;
+    }
+
+    // Data de hoje no formato YYYY-MM-DD
+    let hojeStr = new Date().toISOString().split('T')[0];
+
+    fetch('/salvar_ordem_producao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: hojeStr, itens: itensOrdem })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.sucesso) {
+            alert(`✅ Ordem gerada e salva com sucesso para o produto ${codigo} (Qtd: ${qtdDigitada})!`);
+            document.getElementById('input-qtd-ordem').value = 0;
+            calcularPainelOrdem();
+        } else {
+            alert('Erro ao salvar ordem: ' + data.mensagem);
+        }
+    })
+    .catch(err => {
+        console.error('Erro:', err);
+        alert('Erro de comunicação ao salvar a ordem.');
+    });
+}
+
+
+    
 </script>
 
 </body>
