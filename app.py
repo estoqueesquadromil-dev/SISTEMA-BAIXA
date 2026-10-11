@@ -534,3 +534,157 @@ def salvar_ordem_producao():
         return jsonify({'sucesso': True, 'mensagem': f'Ordem de produção registada com sucesso na aba {data_hoje}!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+# ==========================================
+# NOVAS ROTAS PARA O MÓDULO "ORDENS CRIADAS"
+# ==========================================
+
+@app.route('/listar_ordens_criadas', methods=['GET'])
+def listar_ordens_criadas():
+    try:
+        data_filtro = request.args.get('data', '').strip()
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+        
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+        todas_abas = planilha.worksheets()
+        
+        ordens_unicas_dict = {} # Agrupa por ordem única para listar na tabela principal
+        
+        for aba in todas_abas:
+            nome_aba = aba.title.strip()
+            
+            # Se o utilizador aplicou um filtro de data, ignora outras abas
+            if data_filtro and nome_aba != data_filtro:
+                continue
+                
+            try:
+                # Valida se o título da aba é uma data válida (YYYY-MM-DD)
+                datetime.strptime(nome_aba, '%Y-%m-%d')
+            except ValueError:
+                continue # Ignora abas como "dados" ou outras que não sejam datas
+            
+            registos = aba.get_all_records()
+            for index, r in enumerate(registos):
+                linha_planilha = index + 2
+                codigo_principal = str(r.get('CodigoPrincipal') or r.get('Código Principal') or '').strip()
+                qtd_ordem = r.get('QuantidadeOrdem') or r.get('Quantidade Ordem') or 0
+                
+                if not codigo_principal:
+                    continue
+                
+                # Identificador único combinando a aba (data) e o código/linha para exclusão
+                # Como uma ordem pode ter múltiplos componentes, agrupamos pelo Código Principal e Quantidade na data
+                chave_unica = f"{nome_aba}_{codigo_principal}_{qtd_ordem}"
+                
+                if chave_unica not in ordens_unicas_dict:
+                    ordens_unicas_dict[chave_unica] = {
+                        "id": f"{nome_aba}|{linha_planilha}", # Guarda a aba e a primeira linha de referência
+                        "data": nome_aba,
+                        "codigoPrincipal": codigo_principal,
+                        "quantidadeOrdem": qtd_ordem
+                    }
+                    
+        lista_ordens = list(ordens_unicas_dict.values())
+        return jsonify({'sucesso': True, 'ordens': lista_ordens})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+@app.route('/excluir_ordem_criada', methods=['POST'])
+def excluir_ordem_criada():
+    try:
+        dados = request.get_json()
+        id_ordem = dados.get('id', '') # Formato recebido: "YYYY-MM-DD|linha"
+        
+        if '|' not in id_ordem:
+            return jsonify({'sucesso': False, 'mensagem': 'ID de ordem inválido.'}), 400
+            
+        nome_aba, linha_str = id_ordem.split('|')
+        linha_alvo = int(linha_str)
+        
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+        aba = planilha.worksheet(nome_aba)
+        
+        # Lê todas as linhas para garantir que removemos todos os componentes associados àquele Código Principal e Quantidade na mesma data
+        linhas = aba.get_all_values()
+        if not linhas or len(linhas) < 2:
+            return jsonify({'sucesso': False, 'mensagem': 'Aba vazia.'})
+            
+        cabecalho = [c.upper().strip() for c in linhas[0]]
+        idx_cod = cabecalho.index('CODIGOPRINCIPAL') if 'CODIGOPRINCIPAL' in cabecalho else (cabecalho.index('CÓDIGO PRINCIPAL') if 'CÓDIGO PRINCIPAL' in cabecalho else 1)
+        idx_qtd = cabecalho.index('QUANTIDADEORDEM') if 'QUANTIDADEORDEM' in cabecalho else (cabecalho.index('QUANTIDADE ORDEM') if 'QUANTIDADE ORDEM' in cabecalho else 2)
+        
+        if linha_alvo - 1 < len(linhas):
+            linha_referencia = linhas[linha_alvo - 1]
+            cod_alvo = linha_referencia[idx_cod]
+            qtd_alvo = linha_referencia[idx_qtd]
+            
+            # Remove de baixo para cima para não alterar os índices durante a remoção
+            linhas_para_remover = []
+            for idx in range(len(linhas) - 1, 0, -1):
+                if linhas[idx][idx_cod] == cod_alvo and linhas[idx][idx_qtd] == qtd_alvo:
+                    linhas_para_remover.append(idx + 1)
+                    
+            for l_num in linhas_para_remover:
+                aba.delete_rows(l_num)
+                
+            return jsonify({'sucesso': True, 'mensagem': 'Ordem excluída com sucesso!'})
+        else:
+            return jsonify({'sucesso': False, 'mensagem': 'Linha não encontrada na aba.'}), 404
+            
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+@app.route('/exportar_excel_ordens', methods=['GET'])
+def exportar_excel_ordens():
+    try:
+        data_filtro = request.args.get('data', '').strip()
+        gc = conectar_google_sheets()
+        if not gc:
+            return "Erro de conexão com o Google Sheets", 500
+            
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+        todas_abas = planilha.worksheets()
+        
+        dados_excel = []
+        for aba in todas_abas:
+            nome_aba = aba.title.strip()
+            if data_filtro and nome_aba != data_filtro:
+                continue
+            try:
+                datetime.strptime(nome_aba, '%Y-%m-%d')
+            except ValueError:
+                continue
+                
+            registos = aba.get_all_records()
+            for r in registos:
+                dados_excel.append({
+                    "Data": r.get('Data') or nome_aba,
+                    "Código Principal": r.get('CodigoPrincipal') or r.get('Código Principal') or '',
+                    "Quantidade Ordem": r.get('QuantidadeOrdem') or r.get('Quantidade Ordem') or 0,
+                    "Componente / Perfil": r.get('Componente / Perfil') or r.get('Componente') or '',
+                    "Qtd Ajustada": r.get('Qtd Ajustada') or r.get('QtdAjustada') or 0
+                })
+                
+        if not dados_excel:
+            return "Nenhuma ordem encontrada para exportar.", 404
+            
+        df = pd.DataFrame(dados_excel)
+        csv_data = df.to_csv(index=False, sep=';', encoding='utf-8-sig')
+        
+        nome_arquivo = f"ordens_{data_filtro}.csv" if data_filtro else "todas_ordens_criadas.csv"
+        return Response(
+            csv_data,
+            mimetype="text/csv",
+            headers={"Content-disposition": f"attachment; filename={nome_arquivo}"}
+        )
+    except Exception as e:
+        return f"Erro ao exportar: {str(e)}", 500
