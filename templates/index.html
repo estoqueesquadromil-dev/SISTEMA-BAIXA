@@ -327,6 +327,46 @@
 </div>
 
 
+
+
+
+<div id="ordens-criadas" class="tab-content" style="display: none;">
+    <h2>Ordens de Produção Criadas</h2>
+    
+    <!-- Filtros e Botão Excel -->
+    <div style="margin: 15px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <label for="filtro-data-ordens">Filtrar por Data:</label>
+        <input type="date" id="filtro-data-ordens" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+        <button onclick="carregarOrdensCriadas()" style="padding: 6px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Filtrar</button>
+        <button onclick="baixarExcelOrdensCriadas()" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Baixar Excel</button>
+    </div>
+
+    <!-- Tabela de Ordens Criadas -->
+    <div style="overflow-x: auto;">
+        <table id="tabela-ordens-criadas" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white;">
+            <thead>
+                <tr style="background-color: #f8f9fa; text-align: left;">
+                    <th style="padding: 10px; border: 1px solid #ddd;">Data</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Código Principal</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Quantidade Ordem</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #777; padding: 15px;">Carregando ordens...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div> <!-- FIM DO PAINEL ORDENS CRIADAS -->
+
+
+
+
+
+
+    
 <!-- PAINEL KG-M (PERDAS E APONTAMENTOS) -->
 <div id="kg-m" class="tab-content" style="display: none;">
     <h2>Gestão de Perdas e Apontamentos (kg-m)</h2>
