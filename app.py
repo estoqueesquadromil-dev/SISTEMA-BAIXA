@@ -769,13 +769,12 @@ def consultar_perdas():
                 d = str(r.get('Data') or r.get('DATA') or '')
                 t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '')
                 
-                # Leitura ultra segura da quantidade convertendo string com vírgula para float limpo
+                # TRATAMENTO DEFINITIVO DA QUANTIDADE:
+                # Converte para string, substitui vírgula por ponto para evitar o erro de escala (ex: 1,2 vira 1.2)
                 raw_qtd = r.get('Quantidade') or r.get('QUANTIDADE') or 0
                 try:
-                    if isinstance(raw_qtd, str):
-                        q = float(raw_qtd.replace(',', '.'))
-                    else:
-                        q = float(raw_qtd)
+                    qtd_str = str(raw_qtd).replace(',', '.').strip()
+                    q = float(qtd_str)
                 except ValueError:
                     q = 0.0
 
@@ -814,4 +813,4 @@ def consultar_perdas():
         })
 
     except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': f'Erro ao consultar perdas: {str(e)}'}), 500
+        return jsonify({'sucesso': False, 'mensagem': f'Erro a consultar perdas: {str(e)}'}), 500
