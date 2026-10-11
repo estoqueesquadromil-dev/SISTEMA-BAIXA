@@ -318,40 +318,44 @@ def consultar_inventario_periodo():
 
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
         todos_itens = []
-        delta = timedelta(days=1)
-        atual = data_inicio
         
-        while atual <= data_fim:
-            nome_aba = atual.strftime('%Y-%m-%d')
-            
+        # OTIMIZAÇÃO: Obtém todas as abas de uma só vez (1 único pedido à API do Google Sheets)
+        todas_abas = planilha_mov.worksheets()
+        
+        for aba in todas_abas:
+            nome_aba = aba.title.strip()
             try:
-                sheet_mov = planilha_mov.worksheet(nome_aba)
-                registos = sheet_mov.get_all_records()
+                # Tenta converter o nome da aba para data (formato YYYY-MM-DD)
+                data_aba = datetime.strptime(nome_aba, '%Y-%m-%d')
                 
-                for index, r in enumerate(registos):
-                    linha_planilha = index + 2
+                # Verifica se está dentro do período selecionado
+                if data_inicio <= data_aba <= data_fim:
+                    registos = aba.get_all_records()
                     
-                    item_formatado = {
-                        "Linha": linha_planilha,
-                        "Aba": nome_aba,
-                        "Data": r.get('Data') or r.get('DATA') or nome_aba,
-                        "Código": r.get('Código') or r.get('CODIGO') or r.get('Codigo') or '',
-                        "Quantidade": r.get('Quantidade') or r.get('QUANTIDADE') or 1,
-                        "Tipo": r.get('Tipo') or r.get('TIPO') or 'Baixa Diaria',
-                        "Status": r.get('Status') or r.get('STATUS') or 'Não',
-                        "InventarioFeito": r.get('Inventario Feito') or r.get('INVENTARIO FEITO') or r.get('Inventario') or 'Não'
-                    }
-                    todos_itens.append(item_formatado)
+                    for index, r in enumerate(registos):
+                        linha_planilha = index + 2
+                        
+                        item_formatado = {
+                            "Linha": linha_planilha,
+                            "Aba": nome_aba,
+                            "Data": r.get('Data') or r.get('DATA') or nome_aba,
+                            "Código": r.get('Código') or r.get('CODIGO') or r.get('Codigo') or '',
+                            "Quantidade": r.get('Quantidade') or r.get('QUANTIDADE') or 1,
+                            "Tipo": r.get('Tipo') or r.get('TIPO') or 'Baixa Diaria',
+                            "Status": r.get('Status') or r.get('STATUS') or 'Não',
+                            "InventarioFeito": r.get('Inventario Feito') or r.get('INVENTARIO FEITO') or r.get('Inventario') or 'Não'
+                        }
+                        todos_itens.append(item_formatado)
+            except ValueError:
+                # Ignora abas que não estejam no formato de data (ex: abas de testes ou rascunhos)
+                continue
             except Exception:
                 pass
                 
-            atual += delta
-            
         return jsonify({'sucesso': True, 'itens': todos_itens})
     
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
 
 @app.route('/atualizar_inventario', methods=['POST'])
 def atualizar_inventario():
