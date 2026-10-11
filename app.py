@@ -761,8 +761,17 @@ def consultar_perdas():
             for r in registos:
                 d = str(r.get('Data') or r.get('DATA') or '')
                 t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '')
-                # Alterado de int() para float() para ler com precisão decimal
-                q = float(r.get('Quantidade') or r.get('QUANTIDADE') or 0)
+                
+                # Leitura ultra segura da quantidade convertendo string com vírgula para float limpo
+                raw_qtd = r.get('Quantidade') or r.get('QUANTIDADE') or 0
+                try:
+                    if isinstance(raw_qtd, str):
+                        q = float(raw_qtd.replace(',', '.'))
+                    else:
+                        q = float(raw_qtd)
+                except ValueError:
+                    q = 0.0
+
                 p = str(r.get('Perfil') or r.get('PERFIL') or 'Não')
 
                 if data_inicio and d < data_inicio:
