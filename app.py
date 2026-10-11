@@ -710,7 +710,7 @@ def salvar_lote_perdas():
         try:
             planilha_perdas = gc.open(NOME_PLANILHA_PERDAS)
         except gspread.exceptions.SpreadsheetNotFound:
-            return jsonify({'sucesso': False, 'mensagem': f'A planilha "{NOME_PLANILHA_PERDAS}" não foi encontrada no Google Drive. Crie-a manualmente.'}), 500
+            return jsonify({'sucesso': False, 'mensagem': f'A planilha "{NOME_PLANILHA_PERDAS}" não foi encontrada no Google Drive.'}), 500
 
         try:
             sheet_mes = planilha_perdas.worksheet(nome_aba_mes)
@@ -722,24 +722,26 @@ def salvar_lote_perdas():
         for item in itens:
             tipo_perda = item.get('tipo', '')
             
-            # Converte de forma limpa garantindo o float exato
+            # Conversão robusta para garantir o float puro exato sem distorções de escala
             try:
-                raw_val = str(item.get('quantidade', 0)).replace(',', '.')
+                raw_val = str(item.get('quantidade', 0)).replace(',', '.').strip()
                 quantidade = float(raw_val)
             except (ValueError, TypeError):
                 quantidade = 0.0
                 
-            perfil = item.get('perfil', 'Não') # 'Sim' ou 'Não'
+            perfil = item.get('perfil', 'Não')
             
             linhas_para_adicionar.append([data_lancamento, tipo_perda, quantidade, perfil, 'Sistema'])
 
-        # CORREÇÃO DEFINITIVA: value_input_option='USER_ENTERED' força o Google Sheets a aceitar o float exatamente como decimal
+        # USER_ENTERED força o Google Sheets a interpretar o número decimal exatamente como enviado
         sheet_mes.append_rows(linhas_para_adicionar, value_input_option='USER_ENTERED')
         
-        return jsonify({'sucesso': True, 'mensagem': f'Perdas guardadas com sucesso na aba {nome_aba_mes} da planilha Perdas!'})
+        return jsonify({'sucesso': True, 'mensagem': f'Perdas guardadas com sucesso na aba {nome_aba_mes}!'})
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao salvar perdas: {str(e)}'}), 500
+
+
 
 @app.route('/consultar_perdas', methods=['GET'])
 def consultar_perdas():
