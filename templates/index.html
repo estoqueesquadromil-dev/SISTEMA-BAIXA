@@ -402,7 +402,7 @@
             
             <div style="flex: 1; min-width: 120px;">
                 <label for="perda-qtd" style="display: block; margin-bottom: 5px; font-weight: bold;">Quantidade:</label>
-                <input type="number" id="perda-qtd" value="1" min="1" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <input type="number" id="perda-qtd" value="1" step="0.001" min="0.001" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
             </div>
             
             <div style="display: flex; align-items: center; height: 38px; gap: 8px; min-width: 100px;">
@@ -530,10 +530,11 @@
 
     let listaPerdasTemp = [];
 
-    function adicionarItemPerdaTemp() {
+function adicionarItemPerdaTemp() {
         let data = document.getElementById('perda-data').value;
         let tipo = document.getElementById('perda-tipo').value;
-        let qtd = parseInt(document.getElementById('perda-qtd').value) || 0;
+        // Alterado de parseInt para parseFloat para aceitar decimais
+        let qtd = parseFloat(document.getElementById('perda-qtd').value) || 0;
         let perfilCheckbox = document.getElementById('perda-perfil').checked;
         let perfil = perfilCheckbox ? 'Sim' : 'Não';
 
@@ -550,12 +551,13 @@
         atualizarTabelaLotePerdas();
     }
 
+    
     function removerItemPerdaTemp(index) {
         listaPerdasTemp.splice(index, 1);
         atualizarTabelaLotePerdas();
     }
 
-    function atualizarTabelaLotePerdas() {
+function atualizarTabelaLotePerdas() {
         let tbody = document.querySelector('#tabela-lote-perdas tbody');
         tbody.innerHTML = '';
 
@@ -569,7 +571,7 @@
             tr.innerHTML = `
                 <td style="padding: 8px; border: 1px solid #ddd;">${item.data}</td>
                 <td style="padding: 8px; border: 1px solid #ddd;">${item.tipo}</td>
-                <td style="padding: 8px; border: 1px solid #ddd;">${item.quantidade}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">${Number(item.quantidade).toFixed(3)}</td>
                 <td style="padding: 8px; border: 1px solid #ddd;">${item.perfil}</td>
                 <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
                     <button onclick="removerItemPerdaTemp(${index})" style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">Excluir</button>
@@ -579,6 +581,7 @@
         });
     }
 
+    
     async function salvarLotePerdasServidor() {
         if (listaPerdasTemp.length === 0) {
             alert('A lista está vazia! Adicione itens antes de salvar.');
@@ -609,7 +612,7 @@
         }
     }
 
-    async function consultarPerdasServidor() {
+async function consultarPerdasServidor() {
         let inicio = document.getElementById('filtro-perda-inicio').value;
         let fim = document.getElementById('filtro-perda-fim').value;
         let tipo = document.getElementById('filtro-perda-tipo').value;
@@ -637,20 +640,20 @@
                     tr.innerHTML = `
                         <td style="padding: 10px; border: 1px solid #ddd;">${item.Data}</td>
                         <td style="padding: 10px; border: 1px solid #ddd;">${item.Tipo}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">${item.Quantidade}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${Number(item.Quantidade).toFixed(3)}</td>
                         <td style="padding: 10px; border: 1px solid #ddd;">${item.Perfil}</td>
                     `;
                     tbody.appendChild(tr);
                 });
             }
 
-            // Exibir Totais por Tipo
+            // Exibir Totais por Tipo com 3 casas decimais
             let resumoDiv = document.getElementById('resumo-totais-perdas');
             resumoDiv.innerHTML = '';
             for (let [tipoItem, totalQtd] of Object.entries(dados.totais)) {
                 let badge = document.createElement('div');
                 badge.style.cssText = 'background: #343a40; color: white; padding: 8px 12px; border-radius: 4px; font-size: 13px; font-weight: bold;';
-                badge.textContent = `${tipoItem}: ${totalQtd}`;
+                badge.textContent = `${tipoItem}: ${Number(totalQtd).toFixed(3)}`;
                 resumoDiv.appendChild(badge);
             }
 
@@ -659,8 +662,6 @@
             alert('Erro ao carregar dados de perdas.');
         }
     }
-
-
 
     
 
