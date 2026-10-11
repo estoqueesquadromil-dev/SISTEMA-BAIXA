@@ -638,11 +638,14 @@ async function consultarPerdasServidor() {
                 tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777; padding: 15px;">Nenhum registo encontrado com os filtros selecionados.</td></tr>';
             } else {
                 dados.itens.forEach(item => {
+                    // Converte explicitamente o valor recebido para float puro
+                    let qtdNum = parseFloat(String(item.Quantidade).replace(',', '.')) || 0;
+
                     let tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td style="padding: 10px; border: 1px solid #ddd;">${item.Data}</td>
                         <td style="padding: 10px; border: 1px solid #ddd;">${item.Tipo}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">${Number(item.Quantidade).toFixed(3)}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${qtdNum.toFixed(3)}</td>
                         <td style="padding: 10px; border: 1px solid #ddd;">${item.Perfil}</td>
                     `;
                     tbody.appendChild(tr);
@@ -653,9 +656,10 @@ async function consultarPerdasServidor() {
             let resumoDiv = document.getElementById('resumo-totais-perdas');
             resumoDiv.innerHTML = '';
             for (let [tipoItem, totalQtd] of Object.entries(dados.totais)) {
+                let totalNum = parseFloat(String(totalQtd).replace(',', '.')) || 0;
                 let badge = document.createElement('div');
                 badge.style.cssText = 'background: #343a40; color: white; padding: 8px 12px; border-radius: 4px; font-size: 13px; font-weight: bold;';
-                badge.textContent = `${tipoItem}: ${Number(totalQtd).toFixed(3)}`;
+                badge.textContent = `${tipoItem}: ${totalNum.toFixed(3)}`;
                 resumoDiv.appendChild(badge);
             }
 
