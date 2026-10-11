@@ -721,18 +721,25 @@ def salvar_lote_perdas():
         linhas_para_adicionar = []
         for item in itens:
             tipo_perda = item.get('tipo', '')
-            # Alterado de int() para float() para aceitar as 3 casas decimais
-            quantidade = float(item.get('quantidade', 0))
+            
+            # Converte de forma limpa garantindo o float exato
+            try:
+                raw_val = str(item.get('quantidade', 0)).replace(',', '.')
+                quantidade = float(raw_val)
+            except (ValueError, TypeError):
+                quantidade = 0.0
+                
             perfil = item.get('perfil', 'Não') # 'Sim' ou 'Não'
             
             linhas_para_adicionar.append([data_lancamento, tipo_perda, quantidade, perfil, 'Sistema'])
 
-        sheet_mes.append_rows(linhas_para_adicionar)
+        # CORREÇÃO DEFINITIVA: value_input_option='USER_ENTERED' força o Google Sheets a aceitar o float exatamente como decimal
+        sheet_mes.append_rows(linhas_para_adicionar, value_input_option='USER_ENTERED')
+        
         return jsonify({'sucesso': True, 'mensagem': f'Perdas guardadas com sucesso na aba {nome_aba_mes} da planilha Perdas!'})
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao salvar perdas: {str(e)}'}), 500
-
 
 @app.route('/consultar_perdas', methods=['GET'])
 def consultar_perdas():
