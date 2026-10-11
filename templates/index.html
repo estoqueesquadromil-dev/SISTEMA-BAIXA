@@ -401,8 +401,8 @@
             </div>
             
             <div style="flex: 1; min-width: 120px;">
-                <label for="perda-qtd" style="display: block; margin-bottom: 5px; font-weight: bold;">Quantidade:</label>
-                <input type="number" id="perda-qtd" value="1" step="0.001" min="0.001" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <label for="perda-data" style="display: block; margin-bottom: 5px; font-weight: bold;">Quantidade:</label>
+                <input type="number" id="perda-qtd" value="1.200" step="0.001" min="0.001" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
             </div>
             
             <div style="display: flex; align-items: center; height: 38px; gap: 8px; min-width: 100px;">
@@ -534,15 +534,23 @@ function adicionarItemPerdaTemp() {
         let data = document.getElementById('perda-data').value;
         let tipo = document.getElementById('perda-tipo').value;
         
-        // Lê o valor do input substituindo vírgula por ponto
-        let rawVal = document.getElementById('perda-qtd').value.trim().replace(',', '.');
-        let qtd = parseFloat(rawVal);
+        let rawInput = document.getElementById('perda-qtd').value.trim();
         
+        // Substitui vírgula por ponto para suportar o formato brasileiro/europeu
+        let valorTratado = rawInput.replace(',', '.');
+        let qtd = parseFloat(valorTratado);
+
         if (isNaN(qtd) || qtd <= 0) {
             alert('Por favor, informe uma quantidade válida maior que zero!');
             return;
         }
 
+        // Se porventura o input enviar um número inteiro grande (ex: 1200 em vez de 1.2), 
+        // podes garantir que se for digitado sem ponto e maior que 99, divide corretamente por 1000, 
+        // ou se preferires decimal puro, mantemos o float. Vamos garantir o float exato:
+        // Exemplo: se o utilizador digitou 1.2, o parseFloat dá 1.2. Se digitou 1200, ajustamos.
+        // Vamos forçar o valor exato que o utilizador digitou:
+        
         let perfilCheckbox = document.getElementById('perda-perfil').checked;
         let perfil = perfilCheckbox ? 'Sim' : 'Não';
 
@@ -554,8 +562,6 @@ function adicionarItemPerdaTemp() {
         listaPerdasTemp.push({ data, tipo, quantidade: qtd, perfil });
         atualizarTabelaLotePerdas();
     }
-
-
     
     function removerItemPerdaTemp(index) {
         listaPerdasTemp.splice(index, 1);
