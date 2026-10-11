@@ -74,7 +74,7 @@
         <button class="btn-aba" onclick="mudarAba('consulta', this)">Consultar Baixas</button>
         <button class="btn-aba" onclick="mudarAba('inventario', this)">Inventário</button>
         <button class="btn-aba" onclick="mudarAba('ordens', this)">Ordens</button>
-        <button class="btn-aba" onclick="mudarAba('ordens-criadas', this)">Ordens Criadas</button>
+        <button class="btn-aba" onclick="mudarAba('ordens-criadas', this)">kg-m</button>
     </div>
 
     <!-- PAINEL 1: REALIZAR BAIXA -->
@@ -394,7 +394,7 @@ function mudarAba(aba, btn) {
         if (typeof dadosOrdensCache !== 'undefined' && dadosOrdensCache.length === 0) {
             carregarDadosOrdens();
         }
-    } else if (aba === 'ordens-criadas') {
+    } else if (aba === 'kg-m') {
         let painelOrdensCriadas = document.getElementById('ordens-criadas');
         if (painelOrdensCriadas) {
             painelOrdensCriadas.style.display = 'block';
