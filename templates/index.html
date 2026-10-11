@@ -378,11 +378,9 @@
     const inputQtd = document.getElementById('input-qtd');
 
 function mudarAba(aba, btn) {
-    // Oculta todas as abas e remove a classe ativo dos botões
     document.querySelectorAll('.tab-content').forEach(p => p.style.display = 'none');
     document.querySelectorAll('.btn-aba').forEach(b => b.classList.remove('ativo'));
     
-    // Mostra a aba selecionada correspondente
     if (aba === 'baixa') {
         document.getElementById('painel-baixa').style.display = 'block';
     } else if (aba === 'consulta') {
@@ -402,8 +400,10 @@ function mudarAba(aba, btn) {
     }
     
     if (btn) btn.classList.add('ativo');
-}    
-    }
+}
+    
+    
+    
     inputCodigo.addEventListener('input', async function() {
         let termo = this.value.trim();
         produtoSelecionadoTemp = null;
