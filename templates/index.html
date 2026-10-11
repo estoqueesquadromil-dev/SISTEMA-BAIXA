@@ -74,7 +74,7 @@
         <button class="btn-aba" onclick="mudarAba('consulta', this)">Consultar Baixas</button>
         <button class="btn-aba" onclick="mudarAba('inventario', this)">Inventário</button>
         <button class="btn-aba" onclick="mudarAba('ordens', this)">Ordens</button>
-        <button class="btn-aba" onclick="mudarAba('ordens-criadas', this)">kg-m</button>
+        <button class="btn-aba" onclick="mudarAba('kg-m', this)">kg-m</button>
     </div>
 
     <!-- PAINEL 1: REALIZAR BAIXA -->
@@ -327,38 +327,304 @@
 </div>
 
 
-<div id="ordens-criadas" class="tab-content" style="display: none;">
-    <h2>Ordens de Produção Criadas</h2>
+<!-- PAINEL KG-M (PERDAS E APONTAMENTOS) -->
+<div id="kg-m" class="tab-content" style="display: none;">
+    <h2>Gestão de Perdas e Apontamentos (kg-m)</h2>
     
-    <!-- Filtros e Botão Excel -->
-    <div style="margin: 15px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-        <label for="filtro-data-ordens">Filtrar por Data:</label>
-        <input type="date" id="filtro-data-ordens" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
-        <button onclick="carregarOrdensCriadas()" style="padding: 6px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Filtrar</button>
-        <button onclick="baixarExcelOrdensCriadas()" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Baixar Excel</button>
+    <!-- Formulário de Lançamento -->
+    <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 15px; border: 1px solid #ddd;">
+        <h3>Registar Nova Perda</h3>
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; margin-top: 10px;">
+            
+            <div style="flex: 1; min-width: 150px;">
+                <label for="perda-data" style="display: block; margin-bottom: 5px; font-weight: bold;">Data:</label>
+                <input type="date" id="perda-data" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            
+            <div style="flex: 2; min-width: 220px;">
+                <label for="perda-tipo" style="display: block; margin-bottom: 5px; font-weight: bold;">Tipo de Perda:</label>
+                <select id="perda-tipo" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="Transporte">Transporte</option>
+                    <option value="Defeito">Defeito</option>
+                    <option value="Produção">Produção</option>
+                    <option value="Pintura Branco">Pintura Branco</option>
+                    <option value="Pintura Preto">Pintura Preto</option>
+                    <option value="Policorte">Policorte</option>
+                    <option value="Sucata Alumínio">Sucata Alumínio</option>
+                    <option value="BB01B">BB01B</option>
+                    <option value="BJ03">BJ03</option>
+                    <option value="BJ05">BJ05</option>
+                    <option value="BJ06L">BJ06L</option>
+                    <option value="Sucata Baguete">Sucata Baguete</option>
+                </select>
+            </div>
+            
+            <div style="flex: 1; min-width: 120px;">
+                <label for="perda-qtd" style="display: block; margin-bottom: 5px; font-weight: bold;">Quantidade:</label>
+                <input type="number" id="perda-qtd" value="1" min="1" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            
+            <div style="display: flex; align-items: center; height: 38px; gap: 8px; min-width: 100px;">
+                <input type="checkbox" id="perda-perfil" style="width: 18px; height: 18px; cursor: pointer;">
+                <label for="perda-perfil" style="cursor: pointer; font-weight: bold;">É Perfil?</label>
+            </div>
+            
+            <div>
+                <button onclick="adicionarItemPerdaTemp()" style="padding: 9px 15px; background-color: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Adicionar</button>
+            </div>
+        </div>
     </div>
 
-    <!-- Tabela de Ordens Criadas -->
-    <div style="overflow-x: auto;">
-        <table id="tabela-ordens-criadas" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white;">
-            <thead>
-                <tr style="background-color: #f8f9fa; text-align: left;">
-                    <th style="padding: 10px; border: 1px solid #ddd;">Data</th>
-                    <th style="padding: 10px; border: 1px solid #ddd;">Código Principal</th>
-                    <th style="padding: 10px; border: 1px solid #ddd;">Quantidade Ordem</th>
-                    <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td colspan="4" style="text-align: center; color: #777; padding: 15px;">Carregando ordens...</td>
-                </tr>
-            </tbody>
-        </table>
+    <!-- Tabela Temporária (Lote Pendente) -->
+    <div style="margin-top: 20px;">
+        <h4>Itens Adicionados para Salvar</h4>
+        <div style="overflow-x: auto;">
+            <table id="tabela-lote-perdas" style="width: 100%; border-collapse: collapse; margin-top: 5px; background: white;">
+                <thead>
+                    <tr style="background-color: #e9ecef; text-align: left;">
+                        <th style="padding: 8px; border: 1px solid #ddd;">Data</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Tipo de Perda</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Quantidade</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Perfil</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #777; padding: 12px;">Nenhum item adicionado ao lote.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <button onclick="salvarLotePerdasServidor()" style="margin-top: 10px; padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">Salvar Lista de Perdas</button>
+    </div>
+
+    <hr style="margin: 30px 0; border: 0; border-top: 1px solid #ccc;">
+
+    <!-- Secção de Consulta e Filtros -->
+    <div>
+        <h3>Consultar Perdas Registadas</h3>
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; margin-top: 10px; background: #f1f3f5; padding: 15px; border-radius: 6px;">
+            
+            <div>
+                <label style="display: block; margin-bottom: 5px;">Início:</label>
+                <input type="date" id="filtro-perda-inicio" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            
+            <div>
+                <label style="display: block; margin-bottom: 5px;">Fim:</label>
+                <input type="date" id="filtro-perda-fim" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            
+            <div>
+                <label style="display: block; margin-bottom: 5px;">Tipo:</label>
+                <select id="filtro-perda-tipo" style="padding: 7px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="">Todos os Tipos</option>
+                    <option value="Transporte">Transporte</option>
+                    <option value="Defeito">Defeito</option>
+                    <option value="Produção">Produção</option>
+                    <option value="Pintura Branco">Pintura Branco</option>
+                    <option value="Pintura Preto">Pintura Preto</option>
+                    <option value="Policorte">Policorte</option>
+                    <option value="Sucata Alumínio">Sucata Alumínio</option>
+                    <option value="BB01B">BB01B</option>
+                    <option value="BJ03">BJ03</option>
+                    <option value="BJ05">BJ05</option>
+                    <option value="BJ06L">BJ06L</option>
+                    <option value="Sucata Baguete">Sucata Baguete</option>
+                </select>
+            </div>
+            
+            <div>
+                <label style="display: block; margin-bottom: 5px;">Perfil?</label>
+                <select id="filtro-perda-perfil" style="padding: 7px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="">Todos</option>
+                    <option value="Sim">Sim</option>
+                    <option value="Não">Não</option>
+                </select>
+            </div>
+            
+            <div>
+                <button onclick="consultarPerdasServidor()" style="padding: 8px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Filtrar</button>
+            </div>
+        </div>
+
+        <!-- Totais por Tipo -->
+        <div id="resumo-totais-perdas" style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+            <!-- Preenchido via JavaScript dinamicamente -->
+        </div>
+
+        <!-- Tabela de Resultados da Consulta -->
+        <div style="overflow-x: auto; margin-top: 15px;">
+            <table id="tabela-consulta-perdas" style="width: 100%; border-collapse: collapse; background: white;">
+                <thead>
+                    <tr style="background-color: #f8f9fa; text-align: left;">
+                        <th style="padding: 10px; border: 1px solid #ddd;">Data</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Tipo de Perda</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Quantidade</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Perfil</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #777; padding: 15px;">Faça uma consulta para ver os registos.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
+
+
     
 <script>
+
+
+
+// Inicializa data de hoje no campo de lançamento
+    document.addEventListener("DOMContentLoaded", function() {
+        let campoData = document.getElementById('perda-data');
+        if(campoData) campoData.valueAsDate = new Date();
+    });
+
+    let listaPerdasTemp = [];
+
+    function adicionarItemPerdaTemp() {
+        let data = document.getElementById('perda-data').value;
+        let tipo = document.getElementById('perda-tipo').value;
+        let qtd = parseInt(document.getElementById('perda-qtd').value) || 0;
+        let perfilCheckbox = document.getElementById('perda-perfil').checked;
+        let perfil = perfilCheckbox ? 'Sim' : 'Não';
+
+        if (!data) {
+            alert('Por favor, informe a data!');
+            return;
+        }
+        if (qtd <= 0) {
+            alert('A quantidade deve ser maior que zero!');
+            return;
+        }
+
+        listaPerdasTemp.push({ data, tipo, quantidade: qtd, perfil });
+        atualizarTabelaLotePerdas();
+    }
+
+    function removerItemPerdaTemp(index) {
+        listaPerdasTemp.splice(index, 1);
+        atualizarTabelaLotePerdas();
+    }
+
+    function atualizarTabelaLotePerdas() {
+        let tbody = document.querySelector('#tabela-lote-perdas tbody');
+        tbody.innerHTML = '';
+
+        if (listaPerdasTemp.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777; padding: 12px;">Nenhum item adicionado ao lote.</td></tr>';
+            return;
+        }
+
+        listaPerdasTemp.forEach((item, index) => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="padding: 8px; border: 1px solid #ddd;">${item.data}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">${item.tipo}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">${item.quantidade}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">${item.perfil}</td>
+                <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
+                    <button onclick="removerItemPerdaTemp(${index})" style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">Excluir</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function salvarLotePerdasServidor() {
+        if (listaPerdasTemp.length === 0) {
+            alert('A lista está vazia! Adicione itens antes de salvar.');
+            return;
+        }
+
+        let dataPrincipal = listaPerdasTemp[0].data;
+
+        try {
+            let resposta = await fetch('/salvar_lote_perdas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: dataPrincipal, itens: listaPerdasTemp })
+            });
+            let resultado = await resposta.json();
+
+            if (resultado.sucesso) {
+                alert(resultado.mensagem);
+                listaPerdasTemp = [];
+                atualizarTabelaLotePerdas();
+                consultarPerdasServidor(); // Atualiza a tabela de consulta
+            } else {
+                alert('Erro: ' + resultado.mensagem);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Erro de comunicação com o servidor.');
+        }
+    }
+
+    async function consultarPerdasServidor() {
+        let inicio = document.getElementById('filtro-perda-inicio').value;
+        let fim = document.getElementById('filtro-perda-fim').value;
+        let tipo = document.getElementById('filtro-perda-tipo').value;
+        let perfil = document.getElementById('filtro-perda-perfil').value;
+
+        let url = `/consultar_perdas?inicio=${inicio}&fim=${fim}&tipo=${encodeURIComponent(tipo)}&perfil=${perfil}`;
+
+        try {
+            let resposta = await fetch(url);
+            let dados = await resposta.json();
+
+            if (!dados.sucesso) {
+                alert('Erro ao consultar: ' + dados.mensagem);
+                return;
+            }
+
+            let tbody = document.querySelector('#tabela-consulta-perdas tbody');
+            tbody.innerHTML = '';
+
+            if (dados.itens.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777; padding: 15px;">Nenhum registo encontrado com os filtros selecionados.</td></tr>';
+            } else {
+                dados.itens.forEach(item => {
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="padding: 10px; border: 1px solid #ddd;">${item.Data}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${item.Tipo}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${item.Quantidade}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${item.Perfil}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // Exibir Totais por Tipo
+            let resumoDiv = document.getElementById('resumo-totais-perdas');
+            resumoDiv.innerHTML = '';
+            for (let [tipoItem, totalQtd] of Object.entries(dados.totais)) {
+                let badge = document.createElement('div');
+                badge.style.cssText = 'background: #343a40; color: white; padding: 8px 12px; border-radius: 4px; font-size: 13px; font-weight: bold;';
+                badge.textContent = `${tipoItem}: ${totalQtd}`;
+                resumoDiv.appendChild(badge);
+            }
+
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao carregar dados de perdas.');
+        }
+    }
+
+
+
+    
+
+
+    
     document.getElementById('data-lote').valueAsDate = new Date();
     document.getElementById('data-consulta').valueAsDate = new Date();
     document.getElementById('data-inicio-inv').value = '2024-01-01';
