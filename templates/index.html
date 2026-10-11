@@ -1055,7 +1055,7 @@ function calcularPainelOrdem() {
     if (!produtoSelecionadoCache || produtoSelecionadoCache.length === 0) return;
 
     let qtdDigitada = Number(document.getElementById('input-qtd-ordem').value);
-    let codigo = document.getElementById('select-produto-ordem').value;
+    let codigo = document.getElementById('input-codigo-ordem').value.trim();
     let qtdMultiploBase = Number(produtoSelecionadoCache[0]['QTD MUTIPLO'] || produtoSelecionadoCache[0]['Qtd Mutipro'] || 1);
     let tbody2 = document.querySelector('#tabela-painel-2 tbody');
     let divErro = document.getElementById('erro-qtd-ordem');
@@ -1110,7 +1110,7 @@ function calcularPainelOrdem() {
 }
 
 function salvarOrdemProducao() {
-    let codigo = document.getElementById('select-produto-ordem').value;
+    let codigo = document.getElementById('input-codigo-ordem').value.trim();
     let qtdDigitada = Number(document.getElementById('input-qtd-ordem').value);
     let tbody2 = document.querySelector('#tabela-painel-2 tbody');
     let linhasTr = tbody2.querySelectorAll('tr');
@@ -1133,7 +1133,6 @@ function salvarOrdemProducao() {
         return;
     }
 
-    // Data de hoje no formato YYYY-MM-DD
     let hojeStr = new Date().toISOString().split('T')[0];
 
     fetch('/salvar_ordem_producao', {
@@ -1156,8 +1155,6 @@ function salvarOrdemProducao() {
         alert('Erro de comunicação ao salvar a ordem.');
     });
 }
-
-
     
 </script>
 
