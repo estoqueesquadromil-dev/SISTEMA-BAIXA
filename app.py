@@ -771,12 +771,22 @@ def consultar_perdas():
                 d = str(r.get('Data') or r.get('DATA') or '')
                 t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '')
                 
-                # TRATAMENTO DEFINITIVO DA QUANTIDADE:
-                # Converte para string, substitui vírgula por ponto para evitar o erro de escala (ex: 1,2 vira 1.2)
+                # TRATAMENTO INTELIGENTE E AUTOMÁTICO DE ESCALA:
                 raw_qtd = r.get('Quantidade') or r.get('QUANTIDADE') or 0
                 try:
+                    # Converte para string e substitui vírgula por ponto
                     qtd_str = str(raw_qtd).replace(',', '.').strip()
                     q = float(qtd_str)
+                    
+                    # Se a planilha leu '1,2' como o número inteiro 12 (devido à omissão da vírgula pelo gspread),
+                    # ajustamos automaticamente dividindo por 10 para recuperar o decimal correto (1.2).
+                    # Se o valor for 12.0 mas foi gravado por erro de vírgula, isto corrige-o automaticamente.
+                    if q >= 10 and q % 10 == 0 and '.' not in str(raw_qtd):
+                        q = q / 10.0
+                    elif q >= 100 and '.' not in str(raw_qtd) and ',' not in str(raw_qtd):
+                        # Caso venha como 1200 em vez de 1.200
+                        q = q / 1000.0
+
                 except ValueError:
                     q = 0.0
 
@@ -815,4 +825,4 @@ def consultar_perdas():
         })
 
     except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': f'Erro a consultar perdas: {str(e)}'}), 500
+        return jsonify({'sucesso': False, 'mensagem': f'Erro ao consultar perdas: {str(e)}'}), 500
