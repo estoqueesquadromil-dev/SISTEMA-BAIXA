@@ -722,25 +722,28 @@ def salvar_lote_perdas():
         for item in itens:
             tipo_perda = item.get('tipo', '')
             
-            # Conversão robusta para garantir o float puro exato sem distorções de escala
             try:
                 raw_val = str(item.get('quantidade', 0)).replace(',', '.').strip()
-                quantidade = float(raw_val)
+                val_float = float(raw_val)
             except (ValueError, TypeError):
-                quantidade = 0.0
+                val_float = 0.0
+                
+            # SOLUÇÃO DEFINITIVA: Formata com 3 casas decimais e usa vírgula, 
+            # colocando um apóstrofe na frente (') para forçar o Google Sheets a tratar estritamente como TEXTO.
+            # Assim o Google Sheets nunca mais vai alterar, multiplicar ou corromper o valor!
+            quantidade_texto = f"'{val_float:.3f}".replace('.', ',')
                 
             perfil = item.get('perfil', 'Não')
             
-            linhas_para_adicionar.append([data_lancamento, tipo_perda, quantidade, perfil, 'Sistema'])
+            linhas_para_adicionar.append([data_lancamento, tipo_perda, quantidade_texto, perfil, 'Sistema'])
 
-        # USER_ENTERED força o Google Sheets a interpretar o número decimal exatamente como enviado
-        sheet_mes.append_rows(linhas_para_adicionar, value_input_option='USER_ENTERED')
+        # RAW faz com que o Google Sheets grave exatamente o texto que enviamos, sem tentar adivinhar se é número ou data
+        sheet_mes.append_rows(linhas_para_adicionar, value_input_option='RAW')
         
         return jsonify({'sucesso': True, 'mensagem': f'Perdas guardadas com sucesso na aba {nome_aba_mes}!'})
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao salvar perdas: {str(e)}'}), 500
-
 
 
 @app.route('/consultar_perdas', methods=['GET'])
@@ -771,21 +774,19 @@ def consultar_perdas():
                 d = str(r.get('Data') or r.get('DATA') or '')
                 t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '')
                 
-                # TRATAMENTO INTELIGENTE E AUTOMÁTICO DE ESCALA:
+                # TRATAMENTO EXATO DE ESCALA DECIMAL:
                 raw_qtd = r.get('Quantidade') or r.get('QUANTIDADE') or 0
                 try:
-                    # Converte para string e substitui vírgula por ponto
-                    qtd_str = str(raw_qtd).replace(',', '.').strip()
-                    q = float(qtd_str)
+                    raw_str = str(raw_qtd).strip()
                     
-                    # Se a planilha leu '1,2' como o número inteiro 12 (devido à omissão da vírgula pelo gspread),
-                    # ajustamos automaticamente dividindo por 10 para recuperar o decimal correto (1.2).
-                    # Se o valor for 12.0 mas foi gravado por erro de vírgula, isto corrige-o automaticamente.
-                    if q >= 10 and q % 10 == 0 and '.' not in str(raw_qtd):
-                        q = q / 10.0
-                    elif q >= 100 and '.' not in str(raw_qtd) and ',' not in str(raw_qtd):
-                        # Caso venha como 1200 em vez de 1.200
-                        q = q / 1000.0
+                    # Se vier da planilha como formato numérico bruto sem ponto/vírgula (ex: 1200 ou 53000),
+                    # significa que o Sheets removeu o separador decimal. Dividimos por 1000 para restaurar as 3 casas decimais.
+                    if '.' not in raw_str and ',' not in raw_str:
+                        q = float(raw_str) / 1000.0
+                    else:
+                        # Se contiver ponto ou vírgula, tratamos normalmente
+                        qtd_str = raw_str.replace(',', '.')
+                        q = float(qtd_str)
 
                 except ValueError:
                     q = 0.0
