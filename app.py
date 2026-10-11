@@ -698,3 +698,122 @@ def exportar_excel_ordens():
         )
     except Exception as e:
         return f"Erro ao exportar: {str(e)}", 500
+
+
+
+
+# ==========================================
+# MÓDULO DE PERDAS (ABA kg-m)
+# ==========================================
+NOME_PLANILHA_PERDAS = 'Perdas'
+
+@app.route('/salvar_lote_perdas', methods=['POST'])
+def salvar_lote_perdas():
+    dados = request.get_json()
+    data_lancamento = dados.get('data') # Formato YYYY-MM-DD
+    itens = dados.get('itens', [])
+
+    if not data_lancamento or not itens:
+        return jsonify({'sucesso': False, 'mensagem': 'Data ou itens de perda não informados!'}), 400
+
+    try:
+        # Extrai o ano e mês para definir o nome da aba (ex: '2026-10')
+        data_obj = datetime.strptime(data_lancamento, '%Y-%m-%d')
+        nome_aba_mes = data_obj.strftime('%Y-%m')
+
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+
+        try:
+            planilha_perdas = gc.open(NOME_PLANILHA_PERDAS)
+        except gspread.exceptions.SpreadsheetNotFound:
+            # Se a planilha não existir, cria-a (Nota: pode necessitar de partilha prévia na conta de serviço)
+            # Como alternativa segura, criamos com gc.create() ou abrimos
+            return jsonify({'sucesso': False, 'mensagem': f'A planilha "{NOME_PLANILHA_PERDAS}" não foi encontrada no Google Drive. Crie-a manualmente.'}), 500
+
+        try:
+            sheet_mes = planilha_perdas.worksheet(nome_aba_mes)
+        except gspread.exceptions.WorksheetNotFound:
+            # Cria a aba mensal com as colunas solicitadas
+            sheet_mes = planilha_perdas.add_worksheet(title=nome_aba_mes, rows="1000", cols="5")
+            sheet_mes.append_row(["Data", "Tipo de Perda", "Quantidade", "Perfil", "Usuário/Registro"])
+
+        linhas_para_adicionar = []
+        for item in itens:
+            tipo_perda = item.get('tipo', '')
+            quantidade = int(item.get('quantidade', 0))
+            perfil = item.get('perfil', 'Não') # 'Sim' ou 'Não'
+            
+            linhas_para_adicionar.append([data_lancamento, tipo_perda, quantidade, perfil, 'Sistema'])
+
+        sheet_mes.append_rows(linhas_para_adicionar)
+        return jsonify({'sucesso': True, 'mensagem': f'Perdas guardadas com sucesso na aba {nome_aba_mes} da planilha Perdas!'})
+
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': f'Erro ao salvar perdas: {str(e)}'}), 500
+
+
+@app.route('/consultar_perdas', methods=['GET'])
+def consultar_perdas():
+    data_inicio = request.args.get('inicio', '').strip()
+    data_fim = request.args.get('fim', '').strip()
+    tipo_filtro = request.args.get('tipo', '').strip()
+    perfil_filtro = request.args.get('perfil', '').strip()
+
+    try:
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+
+        planilha_perdas = gc.open(NOME_PLANILHA_PERDAS)
+        todas_abas = planilha_perdas.worksheets()
+
+        todos_registos = []
+        for aba in todas_abas:
+            nome_aba = aba.title.strip()
+            # Valida se é aba de mês (YYYY-MM)
+            try:
+                datetime.strptime(nome_aba + '-01', '%Y-%m-%d')
+            except ValueError:
+                continue
+
+            registos = aba.get_all_records()
+            for r in registos:
+                d = str(r.get('Data') or r.get('DATA') or '')
+                t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '')
+                q = int(r.get('Quantidade') or r.get('QUANTIDADE') or 0)
+                p = str(r.get('Perfil') or r.get('PERFIL') or 'Não')
+
+                # Aplicação de filtros
+                if data_inicio and d < data_inicio:
+                    continue
+                if data_fim and d > data_fim:
+                    continue
+                if tipo_filtro and t.lower() != tipo_filtro.lower():
+                    continue
+                if perfil_filtro and p.lower() != perfil_filtro.lower():
+                    continue
+
+                todos_registos.append({
+                    "Data": d,
+                    "Tipo": t,
+                    "Quantidade": q,
+                    "Perfil": p
+                })
+
+        # Calcula os totais por tipo para exibir no painel resumido
+        totais_por_tipo = {}
+        for item in todos_registos:
+            tp = item['Tipo']
+            totais_por_tipo[tp] = totais_por_tipo.get(tp, 0) + item['Quantidade']
+
+        return jsonify({
+            'sucesso': True,
+            'itens': todos_registos,
+            'totais': totais_por_tipo
+        })
+
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': f'Erro ao consultar perdas: {str(e)}'}), 500
+
