@@ -1633,6 +1633,34 @@ function baixarExcelOrdensCriadas() {
 // Certifique-se de que ao mudar para a aba de ordens criadas, os dados são carregados automaticamente:
 // (Dentro da sua função de mudar abas, adicione:)
 // if (nomeAba === 'ordens-criadas') { carregarOrdensCriadas(); }
+
+
+
+async function excluirPerdaServidor(data, tipo) {
+    if (!confirm(`Tem a certeza que deseja excluir o registo de "${tipo}" do dia ${data}?`)) {
+        return;
+    }
+
+    try {
+        let resposta = await fetch('/excluir_perda', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: data, tipo: tipo })
+        });
+        
+        let resultado = await resposta.json();
+
+        if (resultado.sucesso) {
+            alert(resultado.mensagem);
+            consultarPerdasServidor(); // Atualiza a tabela e os totais automaticamente
+        } else {
+            alert('Erro: ' + resultado.mensagem);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Erro de comunicação com o servidor ao tentar excluir.');
+    }
+}
     
 </script>
 
