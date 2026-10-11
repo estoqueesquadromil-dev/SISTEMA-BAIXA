@@ -674,7 +674,7 @@ async function consultarPerdasServidor() {
                     <td style="padding: 10px; border: 1px solid #ddd;">${qtdNum.toFixed(3)}</td>
                     <td style="padding: 10px; border: 1px solid #ddd;">${item.Perfil}</td>
                     <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
-                        <button onclick="excluirPerdaServidor('${item.Data}', '${item.Tipo}')" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">Excluir</button>
+                        <button onclick="excluirPerdaServidor('${item.Data}', '${item.Tipo}', '${qtdNum.toFixed(3)}', '${item.Perfil}')" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">Excluir</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -1636,8 +1636,8 @@ function baixarExcelOrdensCriadas() {
 
 
 
-async function excluirPerdaServidor(data, tipo) {
-    if (!confirm(`Tem a certeza que deseja excluir o registo de "${tipo}" do dia ${data}?`)) {
+async function excluirPerdaServidor(data, tipo, quantidade, perfil) {
+    if (!confirm(`Tem a certeza que deseja excluir o registo de "${tipo}" (${quantidade}) do dia ${data}?`)) {
         return;
     }
 
@@ -1645,14 +1645,19 @@ async function excluirPerdaServidor(data, tipo) {
         let resposta = await fetch('/excluir_perda', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: data, tipo: tipo })
+            body: JSON.stringify({ 
+                data: data, 
+                tipo: tipo, 
+                quantidade: quantidade, 
+                perfil: perfil 
+            })
         });
         
         let resultado = await resposta.json();
 
         if (resultado.sucesso) {
             alert(resultado.mensagem);
-            consultarPerdasServidor(); // Atualiza a tabela e os totais automaticamente
+            consultarPerdasServidor(); // Atualiza a tabela e os totais
         } else {
             alert('Erro: ' + resultado.mensagem);
         }
@@ -1660,8 +1665,7 @@ async function excluirPerdaServidor(data, tipo) {
         console.error(err);
         alert('Erro de comunicação com o servidor ao tentar excluir.');
     }
-}
-    
+}    
 </script>
 
 </body>
