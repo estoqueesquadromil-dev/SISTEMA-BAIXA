@@ -231,6 +231,11 @@
             <button class="btn-excel" onclick="exportarExcelInventario()">Baixar Excel (CSV)</button>
         </div>
 
+        <!-- Contador de Faltantes -->
+        <div id="contador-inventario-faltam" class="contador-badge" style="background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; margin-bottom: 15px; display: inline-block;">
+            Faltam fazer: 0 inventários
+        </div>
+
         <h3>Controlo de Inventário</h3>
         <div class="table-responsive">
             <table id="tabela-inventario">
@@ -711,7 +716,7 @@
         }
     }
 
-    function filtrarTabelaInventario() {
+function filtrarTabelaInventario() {
         let filtroClassificacao = document.getElementById('filtro-classificacao-inv').value;
         let filtroStatus = document.getElementById('filtro-status-inv').value;
 
@@ -730,9 +735,26 @@
             return true;
         });
 
+        // Calcula quantos inventários faltam no total geral carregado (ou nos filtrados, aqui calculamos do total carregado para dar a noção real)
+        let totalFaltam = dadosInventarioCache.filter(item => (item.InventarioFeito || 'Não').trim() === 'Não').length;
+        let badgeFaltam = document.getElementById('contador-inventario-faltam');
+        badgeFaltam.textContent = `Faltam fazer: ${totalFaltam} inventários`;
+        
+        // Altera a cor de fundo se já estiver tudo concluído
+        if (totalFaltam === 0) {
+            badgeFaltam.style.backgroundColor = '#d4edda';
+            badgeFaltam.style.color = '#155724';
+            badgeFaltam.style.borderColor = '#c3e6cb';
+        } else {
+            badgeFaltam.style.backgroundColor = '#fff3cd';
+            badgeFaltam.style.color = '#856404';
+            badgeFaltam.style.borderColor = '#ffeeba';
+        }
+
         renderizarTabelaInventario(itensFiltrados);
     }
 
+    
     function renderizarTabelaInventario(itens) {
         let tbody = document.querySelector('#tabela-inventario tbody');
         tbody.innerHTML = '';
