@@ -74,7 +74,7 @@
         <button class="btn-aba" onclick="mudarAba('consulta', this)">Consultar Baixas do Dia</button>
         <button class="btn-aba" onclick="mudarAba('inventario', this)">Inventário</button>
         <button class="btn-aba" onclick="mudarAba('ordens', this)">Ordens</button>
-        <button class="tab-button" onclick="mudarAba('ordens-criadas')">Ordens Criadas</button>
+        <button class="btn-aba" onclick="mudarAba('ordens-criadas')">Ordens Criadas</button>
     </div>
 
     <!-- PAINEL 1: REALIZAR BAIXA -->
@@ -378,23 +378,31 @@
     const inputQtd = document.getElementById('input-qtd');
 
 function mudarAba(aba, btn) {
-        document.querySelectorAll('.painel').forEach(p => p.classList.remove('ativo'));
-        document.querySelectorAll('.btn-aba').forEach(b => b.classList.remove('ativo'));
-        
-        if (aba === 'baixa') {
-            document.getElementById('painel-baixa').classList.add('ativo');
-        } else if (aba === 'consulta') {
-            document.getElementById('painel-consulta').classList.add('ativo');
-        } else if (aba === 'inventario') {
-            document.getElementById('painel-inventario').classList.add('ativo');
-        } else if (aba === 'ordens') {
-            document.getElementById('painel-ordens').classList.add('ativo');
-            // Carrega os dados de ordens automaticamente na primeira vez que abre a aba
-            if (typeof dadosOrdensCache !== 'undefined' && dadosOrdensCache.length === 0) {
-                carregarDadosOrdens();
-            }
+    // Oculta todas as abas e remove a classe ativo dos botões
+    document.querySelectorAll('.tab-content').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('.btn-aba').forEach(b => b.classList.remove('ativo'));
+    
+    // Mostra a aba selecionada correspondente
+    if (aba === 'baixa') {
+        document.getElementById('painel-baixa').style.display = 'block';
+    } else if (aba === 'consulta') {
+        document.getElementById('painel-consulta').style.display = 'block';
+    } else if (aba === 'inventario') {
+        document.getElementById('painel-inventario').style.display = 'block';
+    } else if (aba === 'ordens') {
+        document.getElementById('painel-ordens').style.display = 'block';
+        if (typeof dadosOrdensCache !== 'undefined' && dadosOrdensCache.length === 0) {
+            carregarDadosOrdens();
         }
-        btn.classList.add('ativo');
+    } else if (aba === 'ordens-criadas') {
+        document.getElementById('ordens-criadas').style.display = 'block';
+        if (typeof carregarOrdensCriadas === 'function') {
+            carregarOrdensCriadas();
+        }
+    }
+    
+    if (btn) btn.classList.add('ativo');
+}    
     }
     inputCodigo.addEventListener('input', async function() {
         let termo = this.value.trim();
