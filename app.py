@@ -716,7 +716,6 @@ def salvar_lote_perdas():
             sheet_mes = planilha_perdas.worksheet(nome_aba_mes)
         except gspread.exceptions.WorksheetNotFound:
             sheet_mes = planilha_perdas.add_worksheet(title=nome_aba_mes, rows="1000", cols="6")
-            # Cabeçalho atualizado garantindo a Coluna F (índice 6)
             sheet_mes.append_row(["Data", "Tipo de Perda", "Quantidade", "Perfil", "Usuário/Registro", "Qtd_Sistema"])
 
         linhas_para_adicionar = []
@@ -729,23 +728,26 @@ def salvar_lote_perdas():
             except (ValueError, TypeError):
                 val_float = 0.0
                 
-            # Quantidade para a Coluna C (número puro para dashboards e somas)
+            # Coluna C (Quantidade pura normal para os seus dashboards e somas)
             quantidade_pura = val_float
             
-            # Quantidade para a Coluna F (com apóstrofe e vírgula, protegida para o sistema ler perfeitamente)
+            # Coluna F (Quantidade protegida com apóstrofe e vírgula para o sistema ler sem erros)
             quantidade_protegida = f"'{val_float:.3f}".replace('.', ',')
                 
             perfil = item.get('perfil', 'Não')
             
-            # Ordem das colunas: A(Data), B(Tipo), C(Quantidade Pura), D(Perfil), E(Usuário), F(Qtd_Sistema)
+            # Ordem: Data, Tipo de Perda, Quantidade (C), Perfil, Usuário/Registro, Qtd_Sistema (F)
             linhas_para_adicionar.append([data_lancamento, tipo_perda, quantidade_pura, perfil, 'Sistema', quantidade_protegida])
 
-        sheet_mes.append_rows(linhas_para_adicionar, value_input_option='USER_ENTERED')
+        # RAW obriga o Google Sheets a aceitar o apóstrofe na Coluna F sem tentar convertê-lo
+        sheet_mes.append_rows(linhas_para_adicionar, value_input_option='RAW')
         
         return jsonify({'sucesso': True, 'mensagem': f'Perdas guardadas com sucesso na aba {nome_aba_mes}!'})
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao salvar perdas: {str(e)}'}), 500
+
+
 
 
 @app.route('/consultar_perdas', methods=['GET'])
