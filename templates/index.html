@@ -437,7 +437,7 @@
                 </tbody>
             </table>
         </div>
-        <button onclick="salvarLotePerdasServidor()" style="margin-top: 10px; padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">Salvar Lista de Perdas</button>
+        <button onclick="salvarLotePerdasServidor(this)" style="margin-top: 10px; padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">Salvar Lista de Perdas</button>
     </div>
 
     <hr style="margin: 30px 0; border: 0; border-top: 1px solid #ccc;">
@@ -593,36 +593,53 @@ function atualizarTabelaLotePerdas() {
     }
 
     
-    async function salvarLotePerdasServidor() {
-        if (listaPerdasTemp.length === 0) {
-            alert('A lista está vazia! Adicione itens antes de salvar.');
-            return;
-        }
+async function salvarLotePerdasServidor(botaoEl) {
+    // Identifica o botão que foi clicado (pode passar 'this' no HTML ou ele procura o botão de salvamento)
+    const botao = botaoEl || document.querySelector('.btn-salvar') || document.querySelector('button');
 
-        let dataPrincipal = listaPerdasTemp[0].data;
-
-        try {
-            let resposta = await fetch('/salvar_lote_perdas', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data: dataPrincipal, itens: listaPerdasTemp })
-            });
-            let resultado = await resposta.json();
-
-            if (resultado.sucesso) {
-                alert(resultado.mensagem);
-                listaPerdasTemp = [];
-                atualizarTabelaLotePerdas();
-                consultarPerdasServidor(); // Atualiza a tabela de consulta
-            } else {
-                alert('Erro: ' + resultado.mensagem);
-            }
-        } catch (err) {
-            console.error(err);
-            alert('Erro de comunicação com o servidor.');
-        }
+    if (listaPerdasTemp.length === 0) {
+        alert('A lista está vazia! Adicione itens antes de salvar.');
+        return;
     }
 
+    // Desativa o botão imediatamente e muda o texto para evitar duplos cliques
+    if (botao) {
+        botao.disabled = true;
+        botao.dataset.originalText = botao.innerText;
+        botao.innerText = 'A guardar...';
+    }
+
+    let dataPrincipal = listaPerdasTemp[0].data;
+
+    try {
+        let resposta = await fetch('/salvar_lote_perdas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: dataPrincipal, itens: listaPerdasTemp })
+        });
+        let resultado = await resposta.json();
+
+        if (resultado.sucesso) {
+            alert(resultado.mensagem);
+            listaPerdasTemp = [];
+            atualizarTabelaLotePerdas();
+            consultarPerdasServidor(); // Atualiza a tabela de consulta
+        } else {
+            alert('Erro: ' + resultado.mensagem);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Erro de comunicação com o servidor.');
+    } finally {
+        // Reativa o botão e restaura o texto original, independentemente de sucesso ou erro
+        if (botao) {
+            botao.disabled = false;
+            botao.innerText = botao.dataset.originalText || 'Salvar Lista de Perdas';
+        }
+    }
+}
+
+    
 async function consultarPerdasServidor() {
         let inicio = document.getElementById('filtro-perda-inicio').value;
         let fim = document.getElementById('filtro-perda-fim').value;
