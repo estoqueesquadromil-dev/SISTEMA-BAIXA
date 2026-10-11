@@ -74,6 +74,7 @@
         <button class="btn-aba" onclick="mudarAba('consulta', this)">Consultar Baixas do Dia</button>
         <button class="btn-aba" onclick="mudarAba('inventario', this)">Inventário</button>
         <button class="btn-aba" onclick="mudarAba('ordens', this)">Ordens</button>
+        <button class="tab-button" onclick="mudarAba('ordens-criadas')">Ordens Criadas</button>
     </div>
 
     <!-- PAINEL 1: REALIZAR BAIXA -->
@@ -323,6 +324,38 @@
     <div id="erro-qtd-ordem" style="color: #dc3545; font-weight: bold; margin-bottom: 15px;"></div>
     
     <button id="btn-salvar-ordem" onclick="salvarOrdemProducao()" class="btn btn-success" style="display: none; padding: 10px 20px; background-color: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 4px;">💾 Salvar Ordem</button>
+</div>
+
+
+<div id="ordens-criadas" class="tab-content" style="display: none;">
+    <h2>Ordens de Produção Criadas</h2>
+    
+    <!-- Filtros e Botão Excel -->
+    <div style="margin: 15px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <label for="filtro-data-ordens">Filtrar por Data:</label>
+        <input type="date" id="filtro-data-ordens" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+        <button onclick="carregarOrdensCriadas()" style="padding: 6px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Filtrar</button>
+        <button onclick="baixarExcelOrdensCriadas()" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Baixar Excel</button>
+    </div>
+
+    <!-- Tabela de Ordens Criadas -->
+    <div style="overflow-x: auto;">
+        <table id="tabela-ordens-criadas" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white;">
+            <thead>
+                <tr style="background-color: #f8f9fa; text-align: left;">
+                    <th style="padding: 10px; border: 1px solid #ddd;">Data</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Código Principal</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Quantidade Ordem</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #777; padding: 15px;">Carregando ordens...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 </div>
     
 <script>
@@ -1155,6 +1188,80 @@ function salvarOrdemProducao() {
         alert('Erro de comunicação ao salvar a ordem.');
     });
 }
+
+
+
+function carregarOrdensCriadas() {
+    let dataFiltro = document.getElementById('filtro-data-ordens').value;
+    let url = '/listar_ordens_criadas';
+    if (dataFiltro) {
+        url += `?data=${dataFiltro}`;
+    }
+
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            let tbody = document.querySelector('#tabela-ordens-criadas tbody');
+            tbody.innerHTML = '';
+
+            if (!data.sucesso || !data.ordens || data.ordens.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777; padding: 15px;">Nenhuma ordem encontrada.</td></tr>';
+                return;
+            }
+
+            data.ordens.forEach(ordem => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding: 8px; border: 1px solid #ddd;">${ordem.data}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${ordem.codigoPrincipal}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${ordem.quantidadeOrdem}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
+                        <button onclick="excluirOrdemCriada('${ordem.id}')" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Excluir</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(err => {
+            console.error('Erro ao carregar ordens criadas:', err);
+        });
+}
+
+function excluirOrdemCriada(idOrdem) {
+    if (!confirm('Tem certeza de que deseja excluir esta ordem de produção?')) return;
+
+    fetch('/excluir_ordem_criada', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: idOrdem })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.sucesso) {
+            alert('Ordem excluída com sucesso!');
+            carregarOrdensCriadas();
+        } else {
+            alert('Erro ao excluir ordem: ' + data.mensagem);
+        }
+    })
+    .catch(err => {
+        console.error('Erro:', err);
+        alert('Erro de comunicação ao excluir a ordem.');
+    });
+}
+
+function baixarExcelOrdensCriadas() {
+    let dataFiltro = document.getElementById('filtro-data-ordens').value;
+    let url = '/exportar_excel_ordens';
+    if (dataFiltro) {
+        url += `?data=${dataFiltro}`;
+    }
+    window.location.href = url;
+}
+
+// Certifique-se de que ao mudar para a aba de ordens criadas, os dados são carregados automaticamente:
+// (Dentro da sua função de mudar abas, adicione:)
+// if (nomeAba === 'ordens-criadas') { carregarOrdensCriadas(); }
     
 </script>
 
