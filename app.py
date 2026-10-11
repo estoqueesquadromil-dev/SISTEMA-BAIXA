@@ -770,16 +770,20 @@ def consultar_perdas():
                 d = str(r.get('Data') or r.get('DATA') or '')
                 t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '')
                 
-                # LEITURA DIRETA E EXATA DA PLANILHA:
-                # Como a planilha guarda o número limpo (ex: 1.2 ou 53.0 ou 5.3), 
-                # basta ler o valor e convertê-lo diretamente para float sem divisões artificiais.
+                # LEITURA E CORREÇÃO DE ESCALA PURAMENTE NA CONSULTA:
                 raw_qtd = r.get('Quantidade') or r.get('QUANTIDADE') or 0
                 try:
-                    if isinstance(raw_qtd, (int, float)):
-                        q = float(raw_qtd)
-                    else:
-                        qtd_str = str(raw_qtd).replace("'", "").replace(',', '.').strip()
-                        q = float(qtd_str)
+                    # Normaliza para string limpa
+                    val_str = str(raw_qtd).replace("'", "").replace(',', '.').strip()
+                    q = float(val_str)
+                    
+                    # Se o valor veio dimensionado incorretamente como milhar inteiro (ex: 12000 ou 53000),
+                    # ajustamos automaticamente para a escala decimal real (ex: 1.2 ou 53.0)
+                    if q >= 1000 and q % 1000 == 0:
+                        q = q / 1000.0
+                    elif q >= 100 and q % 100 == 0 and '.' not in str(raw_qtd):
+                        q = q / 100.0
+
                 except ValueError:
                     q = 0.0
 
@@ -801,14 +805,12 @@ def consultar_perdas():
                     "Perfil": p
                 })
 
-        # Calcula os totais por tipo acumulando como float
         totais_por_tipo = {}
         for item in todos_registos:
             tp = item["Tipo"]
             qt = item["Quantidade"]
             totais_por_tipo[tp] = totais_por_tipo.get(tp, 0.0) + qt
 
-        # Formata os totais para fixar 3 casas decimais no retorno JSON
         totais_formatados = {k: round(v, 3) for k, v in totais_por_tipo.items()}
 
         return jsonify({
