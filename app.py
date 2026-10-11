@@ -829,6 +829,8 @@ def excluir_perda():
     dados = request.get_json()
     data_reg = dados.get('data')
     tipo_reg = dados.get('tipo')
+    quantidade_reg = str(dados.get('quantidade', '')).strip()
+    perfil_reg = str(dados.get('perfil', '')).strip()
     
     if not data_reg or not tipo_reg:
         return jsonify({'sucesso': False, 'mensagem': 'Dados insuficientes para exclusão.'}), 400
@@ -842,20 +844,35 @@ def excluir_perda():
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
 
         planilha_perdas = gc.open(NOME_PLANILHA_PERDAS)
-        sheet_mes = planilha_perdas.worksheet(nome_aba_mes)
+        try:
+            sheet_mes = planilha_perdas.worksheet(nome_aba_mes)
+        except gspread.exceptions.WorksheetNotFound:
+            return jsonify({'sucesso': False, 'mensagem': 'Aba do mês não encontrada.'}), 404
 
-        # Obtém todos os registos para encontrar o número exato da linha
         registos = sheet_mes.get_all_records()
         
         linha_para_apagar = None
         for i, r in enumerate(registos):
-            d = str(r.get('Data') or r.get('DATA') or '')
-            t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '')
+            d = str(r.get('Data') or r.get('DATA') or '').strip()
+            t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '').strip()
             
-            # Compara a data e o tipo para encontrar a linha exata (começa no índice 2 porque a linha 1 é o cabeçalho)
-            if d == data_reg and t.lower() == tipo_reg.lower():
-                linha_para_apagar = i + 2 
+            # Pega a quantidade da coluna de sistema (F) ou quantidade pura (C)
+            q = str(r.get('Qtd_Sistema') or r.get('QTD_SISTEMA') or r.get('Quantidade') or r.get('QUANTIDADE') or '').replace("'", "").strip()
+            p = str(r.get('Perfil') or r.get('PERFIL') or '').strip()
+            
+            # Compara todos os campos para garantir que é exatamente o item escolhido
+            if d == data_reg and t.lower() == tipo_reg.lower() and q == quantidade_reg and p.lower() == perfil_reg.lower():
+                linha_para_apagar = i + 2  # i + 2 porque o get_all_records exclui o cabeçalho
                 break
+
+        # Fallback de segurança caso não ache exato por todos os campos (ex: divergência de formatação decimal)
+        if not linha_para_apagar:
+            for i, r in enumerate(registos):
+                d = str(r.get('Data') or r.get('DATA') or '').strip()
+                t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '').strip()
+                if d == data_reg and t.lower() == tipo_reg.lower():
+                    linha_para_apagar = i + 2
+                    break
 
         if linha_para_apagar:
             sheet_mes.delete_rows(linha_para_apagar)
