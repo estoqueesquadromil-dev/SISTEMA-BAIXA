@@ -534,10 +534,15 @@ function adicionarItemPerdaTemp() {
         let data = document.getElementById('perda-data').value;
         let tipo = document.getElementById('perda-tipo').value;
         
-        // Pega o valor digitado, troca vírgula por ponto para aceitar o formato nacional e converte para float
-        let qtdStr = document.getElementById('perda-qtd').value.trim().replace(',', '.');
-        let qtd = parseFloat(qtdStr) || 0;
+        // Lê o valor do input substituindo vírgula por ponto
+        let rawVal = document.getElementById('perda-qtd').value.trim().replace(',', '.');
+        let qtd = parseFloat(rawVal);
         
+        if (isNaN(qtd) || qtd <= 0) {
+            alert('Por favor, informe uma quantidade válida maior que zero!');
+            return;
+        }
+
         let perfilCheckbox = document.getElementById('perda-perfil').checked;
         let perfil = perfilCheckbox ? 'Sim' : 'Não';
 
@@ -545,14 +550,12 @@ function adicionarItemPerdaTemp() {
             alert('Por favor, informe a data!');
             return;
         }
-        if (qtd <= 0) {
-            alert('A quantidade deve ser maior que zero!');
-            return;
-        }
 
         listaPerdasTemp.push({ data, tipo, quantidade: qtd, perfil });
         atualizarTabelaLotePerdas();
     }
+
+
     
     function removerItemPerdaTemp(index) {
         listaPerdasTemp.splice(index, 1);
