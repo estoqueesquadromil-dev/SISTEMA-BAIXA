@@ -774,20 +774,16 @@ def consultar_perdas():
                 d = str(r.get('Data') or r.get('DATA') or '')
                 t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '')
                 
-                # TRATAMENTO EXATO DE ESCALA DECIMAL:
+                # LEITURA NATIVA LIMPA:
+                # O Google Sheets já envia números como float ou string. Tratamos ambos perfeitamente.
                 raw_qtd = r.get('Quantidade') or r.get('QUANTIDADE') or 0
                 try:
-                    raw_str = str(raw_qtd).strip()
-                    
-                    # Se vier da planilha como formato numérico bruto sem ponto/vírgula (ex: 1200 ou 53000),
-                    # significa que o Sheets removeu o separador decimal. Dividimos por 1000 para restaurar as 3 casas decimais.
-                    if '.' not in raw_str and ',' not in raw_str:
-                        q = float(raw_str) / 1000.0
+                    if isinstance(raw_qtd, (int, float)):
+                        q = float(raw_qtd)
                     else:
-                        # Se contiver ponto ou vírgula, tratamos normalmente
-                        qtd_str = raw_str.replace(',', '.')
+                        # Se vier como texto por algum motivo, limpa a vírgula e converte
+                        qtd_str = str(raw_qtd).replace("'", "").replace(',', '.').strip()
                         q = float(qtd_str)
-
                 except ValueError:
                     q = 0.0
 
