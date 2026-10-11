@@ -1462,6 +1462,7 @@ function calcularPainelOrdem() {
 }
 
 function salvarOrdemProducao() {
+    let btnSalvar = document.getElementById('btn-salvar-ordem');
     let codigo = document.getElementById('input-codigo-ordem').value.trim();
     let qtdDigitada = Number(document.getElementById('input-qtd-ordem').value);
     let tbody2 = document.querySelector('#tabela-painel-2 tbody');
@@ -1485,6 +1486,14 @@ function salvarOrdemProducao() {
         return;
     }
 
+    // Bloqueia o botão para evitar cliques duplos rápidos
+    if (btnSalvar) {
+        btnSalvar.disabled = true;
+        btnSalvar.style.opacity = '0.6';
+        btnSalvar.dataset.textoOriginal = btnSalvar.textContent;
+        btnSalvar.textContent = '💾 A salvar...';
+    }
+
     let hojeStr = new Date().toISOString().split('T')[0];
 
     fetch('/salvar_ordem_producao', {
@@ -1505,11 +1514,18 @@ function salvarOrdemProducao() {
     .catch(err => {
         console.error('Erro:', err);
         alert('Erro de comunicação ao salvar a ordem.');
+    })
+    .finally(() => {
+        // Reativa o botão independentemente do sucesso ou falha
+        if (btnSalvar) {
+            btnSalvar.disabled = false;
+            btnSalvar.style.opacity = '1';
+            btnSalvar.textContent = btnSalvar.dataset.textoOriginal || '💾 Salvar Ordem';
+        }
     });
 }
 
-
-
+    
 function carregarOrdensCriadas() {
     let dataFiltro = document.getElementById('filtro-data-ordens').value;
     let url = '/listar_ordens_criadas';
