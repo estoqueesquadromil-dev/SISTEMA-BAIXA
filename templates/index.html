@@ -933,9 +933,72 @@ function popularSelectOrdens() {
     console.log("Dados de ordens carregados com sucesso:", dadosOrdensCache.length, "registos.");
 }
 
+
+
+// Listener para a barra de pesquisa em tempo real do módulo de Ordens
+document.getElementById('input-codigo-ordem').addEventListener('input', function() {
+    let termo = this.value.toLowerCase().trim();
+    let containerResultados = document.getElementById('resultados-busca-ordem');
+    containerResultados.innerHTML = '';
+
+    if (!termo || termo.length < 1) {
+        containerResultados.style.display = 'none';
+        return;
+    }
+
+    if (!dadosOrdensCache || dadosOrdensCache.length === 0) return;
+
+    // Filtra produtos únicos que correspondem ao código ou descrição
+    let unicos = {};
+    dadosOrdensCache.forEach(row => {
+        let prod = String(row.PRODUTO || row.Produto || '').trim();
+        let desc = String(row.DESCRICAO || row.Descricao || '').trim();
+        if (prod && (prod.toLowerCase().includes(termo) || desc.toLowerCase().includes(termo))) {
+            unicos[prod] = desc;
+        }
+    });
+
+    let chaves = Object.keys(unicos);
+    if (chaves.length === 0) {
+        containerResultados.style.display = 'none';
+        return;
+    }
+
+    // Cria as opções da lista flutuante
+    chaves.slice(0, 15).forEach(prod => {
+        let desc = unicos[prod];
+        let divItem = document.createElement('div');
+        divItem.style.padding = '8px 12px';
+        divItem.style.cursor = 'pointer';
+        divItem.style.borderBottom = '1px solid #eee';
+        divItem.innerHTML = `<strong>${prod}</strong> - ${desc}`;
+        
+        divItem.onmouseover = () => divItem.style.backgroundColor = '#f0f0f0';
+        divItem.onmouseout = () => divItem.style.backgroundColor = 'white';
+        
+        divItem.onclick = () => {
+            document.getElementById('input-codigo-ordem').value = prod;
+            containerResultados.style.display = 'none';
+            containerResultados.innerHTML = '';
+            // Dispara a seleção do produto
+            if (typeof selecionarProdutoOrdem === 'function') {
+                selecionarProdutoOrdem();
+            }
+        };
+
+        containerResultados.appendChild(divItem);
+    });
+
+    containerResultados.style.display = 'block';
+});
+
+
+
+    
+
     
 function selecionarProdutoOrdem() {
-    let codigo = document.getElementById('select-produto-ordem').value;
+    let codigo = document.getElementById('input-codigo-ordem').value.trim();
     let tbody1 = document.querySelector('#tabela-painel-1 tbody');
     let tbody2 = document.querySelector('#tabela-painel-2 tbody');
     document.getElementById('info-multiplo-ordem').innerHTML = '';
