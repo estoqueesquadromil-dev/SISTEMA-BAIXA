@@ -666,21 +666,28 @@ def exportar_excel_ordens():
                 
             registos = aba.get_all_records()
             for r in registos:
-                dados_excel.append({
-                    "Data": r.get('Data') or nome_aba,
-                    "Código Principal": r.get('CodigoPrincipal') or r.get('Código Principal') or '',
-                    "Quantidade Ordem": r.get('QuantidadeOrdem') or r.get('Quantidade Ordem') or 0,
-                    "Componente / Perfil": r.get('Componente / Perfil') or r.get('Componente') or '',
-                    "Qtd Ajustada": r.get('Qtd Ajustada') or r.get('QtdAjustada') or 0
-                })
+                codigo_principal = r.get('CodigoPrincipal') or r.get('Código Principal') or ''
+                quantidade_ordem = r.get('QuantidadeOrdem') or r.get('Quantidade Ordem') or 0
+                
+                if not codigo_principal:
+                    continue
+                
+                # Evita duplicados na exportação caso haja múltiplos componentes por ordem
+                item_chave = (nome_aba, codigo_principal, quantidade_ordem)
+                if item_chave not in [(x['Data'], x['Código Principal'], x['Quantidade Ordem']) for x in dados_excel]:
+                    dados_excel.append({
+                        "Data": nome_aba,
+                        "Código Principal": codigo_principal,
+                        "Quantidade Ordem": quantidade_ordem
+                    })
                 
         if not dados_excel:
             return "Nenhuma ordem encontrada para exportar.", 404
             
         df = pd.DataFrame(dados_excel)
-        csv_data = df.to_csv(index=False, sep=';', encoding='utf-8-sig')
+        csv_data = df.to_csv(index=False, sep=;', encoding='utf-8-sig')
         
-        nome_arquivo = f"ordens_{data_filtro}.csv" if data_filtro else "todas_ordens_criadas.csv"
+        nome_arquivo = f"ordens_{data_filtro}.csv" if data_filtro else "ordens_criadas.csv"
         return Response(
             csv_data,
             mimetype="text/csv",
