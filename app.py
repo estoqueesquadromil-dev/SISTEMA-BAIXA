@@ -770,14 +770,14 @@ def consultar_perdas():
                 d = str(r.get('Data') or r.get('DATA') or '')
                 t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '')
                 
-                # LEITURA NATIVA LIMPA:
-                # O Google Sheets já envia números como float ou string. Tratamos ambos perfeitamente.
+                # LEITURA DIRETA E EXATA DA PLANILHA:
+                # Como a planilha guarda o número limpo (ex: 1.2 ou 53.0 ou 5.3), 
+                # basta ler o valor e convertê-lo diretamente para float sem divisões artificiais.
                 raw_qtd = r.get('Quantidade') or r.get('QUANTIDADE') or 0
                 try:
                     if isinstance(raw_qtd, (int, float)):
                         q = float(raw_qtd)
                     else:
-                        # Se vier como texto por algum motivo, limpa a vírgula e converte
                         qtd_str = str(raw_qtd).replace("'", "").replace(',', '.').strip()
                         q = float(qtd_str)
                 except ValueError:
