@@ -655,6 +655,8 @@ def exportar_excel_ordens():
         todas_abas = planilha.worksheets()
         
         dados_excel = []
+        chaves_vistas = set()
+        
         for aba in todas_abas:
             nome_aba = aba.title.strip()
             if data_filtro and nome_aba != data_filtro:
@@ -666,15 +668,16 @@ def exportar_excel_ordens():
                 
             registos = aba.get_all_records()
             for r in registos:
-                codigo_principal = r.get('CodigoPrincipal') or r.get('Código Principal') or ''
+                codigo_principal = str(r.get('CodigoPrincipal') or r.get('Código Principal') or '').strip()
                 quantidade_ordem = r.get('QuantidadeOrdem') or r.get('Quantidade Ordem') or 0
                 
                 if not codigo_principal:
                     continue
                 
-                # Evita duplicados na exportação caso haja múltiplos componentes por ordem
-                item_chave = (nome_aba, codigo_principal, quantidade_ordem)
-                if item_chave not in [(x['Data'], x['Código Principal'], x['Quantidade Ordem']) for x in dados_excel]:
+                # Chave única para evitar duplicados na mesma data
+                chave_unica = (nome_aba, codigo_principal, str(quantidade_ordem))
+                if chave_unica not in chaves_vistas:
+                    chaves_vistas.add(chave_unica)
                     dados_excel.append({
                         "Data": nome_aba,
                         "Código Principal": codigo_principal,
@@ -685,7 +688,7 @@ def exportar_excel_ordens():
             return "Nenhuma ordem encontrada para exportar.", 404
             
         df = pd.DataFrame(dados_excel)
-        csv_data = df.to_csv(index=False, sep=;', encoding='utf-8-sig')
+        csv_data = df.to_csv(index=False, sep=';', encoding='utf-8-sig')
         
         nome_arquivo = f"ordens_{data_filtro}.csv" if data_filtro else "ordens_criadas.csv"
         return Response(
