@@ -266,19 +266,22 @@
     <h2>Sistema de Criação de Ordens de Produção</h2>
     <hr style="margin-bottom: 20px;">
 
-    <div style="display: flex; gap: 20px; margin-bottom: 20px;">
-        <div style="flex: 2;">
-            <label for="select-produto-ordem"><strong>Digite ou selecione o Código / Descrição:</strong></label>
-            <select id="select-produto-ordem" class="form-control" onchange="selecionarProdutoOrdem()" style="width: 100%; padding: 8px; margin-top: 5px;">
-                <option value="">Selecione um produto...</option>
-            </select>
+<!-- SUBSTITUIR ESTA PARTE NO PAINEL ORDENS -->
+    <div style="display: flex; gap: 20px; margin-bottom: 20px; position: relative;">
+        <div style="flex: 2; position: relative;">
+            <label for="input-codigo-ordem"><strong>Digite ou selecione o Código / Descrição:</strong></label>
+            <input type="text" id="input-codigo-ordem" class="form-control" placeholder="Digite para buscar produto ou descrição..." style="width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box;">
+            
+            <!-- Caixa de sugestões flutuante idêntica à da baixa -->
+            <div id="resultados-busca-ordem" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; max-height: 200px; overflow-y: auto; z-index: 1000; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);"></div>
         </div>
         <div style="flex: 1;">
             <label for="input-qtd-ordem"><strong>Quantidade da Ordem:</strong></label>
-            <input type="number" id="input-qtd-ordem" class="form-control" min="0" step="1" value="0" oninput="calcularPainelOrdem()" style="width: 100%; padding: 8px; margin-top: 5px;">
+            <input type="number" id="input-qtd-ordem" class="form-control" min="0" step="1" value="0" oninput="calcularPainelOrdem()" style="width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box;">
         </div>
     </div>
 
+    
     <div id="info-multiplo-ordem" style="margin-bottom: 20px; font-weight: bold; color: #0056b3;"></div>
 
     <!-- PAINEL 1: ESTRUTURA PADRÃO -->
@@ -969,8 +972,22 @@ function selecionarProdutoOrdem() {
     }
 
     let qtdMultiploBase = Number(componentes[0]['QTD MUTIPLO'] || componentes[0]['Qtd Mutipro'] || 1);
-    document.getElementById('info-multiplo-ordem').innerHTML = `ℹ️ Múltiplo padrão exigido para ${codigo}: ${qtdMultiploBase} (Ex: ${qtdMultiploBase}, ${qtdMultiploBase*2}, ${qtdMultiploBase*3}...)`;
+// Gera uma lista com mais exemplos de múltiplos para ajudar o operador
+    let exemplosArray = [];
+    for (let i = 1; i <= 8; i++) {
+        exemplosArray.push(qtdMultiploBase * i);
+    }
+    let exemplosTexto = exemplosArray.join(', ');
 
+// Gera uma lista com mais exemplos de múltiplos para ajudar o operador
+    let exemplosArray = [];
+    for (let i = 1; i <= 10; i++) {
+        exemplosArray.push(qtdMultiploBase * i);
+    }
+    let exemplosTexto = exemplosArray.join(', ');
+
+    document.getElementById('info-multiplo-ordem').innerHTML = `ℹ️ Múltiplo padrão exigido para <strong>${codigo}</strong>: <strong>${qtdMultiploBase}</strong> (Ex: ${exemplosTexto}...)`;
+    
     // Renderiza Painel 1
     tbody1.innerHTML = '';
     componentes.forEach(row => {
