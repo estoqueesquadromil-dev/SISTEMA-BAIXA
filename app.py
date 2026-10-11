@@ -465,3 +465,72 @@ def exportar_excel_inventario():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
+
+
+
+
+
+
+
+# ==========================================
+# MÓDULO DE CRIAÇÃO DE ORDENS
+# ==========================================
+PLANILHA_CRIAR_ORDENS = "DADOS-CRIAR-ORDENS"
+
+@app.route('/buscar_dados_ordens', methods=['GET'])
+def buscar_dados_ordens():
+    try:
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+        
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+        # Abre especificamente a aba "dados" conforme solicitado
+        try:
+            aba = planilha.worksheet("dados")
+        except:
+            aba = planilha.sheet1 # Fallback caso a aba se chame de outra forma por defeito
+            
+        registos = aba.get_all_records()
+        return jsonify({'sucesso': True, 'itens': registos})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+@app.route('/salvar_ordem_producao', methods=['POST'])
+def salvar_ordem_producao():
+    try:
+        dados = request.get_json()
+        data_hoje = dados.get('data') # formato YYYY-MM-DD
+        itens_ordem = dados.get('itens', [])
+        
+        if not data_hoje or not itens_ordem:
+            return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos para salvar a ordem.'}), 400
+            
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+        
+        # Verifica se já existe uma aba com a data do dia, senão cria uma nova
+        try:
+            aba_dia = planilha.worksheet(data_hoje)
+        except:
+            aba_dia = planilha.add_worksheet(title=data_hoje, rows="1000", cols="10")
+            # Adiciona o cabeçalho na aba nova
+            aba_dia.append_row(["Data", "Código Principal", "Quantidade Ordem", "Componente / Perfil", "Qtd Ajustada"])
+            
+        # Adiciona cada linha da ordem gerada à aba do dia
+        for item in itens_ordem:
+            aba_dia.append_row([
+                item.get('Data', data_hoje),
+                item.get('CodigoPrincipal', ''),
+                item.get('QuantidadeOrdem', 0),
+                item.get('Componente', ''),
+                item.get('QtdAjustada', 0)
+            ])
+            
+        return jsonify({'sucesso': True, 'mensagem': f'Ordem de produção registada com sucesso na aba {data_hoje}!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
