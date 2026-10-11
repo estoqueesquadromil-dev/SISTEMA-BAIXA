@@ -715,32 +715,38 @@ def salvar_lote_perdas():
         try:
             sheet_mes = planilha_perdas.worksheet(nome_aba_mes)
         except gspread.exceptions.WorksheetNotFound:
-            sheet_mes = planilha_perdas.add_worksheet(title=nome_aba_mes, rows="1000", cols="5")
-            sheet_mes.append_row(["Data", "Tipo de Perda", "Quantidade", "Perfil", "Usuário/Registro"])
+            sheet_mes = planilha_perdas.add_worksheet(title=nome_aba_mes, rows="1000", cols="6")
+            # Cabeçalho atualizado garantindo a Coluna F (índice 6)
+            sheet_mes.append_row(["Data", "Tipo de Perda", "Quantidade", "Perfil", "Usuário/Registro", "Qtd_Sistema"])
 
         linhas_para_adicionar = []
         for item in itens:
             tipo_perda = item.get('tipo', '')
             
-            # Converte rigorosamente para float puro usando ponto como separador universal
             try:
                 raw_val = str(item.get('quantidade', 0)).replace(',', '.').strip()
-                quantidade = float(raw_val)
+                val_float = float(raw_val)
             except (ValueError, TypeError):
-                quantidade = 0.0
+                val_float = 0.0
+                
+            # Quantidade para a Coluna C (número puro para dashboards e somas)
+            quantidade_pura = val_float
+            
+            # Quantidade para a Coluna F (com apóstrofe e vírgula, protegida para o sistema ler perfeitamente)
+            quantidade_protegida = f"'{val_float:.3f}".replace('.', ',')
                 
             perfil = item.get('perfil', 'Não')
             
-            # Adiciona como número real puro na lista
-            linhas_para_adicionar.append([data_lancamento, tipo_perda, quantidade, perfil, 'Sistema'])
+            # Ordem das colunas: A(Data), B(Tipo), C(Quantidade Pura), D(Perfil), E(Usuário), F(Qtd_Sistema)
+            linhas_para_adicionar.append([data_lancamento, tipo_perda, quantidade_pura, perfil, 'Sistema', quantidade_protegida])
 
-        # USER_ENTERED com número float puro grava um número real na célula, permitindo SOMAS e DASHBOARDS na planilha
         sheet_mes.append_rows(linhas_para_adicionar, value_input_option='USER_ENTERED')
         
         return jsonify({'sucesso': True, 'mensagem': f'Perdas guardadas com sucesso na aba {nome_aba_mes}!'})
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao salvar perdas: {str(e)}'}), 500
+
 
 @app.route('/consultar_perdas', methods=['GET'])
 def consultar_perdas():
@@ -770,20 +776,12 @@ def consultar_perdas():
                 d = str(r.get('Data') or r.get('DATA') or '')
                 t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '')
                 
-                # LEITURA E CORREÇÃO DE ESCALA PURAMENTE NA CONSULTA:
-                raw_qtd = r.get('Quantidade') or r.get('QUANTIDADE') or 0
+                # BUSCA DIRETAMENTE DA COLUNA F ('Qtd_Sistema') PARA GARANTIR PRECISÃO TOTAL NO SISTEMA
+                raw_qtd = r.get('Qtd_Sistema') or r.get('QTD_SISTEMA') or r.get('Quantidade') or r.get('QUANTIDADE') or 0
                 try:
-                    # Normaliza para string limpa
-                    val_str = str(raw_qtd).replace("'", "").replace(',', '.').strip()
-                    q = float(val_str)
-                    
-                    # Se o valor veio dimensionado incorretamente como milhar inteiro (ex: 12000 ou 53000),
-                    # ajustamos automaticamente para a escala decimal real (ex: 1.2 ou 53.0)
-                    if q >= 1000 and q % 1000 == 0:
-                        q = q / 1000.0
-                    elif q >= 100 and q % 100 == 0 and '.' not in str(raw_qtd):
-                        q = q / 100.0
-
+                    # Remove a plica, troca vírgula por ponto e converte para float
+                    qtd_limpa = str(raw_qtd).replace("'", "").replace(',', '.').strip()
+                    q = float(qtd_limpa)
                 except ValueError:
                     q = 0.0
 
