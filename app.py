@@ -722,29 +722,25 @@ def salvar_lote_perdas():
         for item in itens:
             tipo_perda = item.get('tipo', '')
             
+            # Converte rigorosamente para float puro usando ponto como separador universal
             try:
                 raw_val = str(item.get('quantidade', 0)).replace(',', '.').strip()
-                val_float = float(raw_val)
+                quantidade = float(raw_val)
             except (ValueError, TypeError):
-                val_float = 0.0
-                
-            # SOLUÇÃO DEFINITIVA: Formata com 3 casas decimais e usa vírgula, 
-            # colocando um apóstrofe na frente (') para forçar o Google Sheets a tratar estritamente como TEXTO.
-            # Assim o Google Sheets nunca mais vai alterar, multiplicar ou corromper o valor!
-            quantidade_texto = f"'{val_float:.3f}".replace('.', ',')
+                quantidade = 0.0
                 
             perfil = item.get('perfil', 'Não')
             
-            linhas_para_adicionar.append([data_lancamento, tipo_perda, quantidade_texto, perfil, 'Sistema'])
+            # Adiciona como número real puro na lista
+            linhas_para_adicionar.append([data_lancamento, tipo_perda, quantidade, perfil, 'Sistema'])
 
-        # RAW faz com que o Google Sheets grave exatamente o texto que enviamos, sem tentar adivinhar se é número ou data
-        sheet_mes.append_rows(linhas_para_adicionar, value_input_option='RAW')
+        # USER_ENTERED com número float puro grava um número real na célula, permitindo SOMAS e DASHBOARDS na planilha
+        sheet_mes.append_rows(linhas_para_adicionar, value_input_option='USER_ENTERED')
         
         return jsonify({'sucesso': True, 'mensagem': f'Perdas guardadas com sucesso na aba {nome_aba_mes}!'})
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao salvar perdas: {str(e)}'}), 500
-
 
 @app.route('/consultar_perdas', methods=['GET'])
 def consultar_perdas():
