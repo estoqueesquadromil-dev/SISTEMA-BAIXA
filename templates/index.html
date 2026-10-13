@@ -1705,15 +1705,17 @@ function excluirOrdemCriada(idOrdem) {
 }
 
 function baixarExcelOrdensCriadas() {
-    let dataFiltro = document.getElementById('filtro-data-ordens').value;
-    let url = '/exportar_excel_ordens';
-    if (dataFiltro) {
-        url += `?data=${dataFiltro}`;
-    }
-    window.location.href = url;
+    let dataFiltro = document.getElementById('filtro-data-ordens') ? document.getElementById('filtro-data-ordens').value : '';
+    let statusFiltro = document.getElementById('filtro-status-ordens') ? document.getElementById('filtro-status-ordens').value : 'todos';
+    
+    let url = `/exportar_excel_ordens?`;
+    let params = [];
+    if (dataFiltro) params.push(`data=${dataFiltro}`);
+    if (statusFiltro) params.push(`status=${statusFiltro}`);
+    
+    window.location.href = url + params.join('&');
 }
-
-// Certifique-se de que ao mudar para a aba de ordens criadas, os dados são carregados automaticamente:
+    // Certifique-se de que ao mudar para a aba de ordens criadas, os dados são carregados automaticamente:
 // (Dentro da sua função de mudar abas, adicione:)
 // if (nomeAba === 'ordens-criadas') { carregarOrdensCriadas(); }
 
