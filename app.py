@@ -580,6 +580,9 @@ def listar_ordens_criadas():
                 qtd_ordem = r.get('QuantidadeOrdem') or r.get('Quantidade Ordem') or 0
                 status_feito = str(r.get('Status') or r.get('Feito') or '').strip().lower() in ['true', 'sim', '1', 'yes', 'feito']
                 
+                # Lê o estado da coluna IVE na planilha
+                status_ive = str(r.get('IVE') or r.get('ive') or '').strip().lower() in ['true', 'sim', '1', 'yes', 'ive']
+                
                 if not codigo_principal:
                     continue
                 
@@ -588,13 +591,55 @@ def listar_ordens_criadas():
                     "data": nome_aba,
                     "codigoPrincipal": codigo_principal,
                     "quantidadeOrdem": qtd_ordem,
-                    "feito": status_feito
+                    "feito": status_feito,
+                    "ive": status_ive
                 })
                 
         return jsonify({'sucesso': True, 'ordens': lista_ordens})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
 
+
+@app.route('/alternar_ive_ordem', methods=['POST'])
+def alternar_ive_ordem():
+    try:
+        dados = request.get_json()
+        ids = dados.get('ids', []) # Recebe uma lista de IDs para lote, ou único
+        ive_val = dados.get('ive', False) # True ou False
+        
+        if not ids:
+            return jsonify({'sucesso': False, 'mensagem': 'Nenhuma ordem selecionada.'}), 400
+            
+        gc = conectar_google_sheets()
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+        
+        # Agrupa por aba para otimizar as chamadas ao Google Sheets
+        abas_afetadas = {}
+        for id_ordem in ids:
+            if '|' not in id_ordem:
+                continue
+            nome_aba, linha_str = id_ordem.split('|')
+            if nome_aba not in abas_afetadas:
+                abas_afetadas[nome_aba] = []
+            abas_afetadas[nome_aba].append(int(linha_str))
+            
+        for nome_aba, linhas in abas_afetadas.items():
+            aba = planilha.worksheet(nome_aba)
+            cabecalhos = aba.row_values(1)
+            
+            if "IVE" not in cabecalhos:
+                nova_col_idx = len(cabecalhos) + 1
+                aba.update_cell(1, nova_col_idx, "IVE")
+                cabecalhos = aba.row_values(1)
+                
+            col_idx = cabecalhos.index("IVE") + 1
+            
+            for linha_alvo in linhas:
+                aba.update_cell(linha_alvo, col_idx, "Sim" if ive_val else "Não")
+                
+        return jsonify({'sucesso': True, 'mensagem': 'Status IVE atualizado com sucesso!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
 
 # Nova rota para alternar o status de "Feito" diretamente na linha da planilha
 @app.route('/alternar_status_ordem', methods=['POST'])
