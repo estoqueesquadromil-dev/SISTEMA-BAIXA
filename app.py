@@ -517,18 +517,24 @@ def salvar_ordem_producao():
         try:
             aba_dia = planilha.worksheet(data_hoje)
         except:
-            aba_dia = planilha.add_worksheet(title=data_hoje, rows="1000", cols="10")
-            # Adiciona o cabeçalho na aba nova
-            aba_dia.append_row(["Data", "Código Principal", "Quantidade Ordem", "Componente / Perfil", "Qtd Ajustada"])
+            aba_dia = planilha.add_worksheet(title=data_hoje, rows="1000", cols="5")
+            # Adiciona o cabeçalho limpo na aba nova (apenas 3 colunas)
+            aba_dia.append_row(["Data", "Código Principal", "Quantidade Ordem"])
             
-        # Adiciona cada linha da ordem gerada à aba do dia
+        # Agrupa os itens para garantir que salvamos apenas uma linha única por Código Principal/Ordem
+        ordens_unicas = {}
         for item in itens_ordem:
+            cod_prin = item.get('CodigoPrincipal', '')
+            qtd_ord = item.get('QuantidadeOrdem', 0)
+            if cod_prin:
+                ordens_unicas[cod_prin] = qtd_ord
+
+        # Adiciona apenas uma linha limpa por ordem única na aba do dia
+        for cod_prin, qtd_ord in ordens_unicas.items():
             aba_dia.append_row([
-                item.get('Data', data_hoje),
-                item.get('CodigoPrincipal', ''),
-                item.get('QuantidadeOrdem', 0),
-                item.get('Componente', ''),
-                item.get('QtdAjustada', 0)
+                data_hoje,
+                cod_prin,
+                qtd_ord
             ])
             
         return jsonify({'sucesso': True, 'mensagem': f'Ordem de produção registada com sucesso na aba {data_hoje}!'})
