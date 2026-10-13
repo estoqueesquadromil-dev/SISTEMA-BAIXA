@@ -344,6 +344,7 @@
             <table id="tabela-ordens-criadas" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white;">
                 <thead>
                     <tr style="background-color: #f8f9fa; text-align: left;">
+                        <th style="width: 50px; padding: 10px; border: 1px solid #ddd; text-align: center;">Feito</th>
                         <th style="padding: 10px; border: 1px solid #ddd;">Data</th>
                         <th style="padding: 10px; border: 1px solid #ddd;">Código Principal</th>
                         <th style="padding: 10px; border: 1px solid #ddd;">Quantidade Ordem</th>
@@ -352,7 +353,7 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="4" style="text-align: center; color: #777; padding: 15px;">Carregando ordens...</td>
+                        <td colspan="5" style="text-align: center; color: #777; padding: 15px;">Carregando ordens...</td>
                     </tr>
                 </tbody>
             </table>
@@ -1562,42 +1563,58 @@ function salvarOrdemProducao() {
 }
 
     
-function carregarOrdensCriadas() {
-    let dataFiltro = document.getElementById('filtro-data-ordens').value;
-    let url = '/listar_ordens_criadas';
-    if (dataFiltro) {
-        url += `?data=${dataFiltro}`;
-    }
+async function carregarOrdensCriadas() {
+    let dataFiltro = document.getElementById('filtro-data-ordens') ? document.getElementById('filtro-data-ordens').value : '';
+    let url = `/listar_ordens_criadas`;
+    if (dataFiltro) url += `?data=${dataFiltro}`;
 
-    fetch(url)
-        .then(res => res.json())
-        .then(data => {
-            let tbody = document.querySelector('#tabela-ordens-criadas tbody');
-            tbody.innerHTML = '';
+    try {
+        let resposta = await fetch(url);
+        let dados = await resposta.json();
 
-            if (!data.sucesso || !data.ordens || data.ordens.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777; padding: 15px;">Nenhuma ordem encontrada.</td></tr>';
-                return;
-            }
+        let tbody = document.querySelector('#tabela-ordens-criadas tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
 
-            data.ordens.forEach(ordem => {
-                let tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td style="padding: 8px; border: 1px solid #ddd;">${ordem.data}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${ordem.codigoPrincipal}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${ordem.quantidadeOrdem}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
-                        <button onclick="excluirOrdemCriada('${ordem.id}')" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Excluir</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        })
-        .catch(err => {
-            console.error('Erro ao carregar ordens criadas:', err);
+        if (!dados.sucesso || dados.ordens.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777; padding: 15px;">Nenhuma ordem encontrada.</td></tr>';
+            return;
+        }
+
+        dados.ordens.forEach(ordem => {
+            let tr = document.createElement('tr');
+            
+            // Verifica se esta ordem já estava marcada no navegador (localStorage)
+            let isChecked = localStorage.getItem(`ordem_${ordem.id}`) === 'true';
+            let estiloLinha = isChecked ? 'background-color: #e8f5e9; text-decoration: line-through; color: #666;' : '';
+            tr.style.cssText = estiloLinha;
+
+            tr.innerHTML = `
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                    <input type="checkbox" ${isChecked ? 'checked' : ''} onclick="marcarOrdemFeita('${ordem.id}', this)">
+                </td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.data}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.codigoPrincipal}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.quantidadeOrdem}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                    <button onclick="moverParaLixeira('${ordem.id}')" style="background-color: #ffc107; color: #333; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">Mover p/ Lixeira</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
         });
+    } catch (err) {
+        console.error(err);
+    }
 }
 
+// Função para salvar o estado do checkbox (feito/não feito)
+function marcarOrdemFeita(id, checkbox) {
+    localStorage.setItem(`ordem_${id}`, checkbox.checked);
+    carregarOrdensCriadas(); // Atualiza o visual da linha instantaneamente
+}
+
+
+    
 function excluirOrdemCriada(idOrdem) {
     if (!confirm('Tem certeza de que deseja excluir esta ordem de produção?')) return;
 
@@ -1666,6 +1683,87 @@ async function excluirPerdaServidor(data, tipo, quantidade, perfil) {
         alert('Erro de comunicação com o servidor ao tentar excluir.');
     }
 }    
+
+
+async function moverParaLixeira(id) {
+    if (!confirm('Tem a certeza que deseja mover esta ordem para a lixeira?')) return;
+
+    try {
+        let resposta = await fetch('/mover_para_lixeira', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id })
+        });
+        let resultado = await resposta.json();
+
+        if (resultado.sucesso) {
+            alert(resultado.mensagem);
+            carregarOrdensCriadas(); // Atualiza a tabela principal
+        } else {
+            alert('Erro: ' + resultado.mensagem);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Erro de comunicação com o servidor.');
+    }
+}
+
+async function carregarLixeira() {
+    try {
+        let resposta = await fetch('/listar_lixeira');
+        let dados = await resposta.json();
+
+        let tbody = document.querySelector('#tabela-lixeira tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (!dados.sucesso || dados.ordens.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777; padding: 15px;">A lixeira está vazia.</td></tr>';
+            return;
+        }
+
+        dados.ordens.forEach(ordem => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.data}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.codigoPrincipal}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.quantidadeOrdem}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                    <button onclick="excluirDefinitivo('${ordem.id}')" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">Excluir Definitivo</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+async function excluirDefinitivo(id) {
+    if (!confirm('ATENÇÃO: Esta ação é irreversível. Deseja excluir esta ordem permanentemente?')) return;
+
+    try {
+        let resposta = await fetch('/excluir_definitivo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id })
+        });
+        let resultado = await resposta.json();
+
+        if (resultado.sucesso) {
+            alert(resultado.mensagem);
+            carregarLixeira(); // Atualiza a tabela da lixeira
+        } else {
+            alert('Erro: ' + resultado.mensagem);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Erro de comunicação com o servidor.');
+    }
+}
+
+
+    
 </script>
 
 </body>
