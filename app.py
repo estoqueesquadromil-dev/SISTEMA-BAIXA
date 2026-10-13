@@ -560,43 +560,73 @@ def listar_ordens_criadas():
         
         planilha = gc.open(PLANILHA_CRIAR_ORDENS)
         todas_abas = planilha.worksheets()
-        
         lista_ordens = []
         
         for aba in todas_abas:
             nome_aba = aba.title.strip()
             
-            # Se o utilizador aplicou um filtro de data, ignora outras abas
             if data_filtro and nome_aba != data_filtro:
                 continue
                 
             try:
-                # Valida se o título da aba é uma data válida (YYYY-MM-DD)
                 datetime.strptime(nome_aba, '%Y-%m-%d')
             except ValueError:
-                continue # Ignora abas como "dados" ou outras que não sejam datas
+                continue 
             
             registos = aba.get_all_records()
             for index, r in enumerate(registos):
                 linha_planilha = index + 2
                 codigo_principal = str(r.get('CodigoPrincipal') or r.get('Código Principal') or '').strip()
                 qtd_ordem = r.get('QuantidadeOrdem') or r.get('Quantidade Ordem') or 0
+                status_feito = str(r.get('Status') or r.get('Feito') or '').strip().lower() in ['true', 'sim', '1', 'yes', 'feito']
                 
                 if not codigo_principal:
                     continue
                 
-                # Adiciona cada linha individualmente, permitindo mostrar ordens duplicadas
                 lista_ordens.append({
-                    "id": f"{nome_aba}|{linha_planilha}", # Guarda a aba e a linha exata para exclusão individual
+                    "id": f"{nome_aba}|{linha_planilha}",
                     "data": nome_aba,
                     "codigoPrincipal": codigo_principal,
-                    "quantidadeOrdem": qtd_ordem
+                    "quantidadeOrdem": qtd_ordem,
+                    "feito": status_feito
                 })
                 
         return jsonify({'sucesso': True, 'ordens': lista_ordens})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
 
+
+# Nova rota para alternar o status de "Feito" diretamente na linha da planilha
+@app.route('/alternar_status_ordem', methods=['POST'])
+def alternar_status_ordem():
+    try:
+        dados = request.get_json()
+        id_ordem = dados.get('id', '')
+        feito_val = dados.get('feito', False) # True ou False
+        
+        if '|' not in id_ordem:
+            return jsonify({'sucesso': False, 'mensagem': 'ID inválido.'}), 400
+            
+        nome_aba, linha_str = id_ordem.split('|')
+        linha_alvo = int(linha_str)
+        
+        gc = conectar_google_sheets()
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+        aba = planilha.worksheet(nome_aba)
+        
+        # Procura qual é a coluna correspondente a "Status" ou "Feito", se não existir adiciona
+        cabecalhos = aba.row_values(1)
+        if "Status" not in cabecalhos:
+            # Adiciona a coluna Status na frente (ex: coluna D)
+            aba.update_cell(1, 4, "Status")
+            cabecalhos = aba.row_values(1)
+            
+        col_idx = cabecalhos.index("Status") + 1
+        aba.update_cell(linha_alvo, col_idx, "Sim" if feito_val else "Não")
+        
+        return jsonify({'sucesso': True, 'mensagem': 'Status atualizado com sucesso na planilha!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
 
 @app.route('/excluir_ordem_criada', methods=['POST'])
 def excluir_ordem_criada():
