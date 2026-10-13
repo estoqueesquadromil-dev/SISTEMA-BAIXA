@@ -361,8 +361,33 @@
     </div>
     <!-- FIM DO BLOCO DE ORDENS CRIADAS -->
 
+    
+
 </div> <!-- FIM DO PAINEL ORDENS -->
 
+
+<!-- Botão para alternar ou abrir a Lixeira -->
+<div style="margin: 20px 0;">
+    <button onclick="toggleSecaoLixeira()" style="background-color: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🗑️ Ver Lixeira de Ordens</button>
+</div>
+
+<!-- Secção Oculta/Visível da Lixeira -->
+<div id="secao-lixeira" style="display: none; margin-top: 20px; padding: 15px; border: 1px solid #ccc; background: #fff3f3; border-radius: 6px;">
+    <h3>Ordens na Lixeira</h3>
+    <table id="tabela-lixeira" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white;">
+        <thead>
+            <tr style="background-color: #f8f9fa; text-align: left;">
+                <th style="padding: 10px; border: 1px solid #ddd;">Data Original</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Código Principal</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Quantidade Ordem</th>
+                <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Ações Definitivas</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="4" style="text-align: center; color: #777; padding: 15px;">A carregar lixeira...</td></tr>
+        </tbody>
+    </table>
+</div>
 
 
 
@@ -521,6 +546,16 @@
 
     
 <script>
+
+function toggleSecaoLixeira() {
+    let secao = document.getElementById('secao-lixeira');
+    if (secao.style.display === 'none') {
+        secao.style.display = 'block';
+        carregarLixeira(); // Carrega os itens da lixeira do servidor
+    } else {
+        secao.style.display = 'none';
+    }
+}
 
 
 
@@ -1607,12 +1642,71 @@ async function carregarOrdensCriadas() {
     }
 }
 
-// Função para salvar o estado do checkbox (feito/não feito)
-function marcarOrdemFeita(id, checkbox) {
-    localStorage.setItem(`ordem_${id}`, checkbox.checked);
-    carregarOrdensCriadas(); // Atualiza o visual da linha instantaneamente
+async function carregarOrdensCriadas() {
+    let dataFiltro = document.getElementById('filtro-data-ordens') ? document.getElementById('filtro-data-ordens').value : '';
+    let url = `/listar_ordens_criadas`;
+    if (dataFiltro) url += `?data=${dataFiltro}`;
+
+    try {
+        let resposta = await fetch(url);
+        let dados = await resposta.json();
+
+        let tbody = document.querySelector('#tabela-ordens-criadas tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (!dados.sucesso || dados.ordens.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777; padding: 15px;">Nenhuma ordem encontrada.</td></tr>';
+            return;
+        }
+
+        dados.ordens.forEach(ordem => {
+            let tr = document.createElement('tr');
+            let isFeito = ordem.feito;
+            tr.style.cssText = isFeito ? 'background-color: #e8f5e9; text-decoration: line-through; color: #666;' : '';
+
+            tr.innerHTML = `
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                    <input type="checkbox" ${isFeito ? 'checked' : ''} onchange="atualizarStatusPlanilha('${ordem.id}', this.checked)">
+                </td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.data}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.codigoPrincipal}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.quantidadeOrdem}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                    <button onclick="moverParaLixeira('${ordem.id}')" style="background-color: #ffc107; color: #333; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">Mover p/ Lixeira</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        console.error(err);
+    }
 }
 
+// Salva o check diretamente na planilha via backend
+async function atualizarStatusPlanilha(id, feitoStatus) {
+    try {
+        let resposta = await fetch('/alternar_status_ordem', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id, feito: feitoStatus })
+        });
+        let resultado = await resposta.json();
+        if (resultado.sucesso) {
+            carregarOrdensCriadas(); // Atualiza o layout visual da linha
+        } else {
+            alert('Erro ao atualizar status: ' + resultado.mensagem);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+
+
+
+
+    
 
     
 function excluirOrdemCriada(idOrdem) {
