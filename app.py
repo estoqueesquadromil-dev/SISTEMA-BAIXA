@@ -888,3 +888,107 @@ def excluir_perda():
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao excluir: {str(e)}'}), 500
+
+
+
+
+# ==========================================
+# ROTAS DO SISTEMA DE LIXEIRA E ORDENS CRIADAS
+# ==========================================
+
+@app.route('/mover_para_lixeira', methods=['POST'])
+def mover_para_lixeira():
+    try:
+        dados = request.get_json()
+        id_ordem = dados.get('id', '') # Formato recebido: "YYYY-MM-DD|linha"
+        
+        if '|' not in id_ordem:
+            return jsonify({'sucesso': False, 'mensagem': 'ID de ordem inválido.'}), 400
+            
+        nome_aba, linha_str = id_ordem.split('|')
+        linha_alvo = int(linha_str)
+        
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+        
+        # 1. Obtém os dados da linha na aba original do dia
+        aba_origem = planilha.worksheet(nome_aba)
+        linhas = aba_origem.get_all_values()
+        
+        if linha_alvo > len(linhas):
+            return jsonify({'sucesso': False, 'mensagem': 'Linha não encontrada na aba.'}), 404
+            
+        dados_linha = linhas[linha_alvo - 1] # Index base 0
+        
+        # 2. Verifica se a aba "LIXEIRA" existe, senão cria-a automaticamente
+        try:
+            aba_lixeira = planilha.worksheet("LIXEIRA")
+        except gspread.exceptions.WorksheetNotFound:
+            aba_lixeira = planilha.add_worksheet(title="LIXEIRA", rows="1000", cols="5")
+            aba_lixeira.append_row(["Data Original", "Código Principal", "Quantidade Ordem"])
+            
+        # 3. Adiciona na lixeira e remove da aba original
+        aba_lixeira.append_row(dados_linha)
+        aba_origem.delete_rows(linha_alvo)
+        
+        return jsonify({'sucesso': True, 'mensagem': 'Ordem movida para a lixeira com sucesso!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+@app.route('/listar_lixeira', methods=['GET'])
+def listar_lixeira():
+    try:
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão.'}), 500
+            
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+        try:
+            aba_lixeira = planilha.worksheet("LIXEIRA")
+        except gspread.exceptions.WorksheetNotFound:
+            return jsonify({'sucesso': True, 'ordens': []})
+            
+        registos = aba_lixeira.get_all_records()
+        lista_lixeira = []
+        
+        for index, r in enumerate(registos):
+            linha_planilha = index + 2
+            data_orig = str(r.get('Data') or r.get('Data Original') or '').strip()
+            codigo = str(r.get('CodigoPrincipal') or r.get('Código Principal') or '').strip()
+            qtd = r.get('QuantidadeOrdem') or r.get('Quantidade Ordem') or 0
+            
+            if not codigo:
+                continue
+                
+            lista_lixeira.append({
+                "id": f"LIXEIRA|{linha_planilha}",
+                "data": data_orig,
+                "codigoPrincipal": codigo,
+                "quantidadeOrdem": qtd
+            })
+            
+        return jsonify({'sucesso': True, 'ordens': lista_lixeira})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+@app.route('/excluir_definitivo', methods=['POST'])
+def excluir_definitivo():
+    try:
+        dados = request.get_json()
+        id_ordem = dados.get('id', '')
+        _, linha_str = id_ordem.split('|')
+        linha_alvo = int(linha_str)
+        
+        gc = conectar_google_sheets()
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+        aba_lixeira = planilha.worksheet("LIXEIRA")
+        
+        aba_lixeira.delete_rows(linha_alvo)
+        return jsonify({'sucesso': True, 'mensagem': 'Ordem excluída permanentemente da lixeira!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
