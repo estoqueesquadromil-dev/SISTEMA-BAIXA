@@ -132,6 +132,7 @@
     </div>
 
     <!-- PAINEL 2: CONSULTAR BAIXAS COM SELEÇÃO, STATUS E VALIDAÇÃO DE ERP -->
+<!-- PAINEL 2: CONSULTAR BAIXAS COM SELEÇÃO, STATUS E VALIDAÇÃO DE ERP -->
     <div id="painel-consulta" class="painel">
         <div class="form-row">
             <div class="form-group" style="max-width: 180px;">
@@ -150,9 +151,16 @@
                     <option value="Outros">Outros</option>
                 </select>
             </div>
+            <div class="form-group" style="max-width: 200px;">
+                <label for="filtro-status-erp">Filtrar por Status ERP:</label>
+                <select id="filtro-status-erp" onchange="filtrarTabelaConsulta()">
+                    <option value="TODOS" selected>Todos os Status ERP</option>
+                    <option value="OK">OK</option>
+                    <option value="Insuficiente">Insuficiente</option>
+                </select>
+            </div>
             <button class="btn-pesquisar" onclick="consultarBaixas()">Pesquisar</button>
         </div>
-
         <!-- Campo para colar saldo do ERP na aba de Consulta -->
         <div class="form-row" style="margin-top: 10px; background: #eef4fc; padding: 10px; border-radius: 6px; border: 1px solid #cce0f5;">
             <div class="form-group" style="margin: 0;">
@@ -826,38 +834,60 @@ function mudarAba(aba, btn) {
         }
     });
 
-    function processarValidacaoSucata() {
-        let textoColado = document.getElementById('input-saldo-erp').value.trim();
-        saldosErpMap = {};
-
-        if (!textoColado) {
-            alert('Cole os dados de saldo do ERP antes de validar.');
-            return;
-        }
-
-        let linhas = textoColado.split('\n');
-        let totalValidos = 0;
-
-        linhas.forEach(linha => {
-            let partes = linha.trim().split(/\s+/);
-            if (partes.length >= 2) {
-                let codigo = partes[0].trim().toUpperCase();
-                let saldoStr = partes[partes.length - 1].replace(',', '.');
-                let saldo = parseFloat(saldoStr);
-
-                if (!isNaN(saldo)) {
-                    saldosErpMap[codigo] = saldo;
-                    totalValidos++;
-                }
-            }
-        });
-
-        if (listaItensConsultaAtual.length > 0) {
-            renderizarTabelaConsulta(listaItensConsultaAtual);
-        }
-        alert(`Saldos do ERP validados com sucesso (${totalValidos} itens carregados)!`);
+function processarValidacaoSucata() {
+    let textoErp = document.getElementById('input-saldo-erp').value.trim();
+    if (!textoErp) {
+        alert('Por favor, cole as linhas com os saldos do ERP.');
+        return;
     }
 
+    // Mapeia os saldos colados do ERP (Exemplo: C219-500 12)
+    let mapaSaldosERP = {};
+    let linhas = textoErp.split('\n');
+
+    linhas.forEach(linha => {
+        let partes = linha.trim().split(/\s+/);
+        if (partes.length >= 2) {
+            let codigo = partes[0].toUpperCase();
+            let saldo = parseFloat(partes[partes.length - 1].replace(',', '.')) || 0;
+            mapaSaldosERP[codigo] = saldo;
+        }
+    });
+
+    let linhasTabela = document.querySelectorAll('#tabela-consulta tbody tr');
+
+    linhasTabela.forEach(tr => {
+        let tdCodigo = tr.children[2];
+        let tdQtd = tr.children[3];
+        let tdStatusERP = tr.children[5];
+
+        if (!tdCodigo || !tdQtd || !tdStatusERP) return;
+
+        let codigoItem = tdCodigo.innerText.trim().toUpperCase();
+        let qtdNecessaria = parseFloat(tdQtd.innerText.replace(',', '.')) || 0;
+
+        if (codigoItem in mapaSaldosERP) {
+            let saldoDisponivel = mapaSaldosERP[codigoItem];
+
+            if (saldoDisponivel >= qtdNecessaria) {
+                tdStatusERP.innerHTML = `<span style="color: #28a745; font-weight: bold;">OK (${saldoDisponivel})</span>`;
+                tr.setAttribute('data-status-erp', 'OK');
+            } else {
+                tdStatusERP.innerHTML = `<span style="color: #dc3545; font-weight: bold;">Insuficiente (${saldoDisponivel})</span>`;
+                tr.setAttribute('data-status-erp', 'Insuficiente');
+            }
+        } else {
+            // Se NÃO encontrou o código colado do ERP, define como Insuficiente (0) em vez de Não informado
+            tdStatusERP.innerHTML = `<span style="color: #dc3545; font-weight: bold;">Insuficiente (0)</span>`;
+            tr.setAttribute('data-status-erp', 'Insuficiente');
+        }
+    });
+
+    filtrarTabelaConsulta(); // Reorganiza a tabela aplicando os filtros visuais
+}
+
+
+    
     function renderizarTabelaConsulta(itens) {
         let tbody = document.querySelector('#tabela-consulta tbody');
         let contadorBadge = document.getElementById('contador-ordens');
@@ -1080,10 +1110,36 @@ function mudarAba(aba, btn) {
         }
     }
 
-    function filtrarTabelaConsulta() {
-        renderizarTabelaConsulta(listaItensConsultaAtual);
-    }
+function filtrarTabelaConsulta() {
+    let filtroTipo = document.getElementById('filtro-tipo').value;
+    let filtroStatusERP = document.getElementById('filtro-status-erp') ? document.getElementById('filtro-status-erp').value : 'TODOS';
 
+    let linhas = document.querySelectorAll('#tabela-consulta tbody tr');
+
+    linhas.forEach(tr => {
+        let tdTipo = tr.children[4];
+        if (!tdTipo) return;
+
+        let tipoTexto = tdTipo.innerText.trim();
+        let statusERPTexto = tr.getAttribute('data-status-erp') || '';
+
+        // Se o atributo data-status-erp ainda não foi definido, extrai do texto da célula
+        if (!statusERPTexto && tr.children[5]) {
+            let textoCelula = tr.children[5].innerText.trim();
+            if (textoCelula.includes('OK')) statusERPTexto = 'OK';
+            else if (textoCelula.includes('Insuficiente')) statusERPTexto = 'Insuficiente';
+        }
+
+        let atendeTipo = (filtroTipo === 'TODOS' || tipoTexto === filtroTipo);
+        let atendeStatusERP = (filtroStatusERP === 'TODOS' || statusERPTexto === filtroStatusERP);
+
+        if (atendeTipo && atendeStatusERP) {
+            tr.style.display = '';
+        } else {
+            tr.style.display = 'none';
+        }
+    });
+}
     function alternarTodasSelecoes(master) {
         let checkboxes = document.querySelectorAll('.check-item');
         checkboxes.forEach(cb => cb.checked = master.checked);
