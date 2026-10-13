@@ -667,6 +667,8 @@ def excluir_ordem_criada():
 def exportar_excel_ordens():
     try:
         data_filtro = request.args.get('data', '').strip()
+        status_filtro = request.args.get('status', 'todos').strip().lower()
+        
         gc = conectar_google_sheets()
         if not gc:
             return "Erro de conexão com o Google Sheets", 500
@@ -689,24 +691,31 @@ def exportar_excel_ordens():
             for r in registos:
                 codigo_principal = str(r.get('CodigoPrincipal') or r.get('Código Principal') or '').strip()
                 quantidade_ordem = r.get('QuantidadeOrdem') or r.get('Quantidade Ordem') or 0
+                status_feito = str(r.get('Status') or r.get('Feito') or '').strip().lower() in ['true', 'sim', '1', 'yes', 'feito']
                 
                 if not codigo_principal:
                     continue
                 
-                # Adiciona todas as linhas para o Excel sem filtrar duplicados
+                # Aplica o filtro de status antes de adicionar ao Excel
+                if status_filtro == 'pendentes' and status_feito:
+                    continue
+                if status_filtro == 'feitos' and not status_feito:
+                    continue
+                
                 dados_excel.append({
                     "Data": nome_aba,
                     "Código Principal": codigo_principal,
-                    "Quantidade Ordem": quantidade_ordem
+                    "Quantidade Ordem": quantidade_ordem,
+                    "Status": "Feito" if status_feito else "Pendente"
                 })
                 
         if not dados_excel:
-            return "Nenhuma ordem encontrada para exportar.", 404
+            return "Nenhuma ordem encontrada com os filtros selecionados para exportar.", 404
             
         df = pd.DataFrame(dados_excel)
         csv_data = df.to_csv(index=False, sep=';', encoding='utf-8-sig')
         
-        nome_arquivo = f"ordens_{data_filtro}.csv" if data_filtro else "ordens_criadas.csv"
+        nome_arquivo = f"ordens_{data_filtro}_{status_filtro}.csv" if data_filtro else f"ordens_criadas_{status_filtro}.csv"
         return Response(
             csv_data,
             mimetype="text/csv",
@@ -714,8 +723,6 @@ def exportar_excel_ordens():
         )
     except Exception as e:
         return f"Erro ao exportar: {str(e)}", 500
-
-
 
 
 # ==========================================
