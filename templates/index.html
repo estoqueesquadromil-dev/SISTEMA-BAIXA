@@ -331,14 +331,24 @@
     <div style="margin-top: 40px; border-top: 2px solid #dee2e6; padding-top: 25px; background-color: #fafafa; padding: 20px; border-radius: 8px; border: 1px solid #e3e6f0;">
         <h3 style="margin-top: 0; color: #333;">Ordens de Produção Criadas</h3>
         
-        <!-- Filtros e Botão Excel -->
+<!-- Filtros e Botões de Ação -->
         <div style="margin: 15px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
             <label for="filtro-data-ordens">Filtrar por Data:</label>
             <input type="date" id="filtro-data-ordens" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
-            <button onclick="carregarOrdensCriadas()" style="padding: 6px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Filtrar</button>
-            <button onclick="baixarExcelOrdensCriadas()" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Baixar Excel</button>
-        </div>
 
+            <!-- Novo Filtro de Status (Feito / Falta Fazer) -->
+            <select id="filtro-status-ordens" style="padding: 7px; border: 1px solid #ccc; border-radius: 4px;">
+                <option value="todos">Todos os Status</option>
+                <option value="pendentes">Faltam Fazer (Pendentes)</option>
+                <option value="feitos">Já Feitos</option>
+            </select>
+
+            <button onclick="carregarOrdensCriadas()" style="padding: 6px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Filtrar</button>
+            <button onclick="baixarExcelOrdensCriadas()" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Baixar Excel</button>
+            
+            <!-- Botão para Abrir a Lixeira -->
+            <button onclick="toggleSecaoLixeira()" style="padding: 6px 12px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🗑️ Ver Lixeira</button>
+        </div>
         <!-- Tabela de Ordens Criadas -->
         <div style="overflow-x: auto;">
             <table id="tabela-ordens-criadas" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white;">
@@ -1600,6 +1610,8 @@ function salvarOrdemProducao() {
     
 async function carregarOrdensCriadas() {
     let dataFiltro = document.getElementById('filtro-data-ordens') ? document.getElementById('filtro-data-ordens').value : '';
+    let statusFiltro = document.getElementById('filtro-status-ordens') ? document.getElementById('filtro-status-ordens').value : 'todos';
+    
     let url = `/listar_ordens_criadas`;
     if (dataFiltro) url += `?data=${dataFiltro}`;
 
@@ -1616,51 +1628,19 @@ async function carregarOrdensCriadas() {
             return;
         }
 
-        dados.ordens.forEach(ordem => {
-            let tr = document.createElement('tr');
-            
-            // Verifica se esta ordem já estava marcada no navegador (localStorage)
-            let isChecked = localStorage.getItem(`ordem_${ordem.id}`) === 'true';
-            let estiloLinha = isChecked ? 'background-color: #e8f5e9; text-decoration: line-through; color: #666;' : '';
-            tr.style.cssText = estiloLinha;
-
-            tr.innerHTML = `
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
-                    <input type="checkbox" ${isChecked ? 'checked' : ''} onclick="marcarOrdemFeita('${ordem.id}', this)">
-                </td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.data}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.codigoPrincipal}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.quantidadeOrdem}</td>
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
-                    <button onclick="moverParaLixeira('${ordem.id}')" style="background-color: #ffc107; color: #333; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">Mover p/ Lixeira</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
+        // Filtra as ordens com base na seleção do usuário (Todos, Pendentes ou Feitos)
+        let ordensFiltradas = dados.ordens.filter(ordem => {
+            if (statusFiltro === 'pendentes') return !ordem.feito;
+            if (statusFiltro === 'feitos') return ordem.feito;
+            return true; // 'todos'
         });
-    } catch (err) {
-        console.error(err);
-    }
-}
 
-async function carregarOrdensCriadas() {
-    let dataFiltro = document.getElementById('filtro-data-ordens') ? document.getElementById('filtro-data-ordens').value : '';
-    let url = `/listar_ordens_criadas`;
-    if (dataFiltro) url += `?data=${dataFiltro}`;
-
-    try {
-        let resposta = await fetch(url);
-        let dados = await resposta.json();
-
-        let tbody = document.querySelector('#tabela-ordens-criadas tbody');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-
-        if (!dados.sucesso || dados.ordens.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777; padding: 15px;">Nenhuma ordem encontrada.</td></tr>';
+        if (ordensFiltradas.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777; padding: 15px;">Nenhuma ordem corresponde ao filtro selecionado.</td></tr>';
             return;
         }
 
-        dados.ordens.forEach(ordem => {
+        ordensFiltradas.forEach(ordem => {
             let tr = document.createElement('tr');
             let isFeito = ordem.feito;
             tr.style.cssText = isFeito ? 'background-color: #e8f5e9; text-decoration: line-through; color: #666;' : '';
@@ -1682,8 +1662,10 @@ async function carregarOrdensCriadas() {
         console.error(err);
     }
 }
-
-// Salva o check diretamente na planilha via backend
+    
+    
+    
+    // Salva o check diretamente na planilha via backend
 async function atualizarStatusPlanilha(id, feitoStatus) {
     try {
         let resposta = await fetch('/alternar_status_ordem', {
