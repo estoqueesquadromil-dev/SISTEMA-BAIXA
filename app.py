@@ -537,7 +537,6 @@ def exportar_excel_inventario():
                     if not any(row):
                         continue
                     
-                    # Extração segura e limpa (sem erros de sintaxe)
                     codigo_val = ''
                     if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO"):
                         codigo_val = row[cabecalhos.index("CÓDIGO")]
@@ -552,17 +551,50 @@ def exportar_excel_inventario():
                     elif len(row) > 3:
                         qtd_val = row[3]
 
-                    tipo_val = ""
+                    tipo_val = ''
                     if "TIPO" in cabecalhos and len(row) > cabecalhos.index("TIPO"):
                         tipo_val = row[cabecalhos.index("TIPO")]
                     elif len(row) > 4:
                         tipo_val = row[4]
+
+                    # Procura o status de inventário feito na linha
+                    inv_val = 'Não'
+                    for h_nome in ['INVENTARIO FEITO', 'INVENTARIO']:
+                        if h_nome in cabecalhos and len(row) > cabecalhos.index(h_nome):
+                            inv_val = row[cabecalhos.index(h_nome)] or 'Não'
+                            break
+                    if inv_val == 'Não' and len(row) > 6:
+                        inv_val = row[6] or 'Não'
+
+                    # Aplica a mesma regra de negócio da tela do inventário:
+                    tipo_lower = tipo_val.trim().lower() if hasattr(tipo_val, 'trim') else str(tipo_val).strip().lower()
+                    is_sucata = 'sucata' in tipo_lower or 'aproveitamento' in tipo_lower
+                    is_outros = 'corte' in tipo_lower or 'perfil' in tipo_lower or 'outros' in tipo_lower
+
+                    # Se não for sucata nem outros válidos, ignora
+                    if not is_sucata and not is_outros:
+                        continue
                     
-                    # Aplicação dos filtros da tela
-                    if filtro_classificacao != 'TODOS' and tipo_val.upper() != filtro_classificacao.upper():
+                    # Sucata exige status de ERP 'sim' (conforme regra da tela)
+                    status_erp = 'não'
+                    for h_nome in ['STATUS']:
+                        if h_nome in cabecalhos and len(row) > cabecalhos.index(h_nome):
+                            status_erp = str(row[cabecalhos.index(h_nome)]).strip().lower()
+                            break
+
+                    if is_sucata and status_erp != 'sim':
+                        continue
+
+                    classificacao_item = 'Entrada' if is_sucata else 'Baixa'
+
+                    # Aplica os filtros escolhidos pelo utilizador nos selects da tela
+                    if filtro_classificacao != 'TODOS' and classificacao_item.upper() != filtro_classificacao.upper():
                         continue
                         
-                    writer.writerow([data_aba, codigo_val, qtd_val, tipo_val, tipo_val, "Não"])
+                    if filtro_status != 'TODOS' and str(inv_val).strip().capitalize() != str(filtro_status).strip().capitalize():
+                        continue
+                        
+                    writer.writerow([data_aba, codigo_val, qtd_val, tipo_val, classificacao_item, inv_val])
             except Exception:
                 continue
 
@@ -576,7 +608,6 @@ def exportar_excel_inventario():
 
     except Exception as e:
         return f"Erro ao exportar Excel: {str(e)}", 500
-
 
 
 
