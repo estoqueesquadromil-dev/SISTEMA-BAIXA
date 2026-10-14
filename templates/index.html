@@ -1164,11 +1164,13 @@ async function aplicarStatusEmMassa() {
     let linhas = document.querySelectorAll('#tabela-consulta tbody tr');
     let itensSelecionados = [];
 
+    // Percorre as linhas visíveis da tabela
     linhas.forEach((tr) => {
         if (tr.style.display === 'none') return;
 
         let checkbox = tr.querySelector('input[type="checkbox"]');
         if (checkbox && checkbox.checked) {
+            // Captura o Código e o Tipo (Setor) da linha atual da tabela
             let codigo = tr.children[2] ? tr.children[2].innerText.trim() : '';
             let tipo = tr.children[4] ? tr.children[4].innerText.trim() : '';
             
@@ -1196,7 +1198,7 @@ async function aplicarStatusEmMassa() {
         
         let resultado = await resposta.json();
         
-        // Exibe o texto correto da mensagem vinda do Python
+        // Exibe a mensagem de sucesso limpa enviada pelo servidor
         alert(resultado.mensagem);
         
         if (resultado.sucesso) {
@@ -1206,8 +1208,6 @@ async function aplicarStatusEmMassa() {
         alert('Erro de comunicação com o servidor.');
     }
 }
-
-
 
     
     async function excluirConsulta(data, codigo) {
