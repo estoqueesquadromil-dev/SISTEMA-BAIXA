@@ -149,18 +149,13 @@ def atualizar_status_lote_por_id():
             
         cabecalhos = [str(c).strip().upper() for c in linhas_planilha[0]]
         
-        col_id_idx = 1 # Por padrão o ID fica na coluna 1
-        col_status_idx = None
-        
-        for i, h in enumerate(cabecalhos):
-            if h == "ID":
-                col_id_idx = i + 1
-            if "STATUS" in h:
-                col_status_idx = i + 1
-                
-        if not col_status_idx:
-            col_status_idx = 6 
+        if "ID" not in cabecalhos or "STATUS" not in cabecalhos:
+            return jsonify({'sucesso': False, 'mensagem': 'Colunas ID ou STATUS não encontradas na planilha.'}), 400
             
+        col_id_idx = cabecalhos.index("ID") + 1
+        col_status_idx = cabecalhos.index("STATUS") + 1
+        
+        cell_updates = []
         contador = 0
         
         for idx_l, linha in enumerate(linhas_planilha):
@@ -170,8 +165,16 @@ def atualizar_status_lote_por_id():
             id_celula = str(linha[col_id_idx - 1]).strip() if len(linha) >= col_id_idx else ""
             
             if id_celula in ids_selecionados:
-                aba.update_cell(idx_l + 1, col_status_idx, novo_status)
+                cell_address = gspread.utils.rowcol_to_a1(idx_l + 1, col_status_idx)
+                cell_updates.append({
+                    'range': cell_address,
+                    'values': [[novo_status]]
+                })
                 contador += 1
+                
+        # Envia todas as alterações num único pacote para o Google Sheets (Evita o erro 429)
+        if cell_updates:
+            aba.batch_update(cell_updates)
                 
         return jsonify({'sucesso': True, 'mensagem': f'Status atualizado com sucesso em {contador} item(ns)!'})
         
