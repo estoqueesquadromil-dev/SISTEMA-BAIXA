@@ -1169,7 +1169,6 @@ async function aplicarStatusEmMassa() {
 
         let checkbox = tr.querySelector('input[type="checkbox"]');
         if (checkbox && checkbox.checked) {
-            // Vamos buscar o Código (coluna 2) e o Tipo (coluna 4) diretamente da linha
             let codigo = tr.children[2] ? tr.children[2].innerText.trim() : '';
             let tipo = tr.children[4] ? tr.children[4].innerText.trim() : '';
             
@@ -1194,8 +1193,12 @@ async function aplicarStatusEmMassa() {
                 status: novoStatus 
             })
         });
+        
         let resultado = await resposta.json();
+        
+        // AQUI ESTÁ A CORREÇÃO: exibe a mensagem correta em vez do objeto Response
         alert(resultado.mensagem);
+        
         if (resultado.sucesso) {
             consultarBaixas(); 
         }
@@ -1203,7 +1206,6 @@ async function aplicarStatusEmMassa() {
         alert('Erro de comunicação com o servidor.');
     }
 }    
-    
     
     
     async function excluirConsulta(data, codigo) {
