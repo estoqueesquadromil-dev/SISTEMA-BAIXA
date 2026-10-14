@@ -567,13 +567,19 @@ function toggleSecaoLixeira() {
 
 
 
-// Inicializa data de hoje no campo de lançamento
-    document.addEventListener("DOMContentLoaded", function() {
-        let campoData = document.getElementById('perda-data');
-        if(campoData) campoData.valueAsDate = new Date();
-    });
+// Define o dia 1 do mês atual e a data de hoje automaticamente ao carregar a página
+document.addEventListener("DOMContentLoaded", function() {
+    let hoje = new Date();
+    let primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
-    let listaPerdasTemp = [];
+    let inputInicio = document.getElementById('data-inicio-inv');
+    let inputFim = document.getElementById('data-fim-inv');
+
+    if (inputInicio && inputFim) {
+        inputInicio.value = primeiroDiaMes.toISOString().split('T')[0];
+        inputFim.value = hoje.toISOString().split('T')[0];
+    }
+});
 
 function adicionarItemPerdaTemp() {
     let data = document.getElementById('perda-data').value;
@@ -1412,15 +1418,20 @@ function filtrarTabelaInventario() {
         }
     }
 
-    function exportarExcelInventario() {
-        if (dadosInventarioCache.length === 0) {
-            alert('Não há dados carregados para exportar.');
-            return;
-        }
-        let dataInicio = document.getElementById('data-inicio-inv').value;
-        let dataFim = document.getElementById('data-fim-inv').value;
-        window.location.href = `/exportar_excel_inventario?inicio=${dataInicio}&fim=${dataFim}`;
+function exportarExcelInventario() {
+    let inicio = document.getElementById('data-inicio-inv').value;
+    let fim = document.getElementById('data-fim-inv').value;
+    let classificacao = document.getElementById('filtro-classificacao-inv').value;
+    let status = document.getElementById('filtro-status-inv').value;
+
+    if (!inicio || !fim) {
+        alert('Por favor, selecione a Data Início e a Data Fim.');
+        return;
     }
+
+    // Redireciona para a rota do Flask enviando os parâmetros exatos do filtro
+    window.location.href = `/exportar_excel_inventario?inicio=${inicio}&fim=${fim}&classificacao=${classificacao}&status=${status}`;
+}
 
 
 let dadosOrdensCache = [];
