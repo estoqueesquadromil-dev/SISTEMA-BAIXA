@@ -1960,13 +1960,20 @@ async function atualizarIVEBaixaIndividual(id, iveStatus) {
 
 // Atualizar IVE em lote para os itens selecionados na tabela de consulta
 async function alterarIVEBaixaEmLote(iveStatus) {
-    let checkboxesSelecionados = document.querySelectorAll('.check-consulta-item:checked');
+    // Procura todos os checkboxes marcados na primeira coluna da tabela de consulta
+    let checkboxesSelecionados = document.querySelectorAll('#tabela-consulta tbody tr td:first-child input[type="checkbox"]:checked');
+    
     if (checkboxesSelecionados.length === 0) {
         alert('Selecione pelo menos um item na tabela de consulta para aplicar a alteração em lote.');
         return;
     }
 
-    let ids = Array.from(checkboxesSelecionados).map(cb => cb.value);
+    let ids = Array.from(checkboxesSelecionados).map(cb => cb.value).filter(id => id);
+
+    if (ids.length === 0) {
+        alert('Os itens selecionados não possuem um ID válido.');
+        return;
+    }
 
     try {
         let resposta = await fetch('/alternar_ive_baixa', {
@@ -1977,7 +1984,7 @@ async function alterarIVEBaixaEmLote(iveStatus) {
         let resultado = await resposta.json();
         if (resultado.sucesso) {
             alert(resultado.mensagem);
-            consultarBaixas();
+            consultarBaixas(); // Recarrega a consulta para atualizar as cores e dados
         } else {
             alert('Erro ao atualizar em lote: ' + resultado.mensagem);
         }
@@ -1986,7 +1993,6 @@ async function alterarIVEBaixaEmLote(iveStatus) {
         alert('Erro de comunicação com o servidor.');
     }
 }
-
     
 </script>
 
