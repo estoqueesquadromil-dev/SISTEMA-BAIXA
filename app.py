@@ -1050,38 +1050,40 @@ def atualizar_status_lote_por_indice():
         planilha = gc.open(PLANILHA_BAIXAS) if 'PLANILHA_BAIXAS' in globals() else gc.open("BAIXAS")
         aba = planilha.worksheet(data_consulta)
         
-        cabecalhos = [str(c).strip() for c in aba.row_values(1)]
+        cabecalhos = [str(c).strip().upper() for c in aba.row_values(1)]
         
+        # Encontra a coluna de status
         col_status_idx = None
-        col_codigo_idx = None
-        
-        for idx, nome_col in enumerate(cabecalhos):
-            nome_upper = nome_col.upper()
-            if nome_upper in ["STATUS", "STATUS_BAIXA"]:
-                col_status_idx = idx + 1
-            elif nome_upper in ["CODIGO", "CÓDIGO"]:
-                col_codigo_idx = idx + 1
+        for i, h in enumerate(cabecalhos):
+            if h in ["STATUS", "STATUS_BAIXA"]:
+                col_status_idx = i + 1
+                break
                 
-        if not col_status_idx or not col_codigo_idx:
-            return jsonify({'sucesso': False, 'mensagem': 'Colunas obrigatórias não encontradas na planilha.'}), 400
+        if not col_status_idx:
+            return jsonify({'sucesso': False, 'mensagem': 'Coluna de Status não encontrada.'}), 400
             
-        registos = aba.get_all_records()
-        contador_atualizados = 0
+        # Pega todos os valores atuais da planilha para cruzar pelo Código e Tipo exatos
+        linhas_planilha = aba.get_all_values()
+        contador = 0
         
-        for index, r in enumerate(registos):
-            linha_planilha = index + 2
-            codigo_registo = str(r.get('Codigo') or r.get('Código') or '').strip()
-            tipo_registo = str(r.get('Tipo') or r.get('TIPO') or '').strip()
+        # O cabeçalho é a linha 1 (índice 0 nos valores), os dados começam na linha 2 (índice 1)
+        for idx_l, linha in enumerate(linhas_planilha):
+            if idx_l == 0:
+                continue # Pula o cabeçalho
+                
+            # Tenta detetar em quais colunas estão o Código e o Tipo com base nos cabeçalhos
+            # Se não achar pelos nomes, assume as colunas padrão (ex: Coluna 3 para Código e Coluna 5 para Tipo)
+            codigo_celula = str(linha[2]).strip() if len(linha) > 2 else ""
+            tipo_celula = str(linha[4]).strip() if len(linha) > 4 else ""
             
+            # Verifica se esta linha da planilha bate com algum dos itens selecionados na tela
             for item in itens_selecionados:
-                match_codigo = (codigo_registo == item.get('codigo'))
-                match_tipo = (not item.get('tipo') or tipo_registo == item.get('tipo'))
-                
-                if match_codigo and match_tipo:
-                    aba.update_cell(linha_planilha, col_status_idx, novo_status)
-                    contador_atualizados += 1
+                if codigo_celula == item.get('codigo') and (not item.get('tipo') or tipo_celula == item.get('tipo')):
+                    # Atualiza diretamente a célula na linha real da planilha (idx_l + 1)
+                    aba.update_cell(idx_l + 1, col_status_idx, novo_status)
+                    contador += 1
                     break
                 
-        return jsonify({'sucesso': True, 'mensagem': f'Status atualizado para "{novo_status}" em {contador_atualizados} itens com sucesso!'})
+        return jsonify({'sucesso': True, 'mensagem': f'Status atualizado para "{novo_status}" em {contador} itens com sucesso!'})
     except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+        return jsonify({'sucesso': False, 'mensagem': f'Erro interno: {str(e)}'}), 500
