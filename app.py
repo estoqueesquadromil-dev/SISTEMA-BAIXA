@@ -181,6 +181,7 @@ def atualizar_status_lote_por_id():
 
 
 
+@app.route('/consultar_movimentacao', methods=['GET'])
 def consultar_movimentacao():
     data_consulta = request.args.get('data', '').strip()
     if not data_consulta:
@@ -198,13 +199,53 @@ def consultar_movimentacao():
         except gspread.exceptions.WorksheetNotFound:
             return jsonify({'sucesso': True, 'itens': [], 'mensagem': f'Nenhuma baixa encontrada para o dia {data_consulta}.'})
 
-        dados = sheet_mov.get_all_records()
-        return jsonify({'sucesso': True, 'itens': dados})
+        linhas = sheet_mov.get_all_values()
+        if not linhas or len(linhas) < 2:
+            return jsonify({'sucesso': True, 'itens': [], 'mensagem': f'Nenhuma baixa encontrada para o dia {data_consulta}.'})
+
+        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+        tem_id = "ID" in cabecalhos
+
+        itens_formatados = []
+        for idx in range(1, len(linhas)):
+            row = linhas[idx]
+            if not any(row):
+                continue
+            
+            if tem_id:
+                # Mapeamento com ID (abas novas)
+                row_id = row[cabecalhos.index("ID")] if "ID" in cabecalhos and len(row) > cabecalhos.index("ID") else f"linha_{idx+1}"
+                data_val = row[cabecalhos.index("DATA")] if "DATA" in cabecalhos and len(row) > cabecalhos.index("DATA") else data_consulta
+                codigo_val = row[cabecalhos.index("CÓDIGO")] if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO") else (row[cabecalhos.index("CODIGO")] if "CODIGO" in cabecalhos and len(row) > cabecalhos.index("CODIGO") else "")
+                qtd_val = row[cabecalhos.index("QUANTIDADE")] if "QUANTIDADE" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE") else 1
+                tipo_val = row[cabecalhos.index("TIPO")] if "TIPO" in cabecalhos and len(row) > cabecalhos.index("TIPO") else "Baixa Diaria"
+                status_val = row[cabecalhos.index("STATUS")] if "STATUS" in cabecalhos and len(row) > cabecalhos.index("STATUS") else "Não"
+            else:
+                # Mapeamento fallback para abas antigas (sem ID)
+                row_id = f"fallback_{idx+1}"
+                data_val = row[0] if len(row) > 0 else data_consulta
+                codigo_val = row[1] if len(row) > 1 else ""
+                qtd_val = row[2] if len(row) > 2 else 1
+                tipo_val = row[3] if len(row) > 3 else "Baixa Diaria"
+                status_val = row[4] if len(row) > 4 else "Não"
+
+            itens_formatados.append({
+                "ID": row_id,
+                "Data": data_val,
+                "Código": codigo_val,
+                "Quantidade": qtd_val,
+                "Tipo": tipo_val,
+                "Status": status_val
+            })
+
+        return jsonify({'sucesso': True, 'itens': itens_formatados})
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao consultar: {str(e)}'})
 
-@app.route('/excluir_movimentacao', methods=['POST'])
+
+
+
 def excluir_movimentacao():
     dados = request.json
     data_mov = dados.get('data')
