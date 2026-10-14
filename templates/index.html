@@ -1161,15 +1161,17 @@ async function aplicarStatusEmMassa() {
     let dataConsulta = document.getElementById('data-consulta').value;
     let novoStatus = document.getElementById('status-lote').value;
     
-    // 1. Apanha todos os checkboxes da tabela de consulta
-    let checkboxes = document.querySelectorAll('#tabela-consulta tbody .check-consulta-item');
+    // Procura por todas as linhas da tabela de consulta
+    let linhas = document.querySelectorAll('#tabela-consulta tbody tr');
     let indicesParaAlterar = [];
 
-    // 2. Olha linha por linha: se o checkbox estiver MARCADO (checked) e visível, guarda a posição dele
-    checkboxes.forEach((cb, index) => {
-        let linha = cb.closest('tr');
-        // Só considera se a linha estiver visível (passou no filtro) e marcada
-        if (cb.checked && linha && linha.style.display !== 'none') {
+    // Percorre cada linha e verifica se o checkbox está marcado
+    linhas.forEach((tr, index) => {
+        // Ignora linhas que estão escondidas pelos filtros
+        if (tr.style.display === 'none') return;
+
+        let checkbox = tr.querySelector('input[type="checkbox"]');
+        if (checkbox && checkbox.checked) {
             indicesParaAlterar.push(index); 
         }
     });
@@ -1198,6 +1200,10 @@ async function aplicarStatusEmMassa() {
         alert('Erro de comunicação com o servidor.');
     }
 }
+    
+    
+    
+    
     async function excluirConsulta(data, codigo) {
         if (!confirm(`Tem a certeza que deseja excluir o produto ${codigo} do registo do dia ${data}?`)) return;
 
