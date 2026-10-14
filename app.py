@@ -537,9 +537,26 @@ def exportar_excel_inventario():
                     if not any(row):
                         continue
                     
-                    codigo_val = row[cabecalhos.index("CÓDIGO")] if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO") else (row[cabecalhos.index("CODIGO")] if "CODIGO" in cabecalhos and len(row) > cabecalhos.index("CODIGO")) else ""
-                    qtd_val = row[cabecalhos.index("QUANTIDADE")] if "QUANTIDADE" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE") else "1"
-                    tipo_val = row[cabecalhos.index("TIPO")] if "TIPO" in cabecalhos and len(row) > cabecalhos.index("TIPO") else ""
+                    # Extração segura e limpa (sem erros de sintaxe)
+                    codigo_val = ''
+                    if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO"):
+                        codigo_val = row[cabecalhos.index("CÓDIGO")]
+                    elif "CODIGO" in cabecalhos and len(row) > cabecalhos.index("CODIGO"):
+                        codigo_val = row[cabecalhos.index("CODIGO")]
+                    elif len(row) > 2:
+                        codigo_val = row[2]
+
+                    qtd_val = "1"
+                    if "QUANTIDADE" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE"):
+                        qtd_val = row[cabecalhos.index("QUANTIDADE")]
+                    elif len(row) > 3:
+                        qtd_val = row[3]
+
+                    tipo_val = ""
+                    if "TIPO" in cabecalhos and len(row) > cabecalhos.index("TIPO"):
+                        tipo_val = row[cabecalhos.index("TIPO")]
+                    elif len(row) > 4:
+                        tipo_val = row[4]
                     
                     # Aplicação dos filtros da tela
                     if filtro_classificacao != 'TODOS' and tipo_val.upper() != filtro_classificacao.upper():
@@ -559,6 +576,7 @@ def exportar_excel_inventario():
 
     except Exception as e:
         return f"Erro ao exportar Excel: {str(e)}", 500
+
 
 
 
