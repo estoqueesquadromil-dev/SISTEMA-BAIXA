@@ -1048,42 +1048,45 @@ def atualizar_status_lote_por_indice():
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
             
         planilha = gc.open(PLANILHA_BAIXAS) if 'PLANILHA_BAIXAS' in globals() else gc.open("BAIXAS")
-        aba = planilha.worksheet(data_consulta)
         
-        cabecalhos = [str(c).strip().upper() for c in aba.row_values(1)]
+        try:
+            aba = planilha.worksheet(data_consulta)
+        except Exception:
+            return jsonify({'sucesso': False, 'mensagem': f'Aba da data {data_consulta} não encontrada.'}), 400
+            
+        linhas_planilha = aba.get_all_values()
+        if not linhas_planilha or len(linhas_planilha) < 2:
+            return jsonify({'sucesso': False, 'mensagem': 'A planilha está vazia.'}), 400
+            
+        cabecalhos = [str(c).strip().upper() for c in linhas_planilha[0]]
         
-        # Encontra a coluna de status
+        # Identifica a coluna do Status dinamicamente
         col_status_idx = None
         for i, h in enumerate(cabecalhos):
-            if h in ["STATUS", "STATUS_BAIXA"]:
+            if "STATUS" in h:
                 col_status_idx = i + 1
                 break
-                
         if not col_status_idx:
-            return jsonify({'sucesso': False, 'mensagem': 'Coluna de Status não encontrada.'}), 400
+            col_status_idx = 7 # Padrão seguro
             
-        # Pega todos os valores atuais da planilha para cruzar pelo Código e Tipo exatos
-        linhas_planilha = aba.get_all_values()
         contador = 0
         
-        # O cabeçalho é a linha 1 (índice 0 nos valores), os dados começam na linha 2 (índice 1)
+        # Percorre todas as linhas da planilha (ignorando o cabeçalho)
         for idx_l, linha in enumerate(linhas_planilha):
             if idx_l == 0:
-                continue # Pula o cabeçalho
+                continue
                 
-            # Tenta detetar em quais colunas estão o Código e o Tipo com base nos cabeçalhos
-            # Se não achar pelos nomes, assume as colunas padrão (ex: Coluna 3 para Código e Coluna 5 para Tipo)
             codigo_celula = str(linha[2]).strip() if len(linha) > 2 else ""
             tipo_celula = str(linha[4]).strip() if len(linha) > 4 else ""
             
-            # Verifica se esta linha da planilha bate com algum dos itens selecionados na tela
+            # Verifica se esta linha corresponde exatamente a algum dos itens marcados (Código + Tipo)
             for item in itens_selecionados:
-                if codigo_celula == item.get('codigo') and (not item.get('tipo') or tipo_celula == item.get('tipo')):
-                    # Atualiza diretamente a célula na linha real da planilha (idx_l + 1)
+                if codigo_celula == item.get('codigo') and tipo_celula == item.get('tipo'):
+                    # Atualiza a linha real correspondente no Google Sheets
                     aba.update_cell(idx_l + 1, col_status_idx, novo_status)
                     contador += 1
                     break
                 
-        return jsonify({'sucesso': True, 'mensagem': f'Status atualizado para "{novo_status}" em {contador} itens com sucesso!'})
+        return jsonify({'sucesso': True, 'mensagem': f'Status atualizado para "{novo_status}" em {contador} item(ns) com sucesso!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro interno: {str(e)}'}), 500
