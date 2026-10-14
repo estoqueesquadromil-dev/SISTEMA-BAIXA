@@ -1029,3 +1029,47 @@ def excluir_definitivo():
         return jsonify({'sucesso': True, 'mensagem': 'Ordem excluída permanentemente da lixeira!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
+@app.route('/atualizar_status_lote_por_indice', methods=['POST'])
+def atualizar_status_lote_por_indice():
+    try:
+        dados = request.get_json()
+        data_consulta = dados.get('data', '').strip()
+        indices = dados.get('indices', []) # Lista de números das linhas marcadas
+        novo_status = dados.get('status', 'Não')
+        
+        if not data_consulta or not indices:
+            return jsonify({'sucesso': False, 'mensagem': 'Nenhum item selecionado.'}), 400
+            
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        planilha = gc.open(PLANILHA_BAIXAS) if 'PLANILHA_BAIXAS' in globals() else gc.open("BAIXAS")
+        aba = planilha.worksheet(data_consulta)
+        
+        cabecalhos = [str(c).strip() for c in aba.row_values(1)]
+        
+        # Identifica a coluna de Status
+        col_status_idx = None
+        for nome_col in ["Status", "STATUS", "status_baixa"]:
+            if nome_col in cabecalhos:
+                col_status_idx = cabecalhos.index(nome_col) + 1
+                break
+                
+        if not col_status_idx:
+            return jsonify({'sucesso': False, 'mensagem': 'Coluna de Status não encontrada na planilha.'}), 400
+            
+        contador = 0
+        for idx in indices:
+            # Na planilha do Google, a linha 1 é o cabeçalho, os dados começam na linha 2. 
+            # O index do JavaScript começa em 0, logo a linha real na planilha é idx + 2
+            linha_planilha = int(idx) + 2
+            aba.update_cell(linha_planilha, col_status_idx, novo_status)
+            contador += 1
+                
+        return jsonify({'sucesso': True, 'mensagem': f'Status atualizado para "{novo_status}" em {contador} itens com sucesso!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
