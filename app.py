@@ -249,13 +249,14 @@ def consultar_movimentacao():
 
 
 
+@app.route('/excluir_movimentacao', methods=['POST'])
 def excluir_movimentacao():
     dados = request.json
     data_mov = dados.get('data')
-    codigo = str(dados.get('codigo')).strip()
+    row_id = str(dados.get('id', '')).strip()
 
-    if not data_mov or not codigo:
-        return jsonify({'sucesso': False, 'mensagem': 'Data ou código não informados!'})
+    if not data_mov or not row_id:
+        return jsonify({'sucesso': False, 'mensagem': 'Data ou ID não informados!'})
 
     try:
         gc = conectar_google_sheets()
@@ -266,22 +267,20 @@ def excluir_movimentacao():
         sheet_mov = planilha_mov.worksheet(data_mov)
         
         linhas = sheet_mov.get_all_values()
-        if not linhas:
+        if not linhas or len(linhas) < 2:
             return jsonify({'sucesso': False, 'mensagem': 'Aba vazia.'})
         
-        cabecalho = linhas[0]
-        idx_codigo = -1
-        for i, col in enumerate(cabecalho):
-            if col.upper() in ['CODIGO', 'CÓDIGO']:
-                idx_codigo = i
-                break
+        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
         
-        if idx_codigo == -1:
-            return jsonify({'sucesso': False, 'mensagem': 'Coluna de código não encontrada.'})
+        if "ID" not in cabecalhos:
+            return jsonify({'sucesso': False, 'mensagem': 'Coluna ID não encontrada na planilha.'})
+            
+        col_id_idx = cabecalhos.index("ID") + 1
 
         linha_encontrada = -1
         for idx in range(1, len(linhas)):
-            if str(linhas[idx][idx_codigo]).strip() == codigo:
+            val_id = str(linhas[idx][col_id_idx - 1]).strip() if len(linhas[idx]) >= col_id_idx else ""
+            if val_id == row_id:
                 linha_encontrada = idx + 1
                 break
 
@@ -289,19 +288,20 @@ def excluir_movimentacao():
             sheet_mov.delete_rows(linha_encontrada)
             return jsonify({'sucesso': True, 'mensagem': 'Item excluído com sucesso da planilha!'})
         else:
-            return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado na planilha.'})
+            return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado pelo ID na planilha.'})
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao excluir: {str(e)}'})
+
 
 @app.route('/editar_movimentacao', methods=['POST'])
 def editar_movimentacao():
     dados = request.json
     data_mov = dados.get('data')
-    codigo = str(dados.get('codigo')).strip()
+    row_id = str(dados.get('id', '')).strip()
     nova_quantidade = dados.get('quantidade')
 
-    if not data_mov or not codigo or nova_quantidade is None:
+    if not data_mov or not row_id or nova_quantidade is None:
         return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos!'})
 
     try:
@@ -313,32 +313,29 @@ def editar_movimentacao():
         sheet_mov = planilha_mov.worksheet(data_mov)
         
         linhas = sheet_mov.get_all_values()
-        if not linhas:
+        if not linhas or len(linhas) < 2:
             return jsonify({'sucesso': False, 'mensagem': 'Aba vazia.'})
         
-        cabecalho = linhas[0]
-        idx_codigo = -1
-        idx_qtd = -1
-        for i, col in enumerate(cabecalho):
-            if col.upper() in ['CODIGO', 'CÓDIGO']:
-                idx_codigo = i
-            elif col.upper() in ['QUANTIDADE']:
-                idx_qtd = i
+        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
         
-        if idx_codigo == -1 or idx_qtd == -1:
-            return jsonify({'sucesso': False, 'mensagem': 'Colunas necessárias não encontradas.'})
+        if "ID" not in cabecalhos or "QUANTIDADE" not in cabecalhos:
+            return jsonify({'sucesso': False, 'mensagem': 'Colunas ID ou QUANTIDADE não encontradas.'})
+            
+        col_id_idx = cabecalhos.index("ID") + 1
+        col_qtd_idx = cabecalhos.index("QUANTIDADE") + 1
 
         linha_encontrada = -1
         for idx in range(1, len(linhas)):
-            if str(linhas[idx][idx_codigo]).strip() == codigo:
+            val_id = str(linhas[idx][col_id_idx - 1]).strip() if len(linhas[idx]) >= col_id_idx else ""
+            if val_id == row_id:
                 linha_encontrada = idx + 1
                 break
 
         if linha_encontrada != -1:
-            sheet_mov.update_cell(linha_encontrada, idx_qtd + 1, nova_quantidade)
+            sheet_mov.update_cell(linha_encontrada, col_qtd_idx, nova_quantidade)
             return jsonify({'sucesso': True, 'mensagem': 'Quantidade atualizada com sucesso!'})
         else:
-            return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado na planilha.'})
+            return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado pelo ID na planilha.'})
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao editar: {str(e)}'})
