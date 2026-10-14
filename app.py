@@ -1029,3 +1029,95 @@ def excluir_definitivo():
         return jsonify({'sucesso': True, 'mensagem': 'Ordem excluída permanentemente da lixeira!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
+@app.route('/consultar_baixas', methods=['GET'])
+def consultar_baixas():
+    try:
+        data_consulta = request.args.get('data', '').strip()
+        if not data_consulta:
+            return jsonify({'sucesso': False, 'mensagem': 'Data não informada.'}), 400
+            
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        planilha = gc.open(PLANILHA_BAIXAS)
+        try:
+            aba = planilha.worksheet(data_consulta)
+        except gspread.exceptions.WorksheetNotFound:
+            return jsonify({'sucesso': True, 'itens': []})
+            
+        registos = aba.get_all_records()
+        lista_itens = []
+        
+        for index, r in enumerate(registos):
+            linha_planilha = index + 2
+            codigo = str(r.get('Codigo') or r.get('Código') or '').strip()
+            quantidade = r.get('Quantidade') or 0
+            tipo = str(r.get('Tipo') or '').strip()
+            status_erp = str(r.get('Status ERP') or '').strip()
+            status_baixa = str(r.get('Status') or r.get('Feito') or '').strip()
+            
+            # Lê o valor da coluna IVE
+            status_ive = str(r.get('IVE') or r.get('ive') or '').strip().lower() in ['true', 'sim', '1', 'yes', 'ive']
+            
+            if not codigo:
+                continue
+                
+            lista_itens.append({
+                "id": f"{data_consulta}|{linha_planilha}",
+                "data": data_consulta,
+                "codigo": codigo,
+                "quantidade": quantidade,
+                "tipo": tipo,
+                "status_erp": status_erp,
+                "status_baixa": status_baixa,
+                "ive": status_ive
+            })
+            
+        return jsonify({'sucesso': True, 'itens': lista_itens})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+@app.route('/alternar_ive_baixa', methods=['POST'])
+def alternar_ive_baixa():
+    try:
+        dados = request.get_json()
+        ids = dados.get('ids', [])
+        ive_val = dados.get('ive', False)
+        
+        if not ids:
+            return jsonify({'sucesso': False, 'mensagem': 'Nenhum item selecionado.'}), 400
+            
+        gc = conectar_google_sheets()
+        planilha = gc.open(PLANILHA_BAIXAS)
+        
+        abas_afetadas = {}
+        for id_item in ids:
+            if '|' not in id_item:
+                continue
+            nome_aba, linha_str = id_item.split('|')
+            if nome_aba not in abas_afetadas:
+                abas_afetadas[nome_aba] = []
+            abas_afetadas[nome_aba].append(int(linha_str))
+            
+        for nome_aba, linhas in abas_afetadas.items():
+            aba = planilha.worksheet(nome_aba)
+            cabecalhos = aba.row_values(1)
+            
+            if "IVE" not in cabecalhos:
+                nova_col_idx = len(cabecalhos) + 1
+                aba.update_cell(1, nova_col_idx, "IVE")
+                cabecalhos = aba.row_values(1)
+                
+            col_idx = cabecalhos.index("IVE") + 1
+            
+            for linha_alvo in linhas:
+                aba.update_cell(linha_alvo, col_idx, "Sim" if ive_val else "Não")
+                
+        return jsonify({'sucesso': True, 'mensagem': 'Status IVE atualizado com sucesso!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
