@@ -420,6 +420,10 @@ def consultar_inventario_periodo():
     
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
+
 @app.route('/atualizar_inventario', methods=['POST'])
 def atualizar_inventario():
     dados = request.json
