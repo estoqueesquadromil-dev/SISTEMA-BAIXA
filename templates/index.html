@@ -948,8 +948,8 @@ function renderizarTabelaConsulta(itens) {
                 <td><strong style="color: ${corStatusErp};">${statusErpTexto}</strong></td>
                 <td><strong>${statusLinha}</strong></td>
                 <td>
-                    <button class="btn-acao btn-editar" onclick="editarConsulta('${dataLinha}', '${codigoLinha}', ${qtdLinha})">Editar</button>
-                    <button class="btn-acao btn-excluir" onclick="excluirConsulta('${dataLinha}', '${codigoLinha}')">Excluir</button>
+                    <button class="btn-acao btn-editar" onclick="editarConsulta('${dataLinha}', '${rowId}', '${codigoLinha}', ${qtdLinha})">Editar</button>
+                    <button class="btn-acao btn-excluir" onclick="excluirConsulta('${dataLinha}', '${rowId}', '${codigoLinha}')">Excluir</button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -1207,14 +1207,14 @@ async function aplicarStatusEmMassa() {
 }
     
     
-    async function excluirConsulta(data, codigo) {
+async function excluirConsulta(data, rowId, codigo) {
         if (!confirm(`Tem a certeza que deseja excluir o produto ${codigo} do registo do dia ${data}?`)) return;
 
         try {
             let resposta = await fetch('/excluir_movimentacao', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data: data, codigo: codigo })
+                body: JSON.stringify({ data: data, id: rowId })
             });
             let resultado = await resposta.json();
             alert(resultado.mensagem);
@@ -1226,7 +1226,7 @@ async function aplicarStatusEmMassa() {
         }
     }
 
-    async function editarConsulta(data, codigo, qtdAtual) {
+    async function editarConsulta(data, rowId, codigo, qtdAtual) {
         let novaQtd = prompt(`Editar quantidade para o produto ${codigo}:`, qtdAtual);
         if (novaQtd === null) return;
         
@@ -1240,7 +1240,7 @@ async function aplicarStatusEmMassa() {
             let resposta = await fetch('/editar_movimentacao', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data: data, codigo: codigo, quantidade: qtdNum })
+                body: JSON.stringify({ data: data, id: rowId, quantidade: qtdNum })
             });
             let resultado = await resposta.json();
             alert(resultado.mensagem);
@@ -1252,6 +1252,8 @@ async function aplicarStatusEmMassa() {
         }
     }
 
+
+    
     // --- LÓGICA DA ABA INVENTÁRIO ---
     async function carregarInventario() {
         let dataInicio = document.getElementById('data-inicio-inv').value;
