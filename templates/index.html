@@ -1115,6 +1115,7 @@ function filtrarTabelaConsulta() {
     let filtroStatusERP = document.getElementById('filtro-status-erp') ? document.getElementById('filtro-status-erp').value : 'TODOS';
 
     let linhas = document.querySelectorAll('#tabela-consulta tbody tr');
+    let totalVisiveis = 0; // Variável para contar as linhas visíveis
 
     linhas.forEach(tr => {
         let tdTipo = tr.children[4];
@@ -1135,11 +1136,19 @@ function filtrarTabelaConsulta() {
 
         if (atendeTipo && atendeStatusERP) {
             tr.style.display = '';
+            totalVisiveis++; // Incrementa se a linha passou no filtro
         } else {
             tr.style.display = 'none';
         }
     });
+
+    // Atualiza o contador na tela com o total filtrado
+    let contadorBadge = document.getElementById('contador-ordens');
+    if (contadorBadge) {
+        contadorBadge.textContent = `Total de Ordens: ${totalVisiveis}`;
+    }
 }
+    
     function alternarTodasSelecoes(master) {
         let checkboxes = document.querySelectorAll('.check-item');
         checkboxes.forEach(cb => cb.checked = master.checked);
