@@ -1196,7 +1196,7 @@ async function aplicarStatusEmMassa() {
         
         let resultado = await resposta.json();
         
-        // AQUI ESTÁ A CORREÇÃO: exibe a mensagem correta em vez do objeto Response
+        // Exibe o texto correto da mensagem vinda do Python
         alert(resultado.mensagem);
         
         if (resultado.sucesso) {
@@ -1205,8 +1205,10 @@ async function aplicarStatusEmMassa() {
     } catch (err) {
         alert('Erro de comunicação com o servidor.');
     }
-}    
-    
+}
+
+
+
     
     async function excluirConsulta(data, codigo) {
         if (!confirm(`Tem a certeza que deseja excluir o produto ${codigo} do registo do dia ${data}?`)) return;
