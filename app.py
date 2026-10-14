@@ -89,12 +89,13 @@ def salvar_lote():
 
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
         
+        import uuid
         try:
             sheet_mov = planilha_mov.worksheet(data_lote)
         except gspread.exceptions.WorksheetNotFound:
-            # Cria a aba com 6 colunas para incluir o 'Inventario Feito'
-            sheet_mov = planilha_mov.add_worksheet(title=data_lote, rows="1000", cols="6")
-            sheet_mov.append_row(["Data", "Código", "Quantidade", "Tipo", "Status", "Inventario Feito"])
+            # Cria a aba com 7 colunas para incluir o ID na primeira coluna
+            sheet_mov = planilha_mov.add_worksheet(title=data_lote, rows="1000", cols="7")
+            sheet_mov.append_row(["ID", "Data", "Código", "Quantidade", "Tipo", "Status", "Inventario Feito"])
 
         linhas_para_adicionar = []
         for item in itens:
@@ -104,7 +105,10 @@ def salvar_lote():
             status = 'Não'
             inventario_feito = 'Não'
             
-            linhas_para_adicionar.append([data_lote, codigo, quantidade, tipo, status, inventario_feito])
+            # Gera um ID único curto para esta linha específica
+            row_id = str(uuid.uuid4())[:8]
+            
+            linhas_para_adicionar.append([row_id, data_lote, codigo, quantidade, tipo, status, inventario_feito])
 
         sheet_mov.append_rows(linhas_para_adicionar)
         
@@ -113,7 +117,70 @@ def salvar_lote():
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao processar: {str(e)}'})
 
-@app.route('/consultar_movimentacao', methods=['GET'])
+
+@app.route('/atualizar_status_lote_por_id', methods=['POST'])
+def atualizar_status_lote_por_id():
+    try:
+        dados = request.get_json()
+        if not dados:
+            return jsonify({'sucesso': False, 'mensagem': 'Dados inválidos enviados.'}), 400
+            
+        data_consulta = str(dados.get('data', '')).strip()
+        ids_selecionados = [str(i).strip() for i in dados.get('ids', [])]
+        novo_status = str(dados.get('status', 'Não')).strip()
+        
+        if not data_consulta or not ids_selecionados:
+            return jsonify({'sucesso': False, 'mensagem': 'Nenhum item selecionado.'}), 400
+            
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        planilha = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+        
+        try:
+            aba = planilha.worksheet(data_consulta)
+        except Exception:
+            return jsonify({'sucesso': False, 'mensagem': f'Aba da data {data_consulta} não encontrada.'}), 400
+            
+        linhas_planilha = aba.get_all_values()
+        if not linhas_planilha or len(linhas_planilha) < 2:
+            return jsonify({'sucesso': False, 'mensagem': 'A planilha está vazia.'}), 400
+            
+        cabecalhos = [str(c).strip().upper() for c in linhas_planilha[0]]
+        
+        col_id_idx = 1 # Por padrão o ID fica na coluna 1
+        col_status_idx = None
+        
+        for i, h in enumerate(cabecalhos):
+            if h == "ID":
+                col_id_idx = i + 1
+            if "STATUS" in h:
+                col_status_idx = i + 1
+                
+        if not col_status_idx:
+            col_status_idx = 6 
+            
+        contador = 0
+        
+        for idx_l, linha in enumerate(linhas_planilha):
+            if idx_l == 0:
+                continue
+                
+            id_celula = str(linha[col_id_idx - 1]).strip() if len(linha) >= col_id_idx else ""
+            
+            if id_celula in ids_selecionados:
+                aba.update_cell(idx_l + 1, col_status_idx, novo_status)
+                contador += 1
+                
+        return jsonify({'sucesso': True, 'mensagem': f'Status atualizado com sucesso em {contador} item(ns)!'})
+        
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': f'Erro interno no servidor: {str(e)}'}), 500
+
+
+
+
 def consultar_movimentacao():
     data_consulta = request.args.get('data', '').strip()
     if not data_consulta:
@@ -232,70 +299,7 @@ def editar_movimentacao():
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao editar: {str(e)}'})
 
-@app.route('/atualizar_status_lote', methods=['POST'])
-def atualizar_status_lote():
-    dados = request.json
-    data_mov = dados.get('data')
-    codigos = [str(c).strip() for c in dados.get('codigos', [])]
-    novo_status = dados.get('status')
 
-    if not data_mov or not codigos or not novo_status:
-        return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos!'})
-
-    try:
-        gc = conectar_google_sheets()
-        if not gc:
-            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'})
-
-        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
-        sheet_mov = planilha_mov.worksheet(data_mov)
-        
-        linhas = sheet_mov.get_all_values()
-        if not linhas or len(linhas) < 2:
-            return jsonify({'sucesso': False, 'mensagem': 'Aba vazia ou sem dados.'})
-        
-        cabecalho = [col.upper().strip() for col in linhas[0]]
-        
-        if 'STATUS' not in cabecalho:
-            idx_status = len(cabecalho) + 1
-            if idx_status > sheet_mov.col_count:
-                sheet_mov.add_cols(1)
-            sheet_mov.update_cell(1, idx_status, 'Status')
-            cabecalho.append('STATUS')
-            linhas = sheet_mov.get_all_values()
-        else:
-            idx_status = cabecalho.index('STATUS') + 1
-
-        idx_codigo = -1
-        for i, col in enumerate(cabecalho):
-            if col in ['CODIGO', 'CÓDIGO']:
-                idx_codigo = i + 1
-                break
-
-        if idx_codigo == -1:
-            return jsonify({'sucesso': False, 'mensagem': 'Coluna de código não encontrada.'})
-
-        atualizados = 0
-        cell_updates = []
-        
-        for row_idx, row in enumerate(linhas[1:], start=2):
-            if len(row) >= idx_codigo:
-                val_codigo = str(row[idx_codigo - 1]).strip()
-                if val_codigo in codigos:
-                    cell_address = gspread.utils.rowcol_to_a1(row_idx, idx_status)
-                    cell_updates.append({
-                        'range': cell_address,
-                        'values': [[novo_status]]
-                    })
-                    atualizados += 1
-
-        if cell_updates:
-            sheet_mov.batch_update(cell_updates)
-
-        return jsonify({'sucesso': True, 'mensagem': f'Status atualizado para "{novo_status}" em {atualizados} itens com sucesso!'})
-
-    except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': f'Erro ao atualizar status: {str(e)}'})
 
 
 # --- ROTAS PARA A ABA DE INVENTÁRIO ---
