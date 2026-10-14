@@ -1157,35 +1157,47 @@ function filtrarTabelaConsulta() {
         checkboxes.forEach(cb => cb.checked = master.checked);
     }
 
-    async function aplicarStatusEmMassa() {
-        let dataConsulta = document.getElementById('data-consulta').value;
-        let novoStatus = document.getElementById('status-lote').value;
-        let checkboxes = document.querySelectorAll('.check-item:checked');
-        
-        let codigosSelecionados = [];
-        checkboxes.forEach(cb => codigosSelecionados.push(cb.value));
+async function aplicarStatusEmMassa() {
+    let dataConsulta = document.getElementById('data-consulta').value;
+    let novoStatus = document.getElementById('status-lote').value;
+    
+    // 1. Apanha todos os checkboxes da tabela de consulta
+    let checkboxes = document.querySelectorAll('#tabela-consulta tbody .check-consulta-item');
+    let indicesParaAlterar = [];
 
-        if (codigosSelecionados.length === 0) {
-            alert('Selecione pelo menos uma ordem na tabela para alterar o status!');
-            return;
+    // 2. Olha linha por linha: se o checkbox estiver MARCADO (checked) e visível, guarda a posição dele
+    checkboxes.forEach((cb, index) => {
+        let linha = cb.closest('tr');
+        // Só considera se a linha estiver visível (passou no filtro) e marcada
+        if (cb.checked && linha && linha.style.display !== 'none') {
+            indicesParaAlterar.push(index); 
         }
+    });
 
-        try {
-            let resposta = await fetch('/atualizar_status_lote', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data: dataConsulta, codigos: codigosSelecionados, status: novoStatus })
-            });
-            let resultado = await resposta.json();
-            alert(resultado.mensagem);
-            if (resultado.sucesso) {
-                consultarBaixas();
-            }
-        } catch (err) {
-            alert('Erro de comunicação com o servidor.');
-        }
+    if (indicesParaAlterar.length === 0) {
+        alert('Selecione pelo menos um item marcado na tabela!');
+        return;
     }
 
+    try {
+        let resposta = await fetch('/atualizar_status_lote_por_indice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                data: dataConsulta, 
+                indices: indicesParaAlterar, 
+                status: novoStatus 
+            })
+        });
+        let resultado = await resposta.json();
+        alert(resultado.mensagem);
+        if (resultado.sucesso) {
+            consultarBaixas(); // Recarrega a tabela atualizada
+        }
+    } catch (err) {
+        alert('Erro de comunicação com o servidor.');
+    }
+}
     async function excluirConsulta(data, codigo) {
         if (!confirm(`Tem a certeza que deseja excluir o produto ${codigo} do registo do dia ${data}?`)) return;
 
