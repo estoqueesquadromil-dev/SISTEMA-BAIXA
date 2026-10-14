@@ -888,7 +888,7 @@ function processarValidacaoSucata() {
 
 
     
-    function renderizarTabelaConsulta(itens) {
+function renderizarTabelaConsulta(itens) {
         let tbody = document.querySelector('#tabela-consulta tbody');
         let contadorBadge = document.getElementById('contador-ordens');
         let painelLote = document.getElementById('painel-lote');
@@ -917,6 +917,7 @@ function processarValidacaoSucata() {
         let dataConsulta = document.getElementById('data-consulta').value;
 
         itensFiltrados.forEach(item => {
+            let rowId = item.ID || item.id || '';
             let dataLinha = item.Data || item.DATA || dataConsulta;
             let codigoLinha = item.Código || item.CODIGO || '';
             let qtdLinha = parseInt(item.Quantidade || item.QUANTIDADE || 1);
@@ -937,8 +938,9 @@ function processarValidacaoSucata() {
             }
 
             let tr = document.createElement('tr');
+            tr.setAttribute('data-id', rowId);
             tr.innerHTML = `
-                <td style="text-align: center;"><input type="checkbox" class="check-item" value="${codigoLinha}"></td>
+                <td style="text-align: center;"><input type="checkbox" class="check-item" data-id="${rowId}"></td>
                 <td>${dataLinha}</td>
                 <td>${codigoLinha}</td>
                 <td>${qtdLinha}</td>
@@ -1162,34 +1164,32 @@ async function aplicarStatusEmMassa() {
     let novoStatus = document.getElementById('status-lote').value;
     
     let linhas = document.querySelectorAll('#tabela-consulta tbody tr');
-    let itensSelecionados = [];
+    let idsSelecionados = [];
 
     linhas.forEach((tr) => {
         if (tr.style.display === 'none') return;
 
         let checkbox = tr.querySelector('input[type="checkbox"]');
         if (checkbox && checkbox.checked) {
-            let codigo = tr.children[2] ? tr.children[2].innerText.trim() : '';
-            let tipo = tr.children[4] ? tr.children[4].innerText.trim() : '';
-            
-            if (codigo) {
-                itensSelecionados.push({ codigo: codigo, tipo: tipo });
+            let rowId = tr.getAttribute('data-id');
+            if (rowId) {
+                idsSelecionados.push(rowId);
             }
         }
     });
 
-    if (itensSelecionados.length === 0) {
+    if (idsSelecionados.length === 0) {
         alert('Selecione pelo menos um item marcado na tabela!');
         return;
     }
 
     try {
-        let resposta = await fetch('/atualizar_status_lote_por_indice', {
+        let resposta = await fetch('/atualizar_status_lote_por_id', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 data: dataConsulta, 
-                itens: itensSelecionados, 
+                ids: idsSelecionados, 
                 status: novoStatus 
             })
         });
@@ -1205,7 +1205,6 @@ async function aplicarStatusEmMassa() {
         alert('Erro de comunicação com o servidor: ' + err.message);
     }
 }
-
     
     
     async function excluirConsulta(data, codigo) {
