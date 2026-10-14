@@ -364,35 +364,54 @@ def consultar_inventario_periodo():
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
         todos_itens = []
         
-        # OTIMIZAÇÃO: Obtém todas as abas de uma só vez (1 único pedido à API do Google Sheets)
         todas_abas = planilha_mov.worksheets()
         
         for aba in todas_abas:
             nome_aba = aba.title.strip()
             try:
-                # Tenta converter o nome da aba para data (formato YYYY-MM-DD)
                 data_aba = datetime.strptime(nome_aba, '%Y-%m-%d')
                 
-                # Verifica se está dentro do período selecionado
                 if data_inicio <= data_aba <= data_fim:
-                    registos = aba.get_all_records()
+                    linhas = aba.get_all_values()
+                    if not linhas or len(linhas) < 2:
+                        continue
                     
-                    for index, r in enumerate(registos):
-                        linha_planilha = index + 2
+                    cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+                    
+                    for index in range(1, len(linhas)):
+                        row = linhas[index]
+                        if not any(row):
+                            continue
                         
+                        linha_planilha = index + 1
+                        
+                        # Mapeamento seguro por índice de cabeçalhos ou posições fixas
+                        codigo_val = row[cabecalhos.index("CÓDIGO")] if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO") else (row[cabecalhos.index("CODIGO")] if "CODIGO" in cabecalhos and len(row) > cabecalhos.index("CODIGO")) else (row[2] if len(row) > 2 else '')
+                        qtd_val = row[cabecalhos.index("QUANTIDADE")] if "QUANTIDADE" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE") else (row[3] if len(row) > 3 else 1)
+                        tipo_val = row[cabecalhos.index("TIPO")] if "TIPO" in cabecalhos and len(row) > cabecalhos.index("TIPO") else (row[4] if len(row) > 4 else 'Baixa Diaria')
+                        status_val = row[cabecalhos.index("STATUS")] if "STATUS" in cabecalhos and len(row) > cabecalhos.index("STATUS") else (row[5] if len(row) > 5 else 'Não')
+                        
+                        # Procura a coluna de inventário feito dinamicamente
+                        inv_val = 'Não'
+                        for h_nome in ['INVENTARIO FEITO', 'INVENTARIO']:
+                            if h_nome in cabecalhos and len(row) > cabecalhos.index(h_nome):
+                                inv_val = row[cabecalhos.index(h_nome)] or 'Não'
+                                break
+                        if inv_val == 'Não' and len(row) > 6:
+                            inv_val = row[6] or 'Não'
+
                         item_formatado = {
                             "Linha": linha_planilha,
                             "Aba": nome_aba,
-                            "Data": r.get('Data') or r.get('DATA') or nome_aba,
-                            "Código": r.get('Código') or r.get('CODIGO') or r.get('Codigo') or '',
-                            "Quantidade": r.get('Quantidade') or r.get('QUANTIDADE') or 1,
-                            "Tipo": r.get('Tipo') or r.get('TIPO') or 'Baixa Diaria',
-                            "Status": r.get('Status') or r.get('STATUS') or 'Não',
-                            "InventarioFeito": r.get('Inventario Feito') or r.get('INVENTARIO FEITO') or r.get('Inventario') or 'Não'
+                            "Data": nome_aba,
+                            "Código": codigo_val,
+                            "Quantidade": qtd_val,
+                            "Tipo": tipo_val,
+                            "Status": status_val,
+                            "InventarioFeito": inv_val
                         }
                         todos_itens.append(item_formatado)
             except ValueError:
-                # Ignora abas que não estejam no formato de data (ex: abas de testes ou rascunhos)
                 continue
             except Exception:
                 pass
@@ -401,7 +420,6 @@ def consultar_inventario_periodo():
     
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
 @app.route('/atualizar_inventario', methods=['POST'])
 def atualizar_inventario():
     dados = request.json
