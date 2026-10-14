@@ -1036,9 +1036,12 @@ def excluir_definitivo():
 def atualizar_status_lote_por_indice():
     try:
         dados = request.get_json()
-        data_consulta = dados.get('data', '').strip()
+        if not dados:
+            return jsonify({'sucesso': False, 'mensagem': 'Dados inválidos enviados.'}), 400
+            
+        data_consulta = str(dados.get('data', '')).strip()
         itens_selecionados = dados.get('itens', [])
-        novo_status = dados.get('status', 'Não')
+        novo_status = str(dados.get('status', 'Não')).strip()
         
         if not data_consulta or not itens_selecionados:
             return jsonify({'sucesso': False, 'mensagem': 'Nenhum item selecionado.'}), 400
@@ -1060,18 +1063,16 @@ def atualizar_status_lote_por_indice():
             
         cabecalhos = [str(c).strip().upper() for c in linhas_planilha[0]]
         
-        # Identifica a coluna do Status dinamicamente
         col_status_idx = None
         for i, h in enumerate(cabecalhos):
             if "STATUS" in h:
                 col_status_idx = i + 1
                 break
         if not col_status_idx:
-            col_status_idx = 7 # Padrão seguro
+            col_status_idx = 7 
             
         contador = 0
         
-        # Percorre todas as linhas da planilha (ignorando o cabeçalho)
         for idx_l, linha in enumerate(linhas_planilha):
             if idx_l == 0:
                 continue
@@ -1079,14 +1080,16 @@ def atualizar_status_lote_por_indice():
             codigo_celula = str(linha[2]).strip() if len(linha) > 2 else ""
             tipo_celula = str(linha[4]).strip() if len(linha) > 4 else ""
             
-            # Verifica se esta linha corresponde exatamente a algum dos itens marcados (Código + Tipo)
             for item in itens_selecionados:
-                if codigo_celula == item.get('codigo') and tipo_celula == item.get('tipo'):
-                    # Atualiza a linha real correspondente no Google Sheets
+                item_codigo = str(item.get('codigo', '')).strip()
+                item_tipo = str(item.get('tipo', '')).strip()
+                
+                if codigo_celula == item_codigo and tipo_celula == item_tipo:
                     aba.update_cell(idx_l + 1, col_status_idx, novo_status)
                     contador += 1
                     break
                 
-        return jsonify({'sucesso': True, 'mensagem': f'Status atualizado para "{novo_status}" em {contador} item(ns) com sucesso!'})
+        return jsonify({'sucesso': True, 'mensagem': f'Status atualizado com sucesso em {contador} item(ns)!'})
+        
     except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': f'Erro interno: {str(e)}'}), 500
+        return jsonify({'sucesso': False, 'mensagem': f'Erro interno no servidor: {str(e)}'}), 500
