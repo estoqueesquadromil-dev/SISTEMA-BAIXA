@@ -339,41 +339,48 @@
         <div style="margin-top: 40px; border-top: 2px solid #dee2e6; padding-top: 25px; background-color: #fafafa; padding: 20px; border-radius: 8px; border: 1px solid #e3e6f0;">
             <h3 style="margin-top: 0; color: #333;">Ordens de Produção Criadas</h3>
             
-            <!-- Filtros e Botões de Ação -->
-            <div style="margin: 15px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <label for="filtro-data-ordens">Filtrar por Data:</label>
-                <input type="date" id="filtro-data-ordens" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
-
-                <select id="filtro-status-ordens" style="padding: 7px; border: 1px solid #ccc; border-radius: 4px;">
-                    <option value="todos">Todos os Status</option>
-                    <option value="pendentes">Faltam Fazer (Pendentes)</option>
-                    <option value="feitos">Já Feitos</option>
-                </select>
-
-                <button onclick="carregarOrdensCriadas()" style="padding: 6px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Filtrar</button>
-                <button onclick="baixarExcelOrdensCriadas()" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Baixar Excel</button>
+                <!-- Nos botões de ação e filtros da tabela de ordens criadas -->
+                <div style="margin: 15px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <label for="filtro-data-ordens">Filtrar por Data:</label>
+                    <input type="date" id="filtro-data-ordens" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
                 
-                <button onclick="toggleSecaoLixeira()" style="padding: 6px 12px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🗑️ Ver Lixeira</button>
-            </div>
-
-            <!-- Tabela de Ordens Criadas -->
-            <div style="overflow-x: auto;">
+                    <select id="filtro-status-ordens" style="padding: 7px; border: 1px solid #ccc; border-radius: 4px;">
+                        <option value="todos">Todos os Status</option>
+                        <option value="pendentes">Faltam Fazer (Pendentes)</option>
+                        <option value="feitos">Já Feitos</option>
+                    </select>
+                
+                    <button onclick="carregarOrdensCriadas()" style="padding: 6px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Filtrar</button>
+                    
+                    <!-- NOVOS BOTÕES DE AÇÃO EM LOTE PARA IVE -->
+                    <button onclick="alterarIVEmLote(true)" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">✔ Marcar IVE</button>
+                    <button onclick="alterarIVEmLote(false)" style="padding: 6px 12px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">✖ Desmarcar IVE</button>
+                
+                    <button onclick="baixarExcelOrdensCriadas()" style="padding: 6px 12px; background-color: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Baixar Excel</button>
+                    <button onclick="toggleSecaoLixeira()" style="padding: 6px 12px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🗑️ Ver Lixeira</button>
+                </div>
+                
+                <!-- Na Tabela de Ordens Criadas (ajustar colunas e o colspan="6") -->
                 <table id="tabela-ordens-criadas" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white;">
                     <thead>
                         <tr style="background-color: #f8f9fa; text-align: left;">
-                            <th style="width: 50px; padding: 10px; border: 1px solid #ddd; text-align: center;">Feito</th>
-                            <th style="padding: 10px; border: 1px solid #ddd;">Data</th>
-                            <th style="padding: 10px; border: 1px solid #ddd;">Código Principal</th>
-                            <th style="padding: 10px; border: 1px solid #ddd;">Quantidade Ordem</th>
-                            <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Ações</th>
+                            <th style="width: 40px; text-align: center;"><input type="checkbox" id="check-todos-ordens" onclick="alternarTodasOrdens(this)"></th>
+                            <th style="width: 50px; text-align: center;">Feito</th>
+                            <th style="width: 60px; text-align: center;">IVE</th>
+                            <th>Data</th>
+                            <th>Código Principal</th>
+                            <th>Quantidade Ordem</th>
+                            <th style="text-align: center;">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td colspan="5" style="text-align: center; color: #777; padding: 15px;">Carregando ordens...</td>
+                            <td colspan="7" style="text-align: center; color: #777; padding: 15px;">Carregando ordens...</td>
                         </tr>
                     </tbody>
                 </table>
+            
+                    
             </div>
 
             <!-- Secção Oculta/Visível da Lixeira (DENTRO DA ABA ORDENS) -->
