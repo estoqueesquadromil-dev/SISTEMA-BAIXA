@@ -339,48 +339,41 @@
         <div style="margin-top: 40px; border-top: 2px solid #dee2e6; padding-top: 25px; background-color: #fafafa; padding: 20px; border-radius: 8px; border: 1px solid #e3e6f0;">
             <h3 style="margin-top: 0; color: #333;">Ordens de Produção Criadas</h3>
             
-                <!-- Nos botões de ação e filtros da tabela de ordens criadas -->
-                <div style="margin: 15px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                    <label for="filtro-data-ordens">Filtrar por Data:</label>
-                    <input type="date" id="filtro-data-ordens" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+            <!-- Filtros e Botões de Ação -->
+            <div style="margin: 15px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <label for="filtro-data-ordens">Filtrar por Data:</label>
+                <input type="date" id="filtro-data-ordens" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+
+                <select id="filtro-status-ordens" style="padding: 7px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="todos">Todos os Status</option>
+                    <option value="pendentes">Faltam Fazer (Pendentes)</option>
+                    <option value="feitos">Já Feitos</option>
+                </select>
+
+                <button onclick="carregarOrdensCriadas()" style="padding: 6px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Filtrar</button>
+                <button onclick="baixarExcelOrdensCriadas()" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Baixar Excel</button>
                 
-                    <select id="filtro-status-ordens" style="padding: 7px; border: 1px solid #ccc; border-radius: 4px;">
-                        <option value="todos">Todos os Status</option>
-                        <option value="pendentes">Faltam Fazer (Pendentes)</option>
-                        <option value="feitos">Já Feitos</option>
-                    </select>
-                
-                    <button onclick="carregarOrdensCriadas()" style="padding: 6px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Filtrar</button>
-                    
-                    <!-- NOVOS BOTÕES DE AÇÃO EM LOTE PARA IVE -->
-                    <button onclick="alterarIVEmLote(true)" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">✔ Marcar IVE</button>
-                    <button onclick="alterarIVEmLote(false)" style="padding: 6px 12px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">✖ Desmarcar IVE</button>
-                
-                    <button onclick="baixarExcelOrdensCriadas()" style="padding: 6px 12px; background-color: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Baixar Excel</button>
-                    <button onclick="toggleSecaoLixeira()" style="padding: 6px 12px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🗑️ Ver Lixeira</button>
-                </div>
-                
-                <!-- Na Tabela de Ordens Criadas (ajustar colunas e o colspan="6") -->
+                <button onclick="toggleSecaoLixeira()" style="padding: 6px 12px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🗑️ Ver Lixeira</button>
+            </div>
+
+            <!-- Tabela de Ordens Criadas -->
+            <div style="overflow-x: auto;">
                 <table id="tabela-ordens-criadas" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white;">
                     <thead>
                         <tr style="background-color: #f8f9fa; text-align: left;">
-                            <th style="width: 40px; text-align: center;"><input type="checkbox" id="check-todos-ordens" onclick="alternarTodasOrdens(this)"></th>
-                            <th style="width: 50px; text-align: center;">Feito</th>
-                            <th style="width: 60px; text-align: center;">IVE</th>
-                            <th>Data</th>
-                            <th>Código Principal</th>
-                            <th>Quantidade Ordem</th>
-                            <th style="text-align: center;">Ações</th>
+                            <th style="width: 50px; padding: 10px; border: 1px solid #ddd; text-align: center;">Feito</th>
+                            <th style="padding: 10px; border: 1px solid #ddd;">Data</th>
+                            <th style="padding: 10px; border: 1px solid #ddd;">Código Principal</th>
+                            <th style="padding: 10px; border: 1px solid #ddd;">Quantidade Ordem</th>
+                            <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td colspan="7" style="text-align: center; color: #777; padding: 15px;">Carregando ordens...</td>
+                            <td colspan="5" style="text-align: center; color: #777; padding: 15px;">Carregando ordens...</td>
                         </tr>
                     </tbody>
                 </table>
-            
-                    
             </div>
 
             <!-- Secção Oculta/Visível da Lixeira (DENTRO DA ABA ORDENS) -->
@@ -1677,42 +1670,30 @@ async function carregarOrdensCriadas() {
         tbody.innerHTML = '';
 
         if (!dados.sucesso || dados.ordens.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #777; padding: 15px;">Nenhuma ordem encontrada.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777; padding: 15px;">Nenhuma ordem encontrada.</td></tr>';
             return;
         }
 
+        // Filtra as ordens com base na seleção do usuário (Todos, Pendentes ou Feitos)
         let ordensFiltradas = dados.ordens.filter(ordem => {
             if (statusFiltro === 'pendentes') return !ordem.feito;
             if (statusFiltro === 'feitos') return ordem.feito;
-            return true;
+            return true; // 'todos'
         });
 
         if (ordensFiltradas.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #777; padding: 15px;">Nenhuma ordem corresponde ao filtro selecionado.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777; padding: 15px;">Nenhuma ordem corresponde ao filtro selecionado.</td></tr>';
             return;
         }
 
         ordensFiltradas.forEach(ordem => {
             let tr = document.createElement('tr');
             let isFeito = ordem.feito;
-            let isIve = ordem.ive;
-
-            // Se o IVE estiver marcado, aplica fundo esverdeado na linha ou destaque
-            let estiloLinha = isFeito ? 'background-color: #e8f5e9; text-decoration: line-through; color: #666;' : '';
-            if (isIve && !isFeito) {
-                estiloLinha = 'background-color: #d4edda;'; // Fundo verde claro para itens com IVE ativo
-            }
-            tr.style.cssText = estiloLinha;
+            tr.style.cssText = isFeito ? 'background-color: #e8f5e9; text-decoration: line-through; color: #666;' : '';
 
             tr.innerHTML = `
                 <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
-                    <input type="checkbox" class="check-ordem-item" value="${ordem.id}">
-                </td>
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
                     <input type="checkbox" ${isFeito ? 'checked' : ''} onchange="atualizarStatusPlanilha('${ordem.id}', this.checked)">
-                </td>
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
-                    <input type="checkbox" ${isIve ? 'checked' : ''} onchange="atualizarIVEIndividual('${ordem.id}', this.checked)">
                 </td>
                 <td style="padding: 10px; border: 1px solid #ddd;">${ordem.data}</td>
                 <td style="padding: 10px; border: 1px solid #ddd;">${ordem.codigoPrincipal}</td>
@@ -1727,60 +1708,7 @@ async function carregarOrdensCriadas() {
         console.error(err);
     }
 }
-
-// Selecionar / Desmarcar todos os checkboxes da tabela
-function alternarTodasOrdens(masterCheckbox) {
-    let checkboxes = document.querySelectorAll('.check-ordem-item');
-    checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
-}
-
-// Alterar IVE individual ao clicar no checkbox da linha
-async function atualizarIVEIndividual(id, iveStatus) {
-    try {
-        let resposta = await fetch('/alternar_ive_ordem', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids: [id], ive: iveStatus })
-        });
-        let resultado = await resposta.json();
-        if (resultado.sucesso) {
-            carregarOrdensCriadas();
-        } else {
-            alert('Erro ao atualizar IVE: ' + resultado.mensagem);
-        }
-    } catch (err) {
-        console.error(err);
-    }
-}
-
-// Alterar IVE em lote para todos os itens selecionados com os botões superiores
-async function alterarIVEmLote(iveStatus) {
-    let checkboxesSelecionados = document.querySelectorAll('.check-ordem-item:checked');
-    if (checkboxesSelecionados.length === 0) {
-        alert('Selecione pelo menos uma ordem na tabela para aplicar a alteração em lote.');
-        return;
-    }
-
-    let ids = Array.from(checkboxesSelecionados).map(cb => cb.value);
-
-    try {
-        let resposta = await fetch('/alternar_ive_ordem', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids: ids, ive: iveStatus })
-        });
-        let resultado = await resposta.json();
-        if (resultado.sucesso) {
-            alert(resultado.mensagem);
-            carregarOrdensCriadas();
-        } else {
-            alert('Erro ao atualizar em lote: ' + resultado.mensagem);
-        }
-    } catch (err) {
-        console.error(err);
-        alert('Erro de comunicação com o servidor.');
-    }
-}    
+    
     
     
     // Salva o check diretamente na planilha via backend
