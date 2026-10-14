@@ -1086,37 +1086,39 @@ def consultar_baixas():
 def alternar_ive_baixa():
     try:
         dados = request.get_json()
-        ids = dados.get('ids', [])
-        ive_val = dados.get('ive', False)
+        data_consulta = dados.get('data', '').strip()
+        ids = dados.get('ids', []) # Recebe os identificadores ou códigos
+        ive_val = dados.get('ive', False) # True ou False
         
-        if not ids:
-            return jsonify({'sucesso': False, 'mensagem': 'Nenhum item selecionado.'}), 400
+        if not data_consulta or not ids:
+            return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos para atualização.'}), 400
             
         gc = conectar_google_sheets()
-        planilha = gc.open(PLANILHA_BAIXAS)
-        
-        abas_afetadas = {}
-        for id_item in ids:
-            if '|' not in id_item:
-                continue
-            nome_aba, linha_str = id_item.split('|')
-            if nome_aba not in abas_afetadas:
-                abas_afetadas[nome_aba] = []
-            abas_afetadas[nome_aba].append(int(linha_str))
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
             
-        for nome_aba, linhas in abas_afetadas.items():
-            aba = planilha.worksheet(nome_aba)
+        # Usa a mesma variável de planilha que o resto do seu app.py usa para as baixas
+        planilha = gc.open(PLANILHA_BAIXAS) if 'PLANILHA_BAIXAS' in globals() else gc.open("BAIXAS")
+        aba = planilha.worksheet(data_consulta)
+        
+        cabecalhos = aba.row_values(1)
+        
+        # Se a coluna IVE não existir na aba, cria-a automaticamente na primeira linha
+        if "IVE" not in cabecalhos:
+            nova_col_idx = len(cabecalhos) + 1
+            aba.update_cell(1, nova_col_idx, "IVE")
             cabecalhos = aba.row_values(1)
             
-            if "IVE" not in cabecalhos:
-                nova_col_idx = len(cabecalhos) + 1
-                aba.update_cell(1, nova_col_idx, "IVE")
-                cabecalhos = aba.row_values(1)
-                
-            col_idx = cabecalhos.index("IVE") + 1
+        col_idx = cabecalhos.index("IVE") + 1
+        
+        registos = aba.get_all_records()
+        for index, r in enumerate(registos):
+            linha_planilha = index + 2
+            codigo_linha = str(r.get('Codigo') or r.get('Código') or '').strip()
             
-            for linha_alvo in linhas:
-                aba.update_cell(linha_alvo, col_idx, "Sim" if ive_val else "Não")
+            # Atualiza se o código estiver na lista selecionada
+            if codigo_linha in ids:
+                aba.update_cell(linha_planilha, col_idx, "Sim" if ive_val else "Não")
                 
         return jsonify({'sucesso': True, 'mensagem': 'Status IVE atualizado com sucesso!'})
     except Exception as e:
