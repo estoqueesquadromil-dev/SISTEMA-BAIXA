@@ -1161,22 +1161,25 @@ async function aplicarStatusEmMassa() {
     let dataConsulta = document.getElementById('data-consulta').value;
     let novoStatus = document.getElementById('status-lote').value;
     
-    // Procura por todas as linhas da tabela de consulta
     let linhas = document.querySelectorAll('#tabela-consulta tbody tr');
-    let indicesParaAlterar = [];
+    let itensSelecionados = [];
 
-    // Percorre cada linha e verifica se o checkbox está marcado
-    linhas.forEach((tr, index) => {
-        // Ignora linhas que estão escondidas pelos filtros
+    linhas.forEach((tr) => {
         if (tr.style.display === 'none') return;
 
         let checkbox = tr.querySelector('input[type="checkbox"]');
         if (checkbox && checkbox.checked) {
-            indicesParaAlterar.push(index); 
+            // Vamos buscar o Código (coluna 2) e o Tipo (coluna 4) diretamente da linha
+            let codigo = tr.children[2] ? tr.children[2].innerText.trim() : '';
+            let tipo = tr.children[4] ? tr.children[4].innerText.trim() : '';
+            
+            if (codigo) {
+                itensSelecionados.push({ codigo: codigo, tipo: tipo });
+            }
         }
     });
 
-    if (indicesParaAlterar.length === 0) {
+    if (itensSelecionados.length === 0) {
         alert('Selecione pelo menos um item marcado na tabela!');
         return;
     }
@@ -1187,20 +1190,19 @@ async function aplicarStatusEmMassa() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 data: dataConsulta, 
-                indices: indicesParaAlterar, 
+                itens: itensSelecionados, 
                 status: novoStatus 
             })
         });
         let resultado = await resposta.json();
         alert(resultado.mensagem);
         if (resultado.sucesso) {
-            consultarBaixas(); // Recarrega a tabela atualizada
+            consultarBaixas(); 
         }
     } catch (err) {
         alert('Erro de comunicação com o servidor.');
     }
-}
-    
+}    
     
     
     
