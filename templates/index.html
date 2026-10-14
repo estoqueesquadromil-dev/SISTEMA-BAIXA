@@ -1071,7 +1071,7 @@ function processarValidacaoSucata() {
         }
     }
 
-    async function consultarBaixas() {
+async function consultarBaixas() {
         let dataConsulta = document.getElementById('data-consulta').value;
         let tbody = document.querySelector('#tabela-consulta tbody');
         let msgDiv = document.getElementById('mensagem-consulta');
@@ -1083,7 +1083,7 @@ function processarValidacaoSucata() {
             return;
         }
 
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">A pesquisar...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">A pesquisar...</td></tr>';
         msgDiv.textContent = '';
         contadorBadge.style.display = 'none';
         painelLote.style.display = 'none';
@@ -1095,21 +1095,24 @@ function processarValidacaoSucata() {
 
             if (!resultado.sucesso || !resultado.itens || resultado.itens.length === 0) {
                 msgDiv.textContent = resultado.mensagem || "Nenhum registo encontrado.";
-                msgDiv.style.color = '#777';
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item registado nesta data.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #777;">Nenhum item registado nesta data.</td></tr>';
                 listaItensConsultaAtual = [];
                 return;
             }
 
             listaItensConsultaAtual = resultado.itens;
-            document.getElementById('filtro-tipo').value = 'TODOS';
+            
+            // REMOVEMOS A LINHA QUE FORÇAVA 'TODOS' AQUI
+            
             renderizarTabelaConsulta(listaItensConsultaAtual);
+            
+            // Aplica o filtro atual caso já estivesse selecionado
+            filtrarTabelaConsulta();
 
         } catch (err) {
             tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
         }
     }
-
 function filtrarTabelaConsulta() {
     let filtroTipo = document.getElementById('filtro-tipo').value;
     let filtroStatusERP = document.getElementById('filtro-status-erp') ? document.getElementById('filtro-status-erp').value : 'TODOS';
