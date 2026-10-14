@@ -185,19 +185,12 @@
             <button class="btn-pesquisar" style="height: 38px;" onclick="aplicarStatusEmMassa()">Salvar Alteração em Lote</button>
         </div>
 
-        <!-- Botões de Ação em Lote para o IVE -->
-        <div style="margin: 15px 0; display: flex; gap: 10px; align-items: center;">
-            <button onclick="alterarIVEBaixaEmLote(true)" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">✔ Marcar IVE em Lote</button>
-            <button onclick="alterarIVEBaixaEmLote(false)" style="padding: 6px 12px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">✖ Desmarcar IVE em Lote</button>
-        </div>
-
         <h3>Itens dados baixa no dia</h3>
         <div class="table-responsive">
             <table id="tabela-consulta">
                 <thead>
                     <tr>
                         <th style="width: 40px; text-align: center;"><input type="checkbox" id="check-todos" onclick="alternarTodasSelecoes(this)"></th>
-                        <th style="width: 50px; text-align: center;">IVE</th>
                         <th>Data</th>
                         <th>Código</th>
                         <th>Quantidade</th>
@@ -209,7 +202,7 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="9" style="text-align: center; color: #777;">Selecione uma data e clique em Pesquisar.</td>
+                        <td colspan="8" style="text-align: center; color: #777;">Selecione uma data e clique em Pesquisar.</td>
                     </tr>
                 </tbody>
             </table>
@@ -217,7 +210,6 @@
         <div id="mensagem-consulta" style="margin-top: 15px; font-weight: bold;"></div>
     </div>
 
-    
     <!-- PAINEL 3: INVENTÁRIO -->
     <div id="painel-inventario" class="painel">
         <div class="form-row">
@@ -1895,101 +1887,7 @@ async function excluirDefinitivo(id) {
 }
 
 
-// Função que renderiza os itens na tabela de consulta (ajustada com a coluna IVE)
-function preencherTabelaConsulta(itens) {
-    let tbody = document.querySelector('#tabela-consulta tbody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-
-    if (!itens || itens.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #777; padding: 15px;">Nenhum registo encontrado para esta data.</td></tr>';
-        return;
-    }
-
-    itens.forEach(item => {
-        let tr = document.createElement('tr');
-        let isIve = item.ive;
-
-        // Se o IVE estiver marcado, aplica fundo verde claro na linha
-        let estiloLinha = isIve ? 'background-color: #d4edda;' : '';
-        tr.style.cssText = estiloLinha;
-        tr.setAttribute('data-id', item.id);
-
-        tr.innerHTML = `
-            <td style="text-align: center;"><input type="checkbox" class="check-consulta-item" value="${item.id}"></td>
-            <td style="text-align: center;"><input type="checkbox" ${isIve ? 'checked' : ''} onchange="atualizarIVEBaixaIndividual('${item.id}', this.checked)"></td>
-            <td>${item.data}</td>
-            <td style="font-weight: bold;">${item.codigo}</td>
-            <td style="text-align: center;">${item.quantidade}</td>
-            <td>${item.tipo}</td>
-            <td style="text-align: center;">${item.status_erp || 'Não avaliado'}</td>
-            <td style="text-align: center;">${item.status_baixa}</td>
-            <td style="text-align: center;">
-                <button class="btn-acao btn-editar" onclick="editarItem('${item.id}')">Editar</button>
-                <button class="btn-acao btn-excluir" onclick="excluirItem('${item.id}')">Excluir</button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-// Selecionar / Desmarcar todos os checkboxes da tabela de consulta
-function alternarTodasSelecoes(masterCheckbox) {
-    let checkboxes = document.querySelectorAll('.check-consulta-item');
-    checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
-}
-
-// Atualizar IVE individualmente ao clicar no checkbox da linha
-async function atualizarIVEBaixaIndividual(id, iveStatus) {
-    try {
-        let resposta = await fetch('/alternar_ive_baixa', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids: [id], ive: iveStatus })
-        });
-        let resultado = await resposta.json();
-        if (resultado.sucesso) {
-            consultarBaixas(); // Recarrega para atualizar os estilos e dados
-        } else {
-            alert('Erro ao atualizar IVE: ' + resultado.mensagem);
-        }
-    } catch (err) {
-        console.error(err);
-    }
-}
-
-// Atualizar IVE em lote para os itens selecionados na tabela de consulta
-// Função para marcar ou desmarcar o IVE em lote na aba de consulta
-async function alterarIVEBaixaEmLote(iveStatus) {
-    let dataConsulta = document.getElementById('data-consulta').value;
-    // Procura os checkboxes marcados na tabela de consulta
-    let checkboxesSelecionados = document.querySelectorAll('#tabela-consulta tbody tr td:first-child input[type="checkbox"]:checked');
     
-    if (checkboxesSelecionados.length === 0) {
-        alert('Selecione pelo menos um item na tabela de consulta para aplicar a alteração em lote.');
-        return;
-    }
-
-    let ids = Array.from(checkboxesSelecionados).map(cb => cb.value).filter(id => id);
-
-    try {
-        let resposta = await fetch('/alternar_ive_baixa', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: dataConsulta, ids: ids, ive: iveStatus })
-        });
-        let resultado = await resposta.json();
-        if (resultado.sucesso) {
-            alert(resultado.mensagem);
-            consultarBaixas(); // Recarrega os dados e as cores da tabela
-        } else {
-            alert('Erro ao atualizar em lote: ' + resultado.mensagem);
-        }
-    } catch (err) {
-        console.error(err);
-        alert('Erro de comunicação com o servidor.');
-    }
-}    
 </script>
 
 </body>
