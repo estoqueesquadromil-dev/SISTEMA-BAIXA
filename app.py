@@ -1037,10 +1037,10 @@ def atualizar_status_lote_por_indice():
     try:
         dados = request.get_json()
         data_consulta = dados.get('data', '').strip()
-        indices = dados.get('indices', []) # Lista de números das linhas marcadas
+        itens_selecionados = dados.get('itens', []) # Lista com {codigo, tipo}
         novo_status = dados.get('status', 'Não')
         
-        if not data_consulta or not indices:
+        if not data_consulta or not itens_selecionados:
             return jsonify({'sucesso': False, 'mensagem': 'Nenhum item selecionado.'}), 400
             
         gc = conectar_google_sheets()
@@ -1052,24 +1052,41 @@ def atualizar_status_lote_por_indice():
         
         cabecalhos = [str(c).strip() for c in aba.row_values(1)]
         
-        # Identifica a coluna de Status
+        # Identifica as colunas necessárias
         col_status_idx = None
-        for nome_col in ["Status", "STATUS", "status_baixa"]:
-            if nome_col in cabecalhos:
-                col_status_idx = cabecalhos.index(nome_col) + 1
-                break
+        col_codigo_idx = None
+        col_tipo_idx = None
+        
+        for idx, nome_col in enumerate(cabecalhos):
+            nome_upper = nome_col.upper()
+            if nome_upper in ["STATUS", "STATUS_BAIXA"]:
+                col_status_idx = idx + 1
+            elif nome_upper in ["CODIGO", "CÓDIGO"]:
+                col_codigo_idx = idx + 1
+            elif nome_upper == "TIPO":
+                col_tipo_idx = idx + 1
                 
-        if not col_status_idx:
-            return jsonify({'sucesso': False, 'mensagem': 'Coluna de Status não encontrada na planilha.'}), 400
+        if not col_status_idx or not col_codigo_idx:
+            return jsonify({'sucesso': False, 'mensagem': 'Colunas obrigatórias não encontradas na planilha.'}), 400
             
-        contador = 0
-        for idx in indices:
-            # Na planilha do Google, a linha 1 é o cabeçalho, os dados começam na linha 2. 
-            # O index do JavaScript começa em 0, logo a linha real na planilha é idx + 2
-            linha_planilha = int(idx) + 2
-            aba.update_cell(linha_planilha, col_status_idx, novo_status)
-            contador += 1
+        registos = aba.get_all_records()
+        contador_atualizados = 0
+        
+        for index, r in enumerate(registos):
+            linha_planilha = index + 2
+            codigo_registo = str(r.get('Codigo') or r.get('Código') or '').strip()
+            tipo_registo = str(r.get('Tipo') or r.get('TIPO') or '').strip()
+            
+            # Verifica se este registo da planilha corresponde a algum dos itens selecionados pelo utilizador
+            for item in itens_selecionados:
+                match_codigo = (codigo_registo == item.get('codigo'))
+                match_tipo = (not item.get('tipo') or tipo_registo == item.get('tipo'))
                 
-        return jsonify({'sucesso': True, 'mensagem': f'Status atualizado para "{novo_status}" em {contador} itens com sucesso!'})
+                if match_codigo and match_tipo:
+                    aba.update_cell(linha_planilha, col_status_idx, novo_status)
+                    contador_atualizados += 1
+                    break # Passa para o próximo registo da planilha
+                
+        return jsonify({'sucesso': True, 'mensagem': f'Status atualizado para "{novo_status}" em {contador_atualizados} itens com sucesso!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
