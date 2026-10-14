@@ -446,71 +446,75 @@ def atualizar_inventario():
 def exportar_excel_inventario():
     inicio_str = request.args.get('inicio')
     fim_str = request.args.get('fim')
-    
+    filtro_classificacao = request.args.get('classificacao', 'Todas')
+    filtro_status = request.args.get('status', 'Todos')
+
+    if not inicio_str or not fim_str:
+        return "Datas não informadas.", 400
+
     try:
         data_inicio = datetime.strptime(inicio_str, '%Y-%m-%d')
         data_fim = datetime.strptime(fim_str, '%Y-%m-%d')
-        
+
         gc = conectar_google_sheets()
         if not gc:
-            return "Erro de conexão com o Google Sheets", 500
+            return "Erro de conexão com o Google Sheets.", 500
 
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
-        todos_itens = []
-        delta = timedelta(days=1)
-        atual = data_inicio
         
+        delta = timedelta(days=1)
+        datas_para_consultar = []
+        atual = data_inicio
         while atual <= data_fim:
-            nome_aba = atual.strftime('%Y-%m-%d')
+            datas_para_consultar.append(atual.strftime('%Y-%m-%d'))
+            atual += delta
+
+        import csv
+        from io import StringIO
+        from flask import Response
+
+        output = StringIO()
+        writer = csv.writer(output, delimiter=';')
+        
+        # Cabeçalho do CSV
+        writer.writerow(['Data', 'Código', 'Quantidade', 'Tipo', 'Classificação', 'Inventário Feito'])
+
+        for data_aba in datas_para_consultar:
             try:
-                sheet_mov = planilha_mov.worksheet(nome_aba)
-                registos = sheet_mov.get_all_records()
-                for r in registos:
-                    tipo = str(r.get('Tipo') or r.get('TIPO') or '')
-                    status = str(r.get('Status') or r.get('STATUS') or '').strip().lower()
-                    
-                    is_sucata = 'sucata' in tipo.lower() or 'aproveitamento' in tipo.lower()
-                    is_outros = 'corte' in tipo.lower() or 'perfil' in tipo.lower() or 'outros' in tipo.lower()
-                    
-                    if is_sucata and status != 'sim':
+                sheet_mov = planilha_mov.worksheet(data_aba)
+                linhas = sheet_mov.get_all_values()
+                if not linhas or len(linhas) < 2:
+                    continue
+                
+                cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+                
+                for idx in range(1, len(linhas)):
+                    row = linhas[idx]
+                    if not any(row):
                         continue
-                    if not is_sucata and not is_outros:
+                    
+                    codigo_val = row[cabecalhos.index("CÓDIGO")] if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO") else ""
+                    qtd_val = row[cabecalhos.index("QUANTIDADE")] if "QUANTIDADE" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE") else "1"
+                    tipo_val = row[cabecalhos.index("TIPO")] if "TIPO" in cabecalhos and len(row) > cabecalhos.index("TIPO") else ""
+                    
+                    # Aplica os filtros na exportação para acompanhar exatamente a tela
+                    if filtro_classificacao != 'Todas' and tipo_val != filtro_classificacao:
                         continue
                         
-                    todos_itens.append({
-                        "Data": r.get('Data') or r.get('DATA') or nome_aba,
-                        "Código": r.get('Código') or r.get('CODIGO') or '',
-                        "Quantidade": r.get('Quantidade') or r.get('QUANTIDADE') or 1,
-                        "Tipo": tipo,
-                        "Classificação": 'Entrada' if is_sucata else 'Baixa',
-                        "Inventario Feito": r.get('Inventario Feito') or r.get('INVENTARIO FEITO') or 'Não'
-                    })
+                    writer.writerow([data_aba, codigo_val, qtd_val, tipo_val, tipo_val, "Não"])
             except Exception:
-                pass
-            atual += delta
-            
-        if not todos_itens:
-            return "Nenhum dado encontrado para exportar no período selecionado.", 404
-            
-        df = pd.DataFrame(todos_itens)
-        
-        # Gera o ficheiro CSV compatível com Excel
-        csv_data = df.to_csv(index=False, sep=';', encoding='utf-8-sig')
+                continue
+
+        output.seek(0)
         
         return Response(
-            csv_data,
+            output.getvalue(),
             mimetype="text/csv",
-            headers={"Content-disposition": f"attachment; filename=inventario_{inicio_str}_a_{fim_str}.csv"}
+            headers={"Content-Disposition": f"attachment;filename=inventario_{inicio_str}_a_{fim_str}.csv"}
         )
-        
+
     except Exception as e:
-        return f"Erro ao gerar relatório: {str(e)}", 500
-
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
-
+        return f"Erro ao exportar Excel: {str(e)}", 500
 
 
 
