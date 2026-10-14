@@ -1037,7 +1037,7 @@ def atualizar_status_lote_por_indice():
     try:
         dados = request.get_json()
         data_consulta = dados.get('data', '').strip()
-        itens_selecionados = dados.get('itens', []) # Lista com {codigo, tipo}
+        itens_selecionados = dados.get('itens', [])
         novo_status = dados.get('status', 'Não')
         
         if not data_consulta or not itens_selecionados:
@@ -1052,10 +1052,8 @@ def atualizar_status_lote_por_indice():
         
         cabecalhos = [str(c).strip() for c in aba.row_values(1)]
         
-        # Identifica as colunas necessárias
         col_status_idx = None
         col_codigo_idx = None
-        col_tipo_idx = None
         
         for idx, nome_col in enumerate(cabecalhos):
             nome_upper = nome_col.upper()
@@ -1063,8 +1061,6 @@ def atualizar_status_lote_por_indice():
                 col_status_idx = idx + 1
             elif nome_upper in ["CODIGO", "CÓDIGO"]:
                 col_codigo_idx = idx + 1
-            elif nome_upper == "TIPO":
-                col_tipo_idx = idx + 1
                 
         if not col_status_idx or not col_codigo_idx:
             return jsonify({'sucesso': False, 'mensagem': 'Colunas obrigatórias não encontradas na planilha.'}), 400
@@ -1077,7 +1073,6 @@ def atualizar_status_lote_por_indice():
             codigo_registo = str(r.get('Codigo') or r.get('Código') or '').strip()
             tipo_registo = str(r.get('Tipo') or r.get('TIPO') or '').strip()
             
-            # Verifica se este registo da planilha corresponde a algum dos itens selecionados pelo utilizador
             for item in itens_selecionados:
                 match_codigo = (codigo_registo == item.get('codigo'))
                 match_tipo = (not item.get('tipo') or tipo_registo == item.get('tipo'))
@@ -1085,7 +1080,7 @@ def atualizar_status_lote_por_indice():
                 if match_codigo and match_tipo:
                     aba.update_cell(linha_planilha, col_status_idx, novo_status)
                     contador_atualizados += 1
-                    break # Passa para o próximo registo da planilha
+                    break
                 
         return jsonify({'sucesso': True, 'mensagem': f'Status atualizado para "{novo_status}" em {contador_atualizados} itens com sucesso!'})
     except Exception as e:
