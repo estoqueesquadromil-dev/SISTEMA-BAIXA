@@ -385,11 +385,32 @@ def consultar_inventario_periodo():
                         
                         linha_planilha = index + 1
                         
-                        # Mapeamento seguro por índice de cabeçalhos ou posições fixas
-                        codigo_val = row[cabecalhos.index("CÓDIGO")] if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO") else (row[cabecalhos.index("CODIGO")] if "CODIGO" in cabecalhos and len(row) > cabecalhos.index("CODIGO")) else (row[2] if len(row) > 2 else '')
-                        qtd_val = row[cabecalhos.index("QUANTIDADE")] if "QUANTIDADE" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE") else (row[3] if len(row) > 3 else 1)
-                        tipo_val = row[cabecalhos.index("TIPO")] if "TIPO" in cabecalhos and len(row) > cabecalhos.index("TIPO") else (row[4] if len(row) > 4 else 'Baixa Diaria')
-                        status_val = row[cabecalhos.index("STATUS")] if "STATUS" in cabecalhos and len(row) > cabecalhos.index("STATUS") else (row[5] if len(row) > 5 else 'Não')
+                        # Extração segura e limpa (blocos if/else tradicionais)
+                        codigo_val = ''
+                        if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO"):
+                            codigo_val = row[cabecalhos.index("CÓDIGO")]
+                        elif "CODIGO" in cabecalhos and len(row) > cabecalhos.index("CODIGO"):
+                            codigo_val = row[cabecalhos.index("CODIGO")]
+                        elif len(row) > 2:
+                            codigo_val = row[2]
+
+                        qtd_val = 1
+                        if "QUANTIDADE" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE"):
+                            qtd_val = row[cabecalhos.index("QUANTIDADE")]
+                        elif len(row) > 3:
+                            qtd_val = row[3]
+
+                        tipo_val = 'Baixa Diaria'
+                        if "TIPO" in cabecalhos and len(row) > cabecalhos.index("TIPO"):
+                            tipo_val = row[cabecalhos.index("TIPO")]
+                        elif len(row) > 4:
+                            tipo_val = row[4]
+
+                        status_val = 'Não'
+                        if "STATUS" in cabecalhos and len(row) > cabecalhos.index("STATUS"):
+                            status_val = row[cabecalhos.index("STATUS")]
+                        elif len(row) > 5:
+                            status_val = row[5]
                         
                         # Procura a coluna de inventário feito dinamicamente
                         inv_val = 'Não'
@@ -420,6 +441,7 @@ def consultar_inventario_periodo():
     
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
 
 
 
