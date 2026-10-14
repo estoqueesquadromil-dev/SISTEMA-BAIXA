@@ -446,8 +446,8 @@ def atualizar_inventario():
 def exportar_excel_inventario():
     inicio_str = request.args.get('inicio')
     fim_str = request.args.get('fim')
-    filtro_classificacao = request.args.get('classificacao', 'Todas')
-    filtro_status = request.args.get('status', 'Todos')
+    filtro_classificacao = request.args.get('classificacao', 'TODOS')
+    filtro_status = request.args.get('status', 'TODOS')
 
     if not inicio_str or not fim_str:
         return "Datas não informadas.", 400
@@ -493,12 +493,12 @@ def exportar_excel_inventario():
                     if not any(row):
                         continue
                     
-                    codigo_val = row[cabecalhos.index("CÓDIGO")] if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO") else ""
+                    codigo_val = row[cabecalhos.index("CÓDIGO")] if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO") else (row[cabecalhos.index("CODIGO")] if "CODIGO" in cabecalhos and len(row) > cabecalhos.index("CODIGO")) else ""
                     qtd_val = row[cabecalhos.index("QUANTIDADE")] if "QUANTIDADE" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE") else "1"
                     tipo_val = row[cabecalhos.index("TIPO")] if "TIPO" in cabecalhos and len(row) > cabecalhos.index("TIPO") else ""
                     
-                    # Aplica os filtros na exportação para acompanhar exatamente a tela
-                    if filtro_classificacao != 'Todas' and tipo_val != filtro_classificacao:
+                    # Aplicação dos filtros da tela
+                    if filtro_classificacao != 'TODOS' and tipo_val.upper() != filtro_classificacao.upper():
                         continue
                         
                     writer.writerow([data_aba, codigo_val, qtd_val, tipo_val, tipo_val, "Não"])
