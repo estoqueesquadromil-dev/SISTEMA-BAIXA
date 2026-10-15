@@ -1394,12 +1394,16 @@ function filtrarTabelaInventario() {
         if (statusErpTexto.includes('Insuficiente')) corStatusErp = '#dc3545';
         else if (statusErpTexto.includes('Suficiente')) corStatusErp = '#28a745';
 
+        // Tratamento seguro para garantir que a Classificação aparece preenchida
+        let isSucata = (item.Tipo || '').toLowerCase().includes('sucata') || (item.Tipo || '').toLowerCase().includes('aproveitamento');
+        let classificacaoItem = item.Classificacao || (isSucata ? 'Entrada' : 'Baixa');
+
         tr.innerHTML = `
             <td>${item.Data || ''}</td>
             <td><strong>${item.Codigo || ''}</strong></td>
             <td>${item.Quantidade || ''}</td>
             <td>${item.Tipo || ''}</td>
-            <td>${item.Classificacao || ''}</td>
+            <td>${classificacaoItem}</td>
             <td>${statusErpTexto ? `<span style="color: ${corStatusErp}; font-weight: bold;">${statusErpTexto}</span>` : '<span style="color: #6c757d;">-</span>'}</td>
             <td style="text-align: center;">
                 <select class="form-control form-control-sm status-inventario" data-aba="${item.Aba || ''}" data-linha="${item.Linha || ''}" onchange="atualizarStatusInventario(this, '${item.Aba || ''}', ${item.Linha || ''})" style="color: ${(item.InventarioFeito || 'Não') === 'Sim' ? 'green' : 'red'}; font-weight: bold;">
@@ -1414,7 +1418,6 @@ function filtrarTabelaInventario() {
         tbody.appendChild(tr);
     });
 }
-
     
 
     function renderizarTabelaInventario(dados) {
