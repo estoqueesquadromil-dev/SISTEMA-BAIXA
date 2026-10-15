@@ -1244,7 +1244,6 @@ def validar_saldo_erp():
     aba_origem = request.form.get('aba_origem', 'inventario')
     
     if txt_saldos.strip():
-        # Converte o texto colado num dicionário: { 'CODIGO': quantidade_float }
         saldos_dict = {}
         for linha in txt_saldos.strip().split('\n'):
             partes = linha.strip().split()
@@ -1258,20 +1257,23 @@ def validar_saldo_erp():
 
         df_atual = carregar_dados()
         if not df_atual.empty:
-            # Garante que as colunas existem
             if "Status_ERP" not in df_atual.columns:
                 df_atual["Status_ERP"] = ""
             if "IVE" not in df_atual.columns:
                 df_atual["IVE"] = "Não"
 
-            # Atualiza cada linha comparando o saldo do ERP com a quantidade da ordem (usando o ID único)
             for idx, row in df_atual.iterrows():
                 ordem_id = row.get("ID")
                 codigo_ordem = str(row.get("Codigo", "")).strip().upper()
                 
-                # Exemplo de extração da quantidade da ordem
-                # Adapta se a tua quantidade estiver na coluna 'Perfis'/'Sobras' ou numa coluna dedicada 'Quantidade'
-                qtd_ordem = 1.0  
+                # Tenta obter a quantidade da linha de forma segura
+                qtd_str = str(row.get("Quantidade", row.get("Quantidade", "1"))).strip()
+                try:
+                    # Remove eventuais caracteres de texto caso venha misturado
+                    limpa_qtd = ''.join(c for c in qtd_str if c.isdigit() or c in '.,')
+                    qtd_ordem = float(limpa_qtd.replace(',', '.')) if limpa_qtd else 1.0
+                except ValueError:
+                    qtd_ordem = 1.0
                 
                 if codigo_ordem in saldos_dict:
                     saldo_erp = saldos_dict[codigo_ordem]
