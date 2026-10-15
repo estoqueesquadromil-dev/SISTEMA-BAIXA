@@ -1297,16 +1297,33 @@ def validar_saldo_erp():
 @app.route('/atualizar_ive', methods=['POST'])
 def atualizar_ive():
     ordem_id = request.form.get('id_ordem')
-    ive_marcado = request.form.get('ive_status') # 'Sim' se marcado, 'Não' caso contrário
+    ive_marcado = request.form.get('ive_status') # 'Sim' se marcado, None se desmarcado
     aba_origem = request.form.get('aba_origem', 'inventario')
     
-    if ordem_id:
-        df_atual = carregar_dados()
-        # Busca estritamente pelo ID único para não afetar códigos duplicados
-        mask = pd.to_numeric(df_atual["ID"], errors="coerce") == int(ordem_id)
-        df_atual.loc[mask, "IVE"] = "Sim" if ive_marcado == "Sim" else "Não"
-        
-        salvar_dados(df_atual)
-        flash("Status IVE atualizado com sucesso!", "info")
+    try:
+        if ordem_id:
+            df_atual = carregar_dados()
+            if not df_atual.empty:
+                # Normaliza colunas para evitar erros de maiúsculas/minúsculas
+                df_atual.columns = [str(c).lower().strip() for c in df_atual.columns]
+                
+                if "ive" not in df_atual.columns:
+                    df_atual["ive"] = "Não"
+                if "id" not in df_atual.columns:
+                    # Se não tiver id explícito, usa o índice ou outra referência
+                    df_atual["id"] = df_atual.index.astype(str)
+
+                # Converte o ID para string para comparar de forma segura
+                novo_valor = "Sim" if ive_marcado == "Sim" else "Não"
+                
+                # Atualiza na linha correspondente
+                mask = df_atual["id"].astype(str).str.strip() == str(ordem_id).strip()
+                df_atual.loc[mask, "ive"] = novo_valor
+                
+                salvar_dados(df_atual)
+                flash("Status IVE atualizado com sucesso!", "success")
+    except Exception as e:
+        print(f"Erro crítico ao atualizar IVE: {e}")
+        flash(f"Erro ao atualizar IVE: {e}", "danger")
         
     return redirect(url_for('index', aba=aba_origem))
