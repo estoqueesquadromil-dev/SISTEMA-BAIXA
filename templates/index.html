@@ -1331,7 +1331,7 @@ async function excluirConsulta(data, rowId, codigo) {
 
     
     // --- LÓGICA DA ABA INVENTÁRIO ---
-    async function carregarInventario() {
+async function carregarInventario() {
         let dataInicio = document.getElementById('data-inicio-inv').value;
         let dataFim = document.getElementById('data-fim-inv').value;
         let tbody = document.querySelector('#tabela-inventario tbody');
@@ -1341,45 +1341,51 @@ async function excluirConsulta(data, rowId, codigo) {
             return;
         }
 
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">A carregar inventário...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">A carregar inventário...</td></tr>';
 
         try {
             let resposta = await fetch(`/consultar_inventario_periodo?inicio=${dataInicio}&fim=${dataFim}`);
             let resultado = await resposta.json();
 
             if (!resultado.sucesso || !resultado.itens || resultado.itens.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #777;">Nenhum item encontrado neste período para estes tipos.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item encontrado neste período.</td></tr>';
                 dadosInventarioCache = [];
                 return;
             }
 
+            // APLICAÇÃO DA TUA REGRA DE NEGÓCIO EXATA:
             dadosInventarioCache = resultado.itens.filter(item => {
                 let tipo = (item.Tipo || item.TIPO || '').trim().toLowerCase();
                 let status = (item.Status || item.STATUS || '').trim().toLowerCase();
 
+                // 1. Baixa Diária NÃO PODE APARECER de todo
+                if (tipo.includes('baixa diaria') || tipo.includes('baixa diária')) {
+                    return false;
+                }
+
+                // 2. Aproveitamento de Sucata só aparece se o status for 'sim'
                 let isSucata = tipo.includes('sucata') || tipo.includes('aproveitamento');
-                let isOutros = tipo.includes('corte') || tipo.includes('perfil') || tipo.includes('outros');
-
-                if (!isSucata && !isOutros) return false;
-
                 if (isSucata) {
                     return status === 'sim';
                 }
 
+                // 3. Outros tipos devem aparecer independentemente do status
+                let isOutros = tipo.includes('corte') || tipo.includes('perfil') || tipo.includes('outros');
                 if (isOutros) {
                     return true;
                 }
 
-                return false;
+                return true;
             });
 
-            // Aplica os filtros locais após carregar
             filtrarTabelaInventario();
 
         } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: red;">Erro ao carregar dados do inventário.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">Erro ao carregar dados do inventário.</td></tr>';
         }
     }
+
+    
 
 function filtrarTabelaInventario() {
         let filtroClassificacao = document.getElementById('filtro-classificacao-inv').value;
@@ -1426,7 +1432,7 @@ function renderizarTabelaInventario(dados) {
         if (!tbody) return;
 
         if (!dados || dados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item encontrado neste período.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item filtrado para exibir.</td></tr>';
             return;
         }
 
@@ -1440,7 +1446,7 @@ function renderizarTabelaInventario(dados) {
                 corStatusErp = '#28a745';
             }
 
-            // Garante que apanha o código independentemente de vir maiúsculo ou minúsculo
+            // Mapeamento correto das colunas reais da base de dados
             let codigoItem = item.Codigo || item.codigo || '';
             let dataItem = item.Data || item.data || '';
             let qtdItem = item.Quantidade || item.quantidade || '';
@@ -1455,7 +1461,7 @@ function renderizarTabelaInventario(dados) {
                     <!-- 1. Data -->
                     <td>${dataItem}</td>
                     
-                    <!-- 2. Código (Corrigido para aparecer corretamente) -->
+                    <!-- 2. Código (Agora puxa perfeitamente da coluna Codigo) -->
                     <td><strong>${codigoItem}</strong></td>
                     
                     <!-- 3. Quantidade -->
@@ -1472,7 +1478,7 @@ function renderizarTabelaInventario(dados) {
                         ${statusErpTexto ? `<span style="color: ${corStatusErp}; font-weight: bold;">${statusErpTexto}</span>` : '<span style="color: #6c757d;">-</span>'}
                     </td>
 
-                    <!-- 7. Inventário Feito? (Com as opções Sim/Não) -->
+                    <!-- 7. Inventário Feito? (Sim/Não) -->
                     <td style="text-align: center;">
                         <select class="form-select form-select-sm" onchange="atualizarStatusInventario('${idItem}', this.value)" style="color: ${statusItem === 'Sim' ? 'green' : 'red'}; font-weight: bold;">
                             <option value="Não" ${statusItem !== 'Sim' ? 'selected' : ''} style="color: red;">Não</option>
@@ -1480,7 +1486,7 @@ function renderizarTabelaInventario(dados) {
                         </select>
                     </td>
 
-                    <!-- 8. IVE (Caixa de marcação) -->
+                    <!-- 8. IVE (Caixa de marcação na última coluna) -->
                     <td style="text-align: center;">
                         <form action="/atualizar_ive" method="POST" style="margin: 0;">
                             <input type="hidden" name="id_ordem" value="${idItem}">
