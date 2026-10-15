@@ -261,7 +261,7 @@
             Faltam fazer: 0 inventários
         </div>
 
-<h3>Controlo de Inventário</h3>
+    <h3>Controlo de Inventário</h3>
         <div class="table-responsive">
             <table id="tabela-inventario" class="table table-striped align-middle">
                 <thead>
@@ -280,18 +280,22 @@
                     {% if inventario and inventario|length > 0 %}
                         {% for item in inventario %}
                         <tr>
-                            <!-- Data -->
+                            <!-- 1. Data -->
                             <td>{{ item.Data }}</td>
-                            <!-- Código -->
+                            
+                            <!-- 2. Código -->
                             <td><strong>{{ item.Codigo }}</strong></td>
-                            <!-- Quantidade -->
+                            
+                            <!-- 3. Quantidade -->
                             <td>{{ item.Quantidade }}</td>
-                            <!-- Tipo -->
+                            
+                            <!-- 4. Tipo -->
                             <td>{{ item.Tipo }}</td>
-                            <!-- Classificação -->
+                            
+                            <!-- 5. Classificação -->
                             <td>{{ item.Classificacao|default('Baixa') }}</td>
                             
-                            <!-- Status ERP -->
+                            <!-- 6. Status ERP -->
                             <td>
                                 {% if item.Status_ERP and 'Insuficiente' in item.Status_ERP %}
                                     <span style="color: #dc3545; font-weight: bold;">{{ item.Status_ERP }}</span>
@@ -302,10 +306,10 @@
                                 {% endif %}
                             </td>
 
-                            <!-- Inventário Feito? -->
+                            <!-- 7. Inventário Feito? (Status) -->
                             <td style="text-align: center;">{{ item.Status }}</td>
 
-                            <!-- Coluna IVE (O ID vai escondido aqui dentro para processar a alteração corretamente) -->
+                            <!-- 8. IVE (Caixa de seleção correta na última coluna) -->
                             <td style="text-align: center;">
                                 <form action="{{ url_for('atualizar_ive') }}" method="POST" style="margin: 0;">
                                     <input type="hidden" name="id_ordem" value="{{ item.ID }}">
@@ -313,7 +317,7 @@
                                     <input type="checkbox" name="ive_status" value="Sim" 
                                            onchange="this.form.submit()" 
                                            {% if item.IVE == 'Sim' %}checked{% endif %} 
-                                           style="transform: scale(1.2); cursor: pointer;">
+                                           style="transform: scale(1.3); cursor: pointer;">
                                 </form>
                             </td>
                         </tr>
