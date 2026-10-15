@@ -222,7 +222,7 @@
             </label>
             <div style="display: flex; gap: 10px;">
                 <textarea name="txt_saldos_erp" class="form-control" rows="3" placeholder="UB009-973 3&#10;UB013-1376 1&#10;UB013-886 1" style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></textarea>
-                <button type="submit" class="btn btn-success fw-bold px-4" style="background-color: #28a745; color: white; border: none; padding: 0 20px; border-radius: 4px; cursor: pointer;">
+                <button type="button" onclick="validarSaldoERP()" class="btn btn-success fw-bold px-4" ...>
                     Validar Saldo ERP
                 </button>
             </div>
@@ -2014,7 +2014,64 @@ async function excluirDefinitivo(id) {
     }
 }
 
+function validarSaldoERP() {
+        let textoSaldos = document.getElementById('txt_saldos_erp').value;
+        if (!textoSaldos.trim()) {
+            alert('Por favor, cole os saldos do ERP.');
+            return;
+        }
 
+        // 1. Processa os saldos colados (código e quantidade)
+        let saldosDict = {};
+        let linhasTexto = textoSaldos.trim().split('\n');
+        
+        for (let linha of linhasTexto) {
+            let partes = linha.trim().split(/\s+/);
+            if (partes.length >= 2) {
+                let codigo = partes[0].trim().toUpperCase();
+                let qtdStr = partes[1].replace(',', '.');
+                let qtd = parseFloat(qtdStr);
+                if (!isNaN(qtd)) {
+                    saldosDict[codigo] = (saldosDict[codigo] || 0) + qtd;
+                }
+            }
+        }
+
+        // 2. Percorre a tabela de inventário e atualiza instantaneamente a coluna Status ERP
+        let tbody = document.querySelector('#tabela-inventario tbody');
+        if (!tbody) return;
+        
+        let linhasTabela = tbody.querySelectorAll('tr');
+        let validadas = 0;
+
+        linhasTabela.forEach(tr => {
+            let tds = tr.querySelectorAll('td');
+            if (tds.length < 8) return; // Garante que é uma linha de dados válida
+
+            let codigoItem = tds[1].innerText.trim().toUpperCase();
+            let qtdItem = parseFloat(tds[2].innerText.trim().replace(',', '.')) || 1.0;
+            let statusTd = tds[5]; // Coluna 6: Status ERP
+
+            if (saldosDict.hasOwnProperty(codigoItem)) {
+                let saldoErp = saldosDict[codigoItem];
+                if (saldoErp >= qtdItem) {
+                    statusTd.innerHTML = `<span style="color: #28a745; font-weight: bold;">Suficiente (${parseInt(saldoErp)})</span>`;
+                } else {
+                    statusTd.innerHTML = `<span style="color: #dc3545; font-weight: bold;">Insuficiente (${parseInt(saldoErp)})</span>`;
+                }
+                validadas++;
+            } else {
+                statusTd.innerHTML = `<span style="color: #dc3545; font-weight: bold;">Insuficiente (0)</span>`;
+                validadas++;
+            }
+        });
+
+        if (validadas > 0) {
+            alert('Validação de saldo do ERP efetuada com sucesso!');
+        } else {
+            alert('Nenhum registo encontrado na tabela para validar. Filtre o inventário primeiro.');
+        }
+    }
     
 </script>
 
