@@ -1339,7 +1339,6 @@ def validar_saldo_erp_inventario():
 def atualizar_ive():
     try:
         dados = request.get_json() if request.is_json else request.form
-        ordem_id = dados.get('id_ordem')
         ive_marcado = dados.get('ive_status', 'Não')
         aba_alvo = dados.get('aba')
         linha_alvo = dados.get('linha')
@@ -1362,9 +1361,11 @@ def atualizar_ive():
                 coluna_idx = idx + 1
                 break
                 
-        # Se a coluna IVE não existir, cria-a na coluna seguinte
+        # Se a coluna IVE não existir, cria-a garantindo que a aba tem colunas suficientes
         if not coluna_idx:
             coluna_idx = len(cabecalho) + 1
+            if coluna_idx > sheet_mov.col_count:
+                sheet_mov.add_cols(coluna_idx - sheet_mov.col_count)
             sheet_mov.update_cell(1, coluna_idx, 'IVE')
             
         sheet_mov.update_cell(int(linha_alvo), coluna_idx, "Sim" if ive_marcado == "Sim" else "Não")
