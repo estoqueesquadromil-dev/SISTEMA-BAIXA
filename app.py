@@ -1378,3 +1378,87 @@ def atualizar_ive():
         if request.is_json:
             return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
         return f"Erro: {str(e)}", 500
+
+
+
+
+@app.route('/validar_saldo_erp', methods=['POST'])
+def validar_saldo_erp():
+    txt_saldos = request.form.get('txt_saldos_erp', '')
+    aba_origem = request.form.get('aba_origem', 'inventario')
+    
+    try:
+        if txt_saldos.strip():
+            saldos_dict = {}
+            for linha in txt_saldos.strip().split('\n'):
+                partes = linha.strip().split()
+                if len(partes) >= 2:
+                    codigo = partes[0].strip().upper()
+                    try:
+                        qtd = float(partes[1].replace(',', '.'))
+                        saldos_dict[codigo] = saldos_dict.get(codigo, 0.0) + qtd
+                    except ValueError:
+                        continue
+
+            gc = conectar_google_sheets()
+            if gc:
+                planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+                todas_abas = planilha_mov.worksheets()
+                
+                for aba in todas_abas:
+                    try:
+                        datetime.strptime(aba.title.strip(), '%Y-%m-%d')
+                    except ValueError:
+                        continue
+                    
+                    linhas = aba.get_all_values()
+                    if not linhas or len(linhas) < 2:
+                        continue
+                        
+                    cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+                    if "CÓDIGO" not in cabecalhos and "CODIGO" not in cabecalhos:
+                        continue
+                        
+                    col_codigo_idx = cabecalhos.index("CÓDIGO") + 1 if "CÓDIGO" in cabecalhos else cabecalhos.index("CODIGO") + 1
+                    col_qtd_idx = cabecalhos.index("QUANTIDADE") + 1 if "QUANTIDADE" in cabecalhos else 4
+                    
+                    if "STATUS_ERP" not in cabecalhos:
+                        nova_col = len(cabecalhos) + 1
+                        aba.update_cell(1, nova_col, "Status_ERP")
+                        col_erp_idx = nova_col
+                    else:
+                        col_erp_idx = cabecalhos.index("STATUS_ERP") + 1
+                        
+                    cell_updates = []
+                    for idx_l, linha in enumerate(linhas[1:], start=2):
+                        if not any(linha):
+                            continue
+                        codigo_item = str(linha[col_codigo_idx - 1]).strip().upper()
+                        
+                        try:
+                            qtd_str = str(linha[col_qtd_idx - 1]).strip()
+                            limpa_qtd = ''.join(c for c in qtd_str if c.isdigit() or c in '.,')
+                            qtd_ordem = float(limpa_qtd.replace(',', '.')) if limpa_qtd else 1.0
+                        except ValueError:
+                            qtd_ordem = 1.0
+                            
+                        if codigo_item in saldos_dict:
+                            saldo_erp = saldos_dict[codigo_item]
+                            status_str = f"Suficiente ({int(saldo_erp)})" if saldo_erp >= qtd_ordem else f"Insuficiente ({int(saldo_erp)})"
+                        else:
+                            status_str = "Insuficiente (0)"
+                            
+                        cell_updates.append({
+                            'range': gspread.utils.rowcol_to_a1(idx_l, col_erp_idx),
+                            'values': [[status_str]]
+                        })
+                        
+                    if cell_updates:
+                        aba.batch_update(cell_updates)
+                        
+        flash("Validação de Saldo do ERP concluída com sucesso!", "success")
+    except Exception as e:
+        print(f"Erro ao validar saldo ERP: {e}")
+        flash(f"Erro ao processar validação ERP: {e}", "danger")
+        
+    return redirect(url_for('index'))
