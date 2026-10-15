@@ -211,9 +211,10 @@
     </div>
 
 <!-- PAINEL 3: INVENTÁRIO -->
+<!-- PAINEL 3: INVENTÁRIO -->
     <div id="painel-inventario" class="painel">
         
-        <!-- Área de Validação de Saldos do ERP -->
+        <!-- Área de Validação de Saldos do ERP (Mantida com o teu formulário original) -->
         <form action="{{ url_for('validar_saldo_erp') }}" method="POST" class="mb-4 p-3 bg-light border rounded">
             <input type="hidden" name="aba_origem" value="inventario">
             <label class="form-label text-primary fw-bold" style="display: block; margin-bottom: 8px;">
@@ -277,66 +278,14 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% if inventario and inventario|length > 0 %}
-                        {% for item in inventario %}
-                        <tr>
-                            <!-- 1. Data -->
-                            <td>{{ item.Data }}</td>
-                            
-                            <!-- 2. Código -->
-                            <td><strong>{{ item.Codigo }}</strong></td>
-                            
-                            <!-- 3. Quantidade -->
-                            <td>{{ item.Quantidade }}</td>
-                            
-                            <!-- 4. Tipo -->
-                            <td>{{ item.Tipo }}</td>
-                            
-                            <!-- 5. Classificação -->
-                            <td>{{ item.Classificacao|default('Baixa') }}</td>
-                            
-                            <!-- 6. Status ERP -->
-                            <td>
-                                {% if item.Status_ERP and 'Insuficiente' in item.Status_ERP %}
-                                    <span style="color: #dc3545; font-weight: bold;">{{ item.Status_ERP }}</span>
-                                {% elif item.Status_ERP and 'Suficiente' in item.Status_ERP %}
-                                    <span style="color: #28a745; font-weight: bold;">{{ item.Status_ERP }}</span>
-                                {% else %}
-                                    <span style="color: #6c757d;">-</span>
-                                {% endif %}
-                            </td>
-
-                            <!-- 7. Inventário Feito? (Mantém o seletor original do script) -->
-                            <td style="text-align: center;">
-                                <select class="form-select form-select-sm" onchange="atualizarStatusInventario('{{ item.ID }}', this.value)">
-                                    <option value="Não" {% if item.Status != 'Sim' %}selected{% endif %}>Não</option>
-                                    <option value="Sim" {% if item.Status == 'Sim' %}selected{% endif %}>Sim</option>
-                                </select>
-                            </td>
-
-                            <!-- 8. IVE (Caixa de marcação com submissão por ID oculto) -->
-                            <td style="text-align: center;">
-                                <form action="{{ url_for('atualizar_ive') }}" method="POST" style="margin: 0;">
-                                    <input type="hidden" name="id_ordem" value="{{ item.ID }}">
-                                    <input type="hidden" name="aba_origem" value="inventario">
-                                    <input type="checkbox" name="ive_status" value="Sim" 
-                                           onchange="this.form.submit()" 
-                                           {% if item.IVE == 'Sim' %}checked{% endif %} 
-                                           style="transform: scale(1.3); cursor: pointer;">
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    {% else %}
-                        <tr>
-                            <td colspan="8" style="text-align: center; color: #777;">Defina o período e clique em Filtrar Inventário ou não há registos.</td>
-                        </tr>
-                    {% endif %}
+                    <tr>
+                        <td colspan="8" style="text-align: center; color: #777;">Defina o período e clique em Filtrar Inventário.</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
     </div>
-</div>
+    
 
 
     
@@ -1331,7 +1280,8 @@ async function excluirConsulta(data, rowId, codigo) {
 
     
     // --- LÓGICA DA ABA INVENTÁRIO ---
-async function carregarInventario() {
+// --- LÓGICA DA ABA INVENTÁRIO ---
+    async function carregarInventario() {
         let dataInicio = document.getElementById('data-inicio-inv').value;
         let dataFim = document.getElementById('data-fim-inv').value;
         let tbody = document.querySelector('#tabela-inventario tbody');
@@ -1353,26 +1303,21 @@ async function carregarInventario() {
                 return;
             }
 
-            // APLICAÇÃO DA TUA REGRA DE NEGÓCIO EXATA:
+            // APLICAÇÃO DA REGRA DE NEGÓCIO EXATA:
+            // 1. Baixa Diária NÃO PODE APARECER de todo.
+            // 2. Aproveitamento de Sucata só aparece se o status for 'Sim'.
+            // 3. Outros tipos aparecem independentemente do status.
             dadosInventarioCache = resultado.itens.filter(item => {
-                let tipo = (item.Tipo || item.TIPO || '').trim().toLowerCase();
-                let status = (item.Status || item.STATUS || '').trim().toLowerCase();
+                let tipo = (item.Tipo || '').trim().toLowerCase();
+                let status = (item.Status || '').trim().toLowerCase();
 
-                // 1. Baixa Diária NÃO PODE APARECER de todo
                 if (tipo.includes('baixa diaria') || tipo.includes('baixa diária')) {
                     return false;
                 }
 
-                // 2. Aproveitamento de Sucata só aparece se o status for 'sim'
                 let isSucata = tipo.includes('sucata') || tipo.includes('aproveitamento');
                 if (isSucata) {
                     return status === 'sim';
-                }
-
-                // 3. Outros tipos devem aparecer independentemente do status
-                let isOutros = tipo.includes('corte') || tipo.includes('perfil') || tipo.includes('outros');
-                if (isOutros) {
-                    return true;
                 }
 
                 return true;
@@ -1385,14 +1330,12 @@ async function carregarInventario() {
         }
     }
 
-    
-
-function filtrarTabelaInventario() {
+    function filtrarTabelaInventario() {
         let filtroClassificacao = document.getElementById('filtro-classificacao-inv').value;
         let filtroStatus = document.getElementById('filtro-status-inv').value;
 
         let itensFiltrados = dadosInventarioCache.filter(item => {
-            let tipo = (item.Tipo || item.TIPO || '').trim().toLowerCase();
+            let tipo = (item.Tipo || '').trim().toLowerCase();
             let isSucata = tipo.includes('sucata') || tipo.includes('aproveitamento');
             let classificacao = isSucata ? 'Entrada' : 'Baixa';
             let invFeito = item.InventarioFeito || 'Não';
@@ -1406,12 +1349,10 @@ function filtrarTabelaInventario() {
             return true;
         });
 
-        // Calcula quantos inventários faltam no total geral carregado (ou nos filtrados, aqui calculamos do total carregado para dar a noção real)
         let totalFaltam = dadosInventarioCache.filter(item => (item.InventarioFeito || 'Não').trim() === 'Não').length;
         let badgeFaltam = document.getElementById('contador-inventario-faltam');
         badgeFaltam.textContent = `Faltam fazer: ${totalFaltam} inventários`;
         
-        // Altera a cor de fundo se já estiver tudo concluído
         if (totalFaltam === 0) {
             badgeFaltam.style.backgroundColor = '#d4edda';
             badgeFaltam.style.color = '#155724';
@@ -1425,9 +1366,7 @@ function filtrarTabelaInventario() {
         renderizarTabelaInventario(itensFiltrados);
     }
 
-    
-// --- FUNÇÃO PARA RENDERIZAR A TABELA DE INVENTÁRIO COM AS 8 COLUNAS CORRETAS ---
-function renderizarTabelaInventario(dados) {
+    function renderizarTabelaInventario(dados) {
         let tbody = document.querySelector('#tabela-inventario tbody');
         if (!tbody) return;
 
@@ -1438,7 +1377,7 @@ function renderizarTabelaInventario(dados) {
 
         let html = '';
         dados.forEach(item => {
-            let statusErpTexto = item.Status_ERP || item.status_erp || '';
+            let statusErpTexto = item.Status_ERP || '';
             let corStatusErp = '#6c757d';
             if (statusErpTexto.includes('Insuficiente')) {
                 corStatusErp = '#dc3545';
@@ -1446,85 +1385,115 @@ function renderizarTabelaInventario(dados) {
                 corStatusErp = '#28a745';
             }
 
-            // Mapeamento seguro aceitando qualquer variação de maiúsculas/minúsculas do backend
-            let codigoItem = item.Codigo || item.codigo || item.CODIGO || '';
-            let dataItem = item.Data || item.data || '';
-            let qtdItem = item.Quantidade || item.quantidade || '';
-            let tipoItem = item.Tipo || item.tipo || '';
-            let classItem = item.Classificacao || item.classificacao || 'Baixa';
-            let statusItem = item.Status || item.status || 'Não';
-            let iveItem = item.IVE || item.ive || 'Não';
-            let idItem = item.ID || item.id || '';
+            let codigoItem = item.Codigo || '';
+            let dataItem = item.Data || '';
+            let qtdItem = item.Quantidade || '';
+            let tipoItem = item.Tipo || '';
+            let isSucata = tipoItem.toLowerCase().includes('sucata') || tipoItem.toLowerCase().includes('aproveitamento');
+            let classItem = isSucata ? 'Entrada' : 'Baixa';
+            let statusItem = item.InventarioFeito || 'Não';
+            let iveItem = item.IVE || 'Não';
 
             html += `
                 <tr>
-                    <!-- 1. Data -->
                     <td>${dataItem}</td>
-                    
-                    <!-- 2. Código (Forçado a aparecer corretamente) -->
                     <td><strong>${codigoItem}</strong></td>
-                    
-                    <!-- 3. Quantidade -->
                     <td>${qtdItem}</td>
-                    
-                    <!-- 4. Tipo -->
                     <td>${tipoItem}</td>
-                    
-                    <!-- 5. Classificação -->
                     <td>${classItem}</td>
-                    
-                    <!-- 6. Status ERP -->
                     <td>
                         ${statusErpTexto ? `<span style="color: ${corStatusErp}; font-weight: bold;">${statusErpTexto}</span>` : '<span style="color: #6c757d;">-</span>'}
                     </td>
-
-                    <!-- 7. Inventário Feito? (Sim/Não) -->
                     <td style="text-align: center;">
-                        <select class="form-select form-select-sm" onchange="atualizarStatusInventario('${idItem}', this.value)" style="color: ${statusItem.toLowerCase() === 'sim' ? 'green' : 'red'}; font-weight: bold;">
-                            <option value="Não" ${statusItem.toLowerCase() !== 'sim' ? 'selected' : ''} style="color: red;">Não</option>
-                            <option value="Sim" ${statusItem.toLowerCase() === 'sim' ? 'selected' : ''} style="color: green;">Sim</option>
+                        <select class="form-select form-select-sm" onchange="atualizarStatusInventario(this, '${item.Aba}', ${item.Linha})" style="color: ${statusItem === 'Sim' ? 'green' : 'red'}; font-weight: bold;">
+                            <option value="Não" ${statusItem !== 'Sim' ? 'selected' : ''} style="color: red;">Não</option>
+                            <option value="Sim" ${statusItem === 'Sim' ? 'selected' : ''} style="color: green;">Sim</option>
                         </select>
                     </td>
-
-                    <!-- 8. IVE (Caixa de marcação com envio seguro por ID) -->
                     <td style="text-align: center;">
-                        <form action="/atualizar_ive" method="POST" style="margin: 0;">
-                            <input type="hidden" name="id_ordem" value="${idItem}">
-                            <input type="hidden" name="aba_origem" value="inventario">
-                            <input type="checkbox" name="ive_status" value="Sim" 
-                                   onchange="this.form.submit()" 
-                                   ${iveItem.toLowerCase() === 'sim' ? 'checked' : ''} 
-                                   style="transform: scale(1.3); cursor: pointer;">
-                        </form>
+                        <input type="checkbox" onchange="atualizarIveServidor(this, '${item.Aba}', ${item.Linha})" ${iveItem === 'Sim' ? 'checked' : ''} style="transform: scale(1.3); cursor: pointer;">
                     </td>
                 </tr>
             `;
         });
         tbody.innerHTML = html;
     }
-    
-    async function atualizarStatusInventario(index, valor) {
-        let item = dadosInventarioCache[index];
-        item.InventarioFeito = valor;
-        
-        filtrarTabelaInventario(); // Atualiza a visualização filtrada
+
+    async function atualizarStatusInventario(selectEl, aba, linha) {
+        let novoValor = selectEl.value;
+        selectEl.style.color = novoValor === 'Sim' ? 'green' : 'red';
+
+        // Atualiza na cache local
+        let itemCache = dadosInventarioCache.find(i => i.Aba === aba && i.Linha === linha);
+        if (itemCache) itemCache.InventarioFeito = novoValor;
+
+        // Atualiza o contador de faltantes em tempo real
+        let totalFaltam = dadosInventarioCache.filter(item => (item.InventarioFeito || 'Não').trim() === 'Não').length;
+        let badgeFaltam = document.getElementById('contador-inventario-faltam');
+        badgeFaltam.textContent = `Faltam fazer: ${totalFaltam} inventários`;
 
         try {
             let resposta = await fetch('/atualizar_inventario', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    aba: item.Aba,
-                    linha: item.Linha,
-                    inventarioFeito: valor
-                })
+                body: JSON.stringify({ aba: aba, linha: linha, inventarioFeito: novoValor })
             });
             let resultado = await resposta.json();
             if (!resultado.sucesso) {
-                console.error("Erro ao salvar no Sheets:", resultado.mensagem);
+                alert('Erro ao atualizar: ' + resultado.mensagem);
             }
         } catch (err) {
-            console.error("Erro de comunicação ao atualizar inventário:", err);
+            console.error(err);
+        }
+    }
+
+    async function atualizarIveServidor(checkboxEl, aba, linha) {
+        let novoValor = checkboxEl.checked ? 'Sim' : 'Não';
+        
+        let itemCache = dadosInventarioCache.find(i => i.Aba === aba && i.Linha === linha);
+        if (itemCache) itemCache.IVE = novoValor;
+
+        try {
+            let resposta = await fetch('/atualizar_ive', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ aba: aba, linha: linha, ive_status: novoValor })
+            });
+            let resultado = await resposta.json();
+            if (!resultado.sucesso) {
+                alert('Erro ao atualizar IVE: ' + resultado.mensagem);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Erro de comunicação ao atualizar IVE.');
+        }
+    }
+
+    async function processarValidacaoErpInventario() {
+        let textoErp = document.getElementById('input-saldo-erp-inv').value.trim();
+        if (!textoErp) {
+            alert('Por favor, cole as linhas com os saldos do ERP.');
+            return;
+        }
+
+        try {
+            let resposta = await fetch('/validar_saldo_erp_inventario', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ texto_saldos: textoErp, itens: dadosInventarioCache })
+            });
+            let resultado = await resposta.json();
+
+            if (resultado.sucesso) {
+                dadosInventarioCache = resultado.itens;
+                filtrarTabelaInventario();
+                alert(resultado.mensagem);
+            } else {
+                alert('Erro: ' + resultado.mensagem);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Erro de comunicação ao validar saldos do ERP.');
         }
     }
 
