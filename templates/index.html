@@ -160,6 +160,7 @@
                 </select>
             </div>
             <button class="btn-pesquisar" onclick="consultarBaixas()">Pesquisar</button>
+            <button class="btn-excel" onclick="exportarExcelConsultarBaixas()" style="background-color: #28a745; height: 42px; padding: 0 15px; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 15px;">Baixar Excel (CSV)</button>
         </div>
         <!-- Campo para colar saldo do ERP na aba de Consulta -->
         <div class="form-row" style="margin-top: 10px; background: #eef4fc; padding: 10px; border-radius: 6px; border: 1px solid #cce0f5;">
@@ -2172,6 +2173,23 @@ async function validarSaldoERP() {
     } else {
         alert('Nenhum item elegível (Inventário Feito = "Não") encontrado na tabela para validar.');
     }
+}
+
+
+
+
+function exportarExcelConsultarBaixas() {
+    let dataConsulta = document.getElementById('data-consulta').value;
+    let filtroTipo = document.getElementById('filtro-tipo').value;
+    let filtroStatusERP = document.getElementById('filtro-status-erp') ? document.getElementById('filtro-status-erp').value : 'TODOS';
+
+    if (!dataConsulta) {
+        alert('Por favor, selecione uma data antes de exportar.');
+        return;
+    }
+
+    // Redireciona para a rota enviando os filtros aplicados
+    window.location.href = `/exportar_excel_consultar_baixas?data=${dataConsulta}&tipo=${encodeURIComponent(filtroTipo)}&status_erp=${encodeURIComponent(filtroStatusERP)}`;
 }
     
 </script>
