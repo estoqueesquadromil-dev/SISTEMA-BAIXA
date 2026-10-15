@@ -1420,49 +1420,72 @@ function filtrarTabelaInventario() {
     }
 
     
-    function renderizarTabelaInventario(itens) {
+// --- FUNÇÃO PARA RENDERIZAR A TABELA DE INVENTÁRIO COM AS 8 COLUNAS CORRETAS ---
+    function renderizarTabelaInventario(dados) {
         let tbody = document.querySelector('#tabela-inventario tbody');
-        tbody.innerHTML = '';
+        if (!tbody) return;
 
-        if (itens.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #777;">Nenhum registo compatível encontrado com estes filtros.</td></tr>';
+        if (!dados || dados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item encontrado neste período.</td></tr>';
             return;
         }
 
-        itens.forEach((item, index) => {
-            let dataLinha = item.Data || item.DATA || '';
-            let codigoLinha = item.Código || item.CODIGO || '';
-            let qtdLinha = item.Quantidade || item.QUANTIDADE || 1;
-            let tipoLinha = item.Tipo || item.TIPO || '';
-            let tipoLower = tipoLinha.trim().toLowerCase();
+        let html = '';
+        dados.forEach(item => {
+            let statusErpTexto = item.Status_ERP || '';
+            let corStatusErp = '#6c757d';
+            if (statusErpTexto.includes('Insuficiente')) {
+                corStatusErp = '#dc3545';
+            } else if (statusErpTexto.includes('Suficiente')) {
+                corStatusErp = '#28a745';
+            }
 
-            let tagNome = tipoLower.includes('sucata') ? 'Entrada' : 'Baixa';
-            let tagCor = tipoLower.includes('sucata') ? '#0056b3' : '#dc3545';
+            html += `
+                <tr>
+                    <!-- 1. Data -->
+                    <td>${item.Data || ''}</td>
+                    
+                    <!-- 2. Código -->
+                    <td><strong>${item.Codigo || ''}</strong></td>
+                    
+                    <!-- 3. Quantidade -->
+                    <td>${item.Quantidade || ''}</td>
+                    
+                    <!-- 4. Tipo -->
+                    <td>${item.Tipo || ''}</td>
+                    
+                    <!-- 5. Classificação -->
+                    <td>${item.Classificacao || 'Baixa'}</td>
+                    
+                    <!-- 6. Status ERP -->
+                    <td>
+                        ${statusErpTexto ? `<span style="color: ${corStatusErp}; font-weight: bold;">${statusErpTexto}</span>` : '<span style="color: #6c757d;">-</span>'}
+                    </td>
 
-            let inventarioFeito = item.InventarioFeito || 'Não';
-            let selectCor = inventarioFeito === 'Sim' ? '#28a745' : '#dc3545';
+                    <!-- 7. Inventário Feito? (Seletor Sim/Não) -->
+                    <td style="text-align: center;">
+                        <select class="form-select form-select-sm" onchange="atualizarStatusInventario('${item.ID}', this.value)">
+                            <option value="Não" ${item.Status !== 'Sim' ? 'selected' : ''}>Não</option>
+                            <option value="Sim" ${item.Status === 'Sim' ? 'selected' : ''}>Sim</option>
+                        </select>
+                    </td>
 
-            // Localiza o índice real no cache global para atualizar corretamente ao interagir com o select
-            let indiceReal = dadosInventarioCache.indexOf(item);
-
-            let tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${dataLinha}</td>
-                <td>${codigoLinha}</td>
-                <td>${qtdLinha}</td>
-                <td>${tipoLinha}</td>
-                <td><strong style="color: ${tagCor};">${tagNome} (${tipoLinha})</strong></td>
-                <td style="text-align: center;">
-                    <select onchange="atualizarStatusInventario(${indiceReal}, this.value)" style="font-weight: bold; color: ${selectCor}; width: 100px; text-align: center;">
-                        <option value="Não" ${inventarioFeito === 'Não' ? 'selected' : ''} style="color: #dc3545;">Não</option>
-                        <option value="Sim" ${inventarioFeito === 'Sim' ? 'selected' : ''} style="color: #28a745;">Sim</option>
-                    </select>
-                </td>
+                    <!-- 8. IVE (Caixa de marcação enviando o ID por trás) -->
+                    <td style="text-align: center;">
+                        <form action="/atualizar_ive" method="POST" style="margin: 0;">
+                            <input type="hidden" name="id_ordem" value="${item.ID}">
+                            <input type="hidden" name="aba_origem" value="inventario">
+                            <input type="checkbox" name="ive_status" value="Sim" 
+                                   onchange="this.form.submit()" 
+                                   ${item.IVE === 'Sim' ? 'checked' : ''} 
+                                   style="transform: scale(1.3); cursor: pointer;">
+                        </form>
+                    </td>
+                </tr>
             `;
-            tbody.appendChild(tr);
         });
+        tbody.innerHTML = html;
     }
-
     async function atualizarStatusInventario(index, valor) {
         let item = dadosInventarioCache[index];
         item.InventarioFeito = valor;
