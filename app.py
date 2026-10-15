@@ -1493,3 +1493,30 @@ def salvar_suficiente_erp():
         return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes salvos na planilha com sucesso!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)})
+
+
+@app.route('/salvar_suficiente_erp', methods=['POST'])
+def salvar_suficiente_erp():
+    try:
+        dados = request.get_json()
+        itens = dados.get('itens', [])
+        
+        # Certifica-te de que usas a mesma variável de conexão ao gspread/planilha que já tens no teu app.py
+        # Exemplo: spreadsheet = client.open_by_key("1AxOxmxQzhNX-eNTZ-1CHPXDVBBOlbl5nMGuxlR9Ojew")
+        
+        for item in itens:
+            nome_aba = item.get('aba')
+            linha_idx = int(item.get('linha'))
+            valor_suficiente = item.get('valor')
+            
+            if nome_aba:
+                worksheet = spreadsheet.worksheet(nome_aba)
+            else:
+                worksheet = spreadsheet.sheet1 # fallback para a primeira aba se o nome vier vazio
+                
+            # Atualiza a célula correspondente na Coluna I (ex: I2, I3, etc.) com apenas o número
+            worksheet.update(f'I{linha_idx}', [[valor_suficiente]])
+            
+        return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes salvos na coluna I com sucesso!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)})
