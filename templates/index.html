@@ -276,8 +276,7 @@
                         <th>Quantidade</th>
                         <th>Tipo</th>
                         <th>Classificação</th>
-                        <th>Saldo ERP</th> <!-- Nova coluna -->
-                        <th>Status ERP</th>
+                        <th>Saldo ERP</th> <!-- Fica apenas esta, onde mostramos o número ou o status -->
                         <th style="text-align: center;">Inventário Feito?</th>
                         <th style="text-align: center;">IVE</th>
                     </tr>
@@ -1382,7 +1381,7 @@ function filtrarTabelaInventario() {
     }
 
     if (itensFiltrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #777;">Nenhum item corresponde aos filtros selecionados.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item corresponde aos filtros selecionados.</td></tr>';
         return;
     }
 
@@ -1392,17 +1391,16 @@ function filtrarTabelaInventario() {
         let isCheckedIve = (valIve === true || valIve === 'Sim' || valIve === 'sim' || valIve === 'SIM' || valIve === 'TRUE') ? 'checked' : '';
 
         let statusErpTexto = item.Status_ERP || item.StatusERP || '';
-        let corStatusErp = '#6c757d';
-        if (statusErpTexto.includes('Insuficiente')) corStatusErp = '#dc3545';
-        else if (statusErpTexto.includes('Suficiente')) corStatusErp = '#28a745';
-
-        // Puxa o Saldo ERP diretamente da coluna I guardada ou extrai do texto do status como fallback
-        let saldoNumerico = '-';
-        if (item.Saldo_ERP !== undefined && item.Saldo_ERP !== null && item.Saldo_ERP !== '') {
-            saldoNumerico = item.Saldo_ERP;
-        } else if (statusErpTexto.includes('(')) {
-            let match = statusErpTexto.match(/\(([^)]+)\)/);
-            if (match) saldoNumerico = match[1];
+        
+        // Conteúdo da coluna Saldo ERP: Se já tiver texto salvo (ex: Suficiente (4)), exibe-o colorido. Senão, exibe só o número limpo guardado.
+        let conteudoSaldoErp = '-';
+        if (statusErpTexto) {
+            let corStatusErp = '#6c757d';
+            if (statusErpTexto.includes('Insuficiente')) corStatusErp = '#dc3545';
+            else if (statusErpTexto.includes('Suficiente')) corStatusErp = '#28a745';
+            conteudoSaldoErp = `<span style="color: ${corStatusErp}; font-weight: bold;">${statusErpTexto}</span>`;
+        } else if (item.Saldo_ERP !== undefined && item.Saldo_ERP !== null && item.Saldo_ERP !== '') {
+            conteudoSaldoErp = `<strong>${item.Saldo_ERP}</strong>`;
         }
 
         let isSucata = (item.Tipo || '').toLowerCase().includes('sucata') || (item.Tipo || '').toLowerCase().includes('aproveitamento');
@@ -1414,8 +1412,7 @@ function filtrarTabelaInventario() {
             <td>${item.Quantidade || ''}</td>
             <td>${item.Tipo || ''}</td>
             <td>${classificacaoItem}</td>
-            <td><strong>${saldoNumerico}</strong></td>
-            <td>${statusErpTexto ? `<span style="color: ${corStatusErp}; font-weight: bold;">${statusErpTexto}</span>` : '<span style="color: #6c757d;">-</span>'}</td>
+            <td>${conteudoSaldoErp}</td>
             <td style="text-align: center;">
                 <select class="form-control form-control-sm status-inventario" data-aba="${item.Aba || ''}" data-linha="${item.Linha || ''}" onchange="atualizarStatusInventario(this, '${item.Aba || ''}', ${item.Linha || ''})" style="color: ${(item.InventarioFeito || 'Não') === 'Sim' ? 'green' : 'red'}; font-weight: bold;">
                     <option value="Não" ${(item.InventarioFeito || 'Não') !== 'Sim' ? 'selected' : ''} style="color: red;">Não</option>
@@ -2107,16 +2104,15 @@ async function validarSaldoERP() {
 
     linhasTabela.forEach(tr => {
         let tds = tr.querySelectorAll('td');
-        if (tds.length < 8) return;
+        if (tds.length < 7) return;
 
         let codigoItem = tds[1].innerText.trim().toUpperCase();
         let qtdTabela = parseFloat(tds[2].innerText.trim().replace(',', '.')) || 0;
-        let statusTd = tds[5];
+        let saldoErpTd = tds[5]; // Coluna Saldo ERP (agora é a 6ª célula, índice 5)
 
         let selectInventario = tr.querySelector('.status-inventario');
         let statusInventarioVal = selectInventario ? selectInventario.value.trim() : 'Não';
 
-        // Regra: Só calcula se o Inventário Feito for "Não"
         if (statusInventarioVal.toLowerCase() === 'sim') {
             return;
         }
@@ -2124,14 +2120,14 @@ async function validarSaldoERP() {
         let aba = selectInventario ? selectInventario.getAttribute('data-aba') : '';
         let linhaPlanilha = selectInventario ? selectInventario.getAttribute('data-linha') : '';
 
-        // Regra: Se o produto não existe no ERP colado, conta como 0
         let saldoErp = saldosDict.hasOwnProperty(codigoItem) ? saldosDict[codigoItem] : 0;
         let resultadoCalculo = saldoErp + qtdTabela;
 
+        let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
+
         if (resultadoCalculo >= 0) {
-            statusTd.innerHTML = `<span style="color: #28a745; font-weight: bold;">Suficiente (${resultadoCalculo})</span>`;
+            saldoErpTd.innerHTML = `<span style="color: #28a745; font-weight: bold;">Suficiente (${resultadoCalculo})</span>`;
             
-            let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
             if (itemCache) itemCache.Status_ERP = `Suficiente (${resultadoCalculo})`;
 
             if (linhaPlanilha && aba) {
@@ -2142,8 +2138,7 @@ async function validarSaldoERP() {
                 });
             }
         } else {
-            statusTd.innerHTML = `<span style="color: #dc3545; font-weight: bold;">Insuficiente (0)</span>`;
-            let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
+            saldoErpTd.innerHTML = `<span style="color: #dc3545; font-weight: bold;">Insuficiente (0)</span>`;
             if (itemCache) itemCache.Status_ERP = `Insuficiente (0)`;
         }
         validadas++;
@@ -2174,7 +2169,6 @@ async function validarSaldoERP() {
         alert('Nenhum item elegível (Inventário Feito = "Não") encontrado na tabela para validar.');
     }
 }
-
 
 
 
