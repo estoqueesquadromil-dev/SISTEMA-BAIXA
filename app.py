@@ -1235,3 +1235,73 @@ def atualizar_status_lote_por_indice():
         
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro interno no servidor: {str(e)}'}), 500
+
+
+
+@app.route('/validar_saldo_erp', methods=['POST'])
+def validar_saldo_erp():
+    txt_saldos = request.form.get('txt_saldos_erp', '')
+    aba_origem = request.form.get('aba_origem', 'inventario')
+    
+    if txt_saldos.strip():
+        # Converte o texto colado num dicionário: { 'CODIGO': quantidade_float }
+        saldos_dict = {}
+        for linha in txt_saldos.strip().split('\n'):
+            partes = linha.strip().split()
+            if len(partes) >= 2:
+                codigo = partes[0].strip().upper()
+                try:
+                    qtd = float(partes[1].replace(',', '.'))
+                    saldos_dict[codigo] = saldos_dict.get(codigo, 0.0) + qtd
+                except ValueError:
+                    continue
+
+        df_atual = carregar_dados()
+        if not df_atual.empty:
+            # Garante que as colunas existem
+            if "Status_ERP" not in df_atual.columns:
+                df_atual["Status_ERP"] = ""
+            if "IVE" not in df_atual.columns:
+                df_atual["IVE"] = "Não"
+
+            # Atualiza cada linha comparando o saldo do ERP com a quantidade da ordem (usando o ID único)
+            for idx, row in df_atual.iterrows():
+                ordem_id = row.get("ID")
+                codigo_ordem = str(row.get("Codigo", "")).strip().upper()
+                
+                # Exemplo de extração da quantidade da ordem
+                # Adapta se a tua quantidade estiver na coluna 'Perfis'/'Sobras' ou numa coluna dedicada 'Quantidade'
+                qtd_ordem = 1.0  
+                
+                if codigo_ordem in saldos_dict:
+                    saldo_erp = saldos_dict[codigo_ordem]
+                    if saldo_erp >= qtd_ordem:
+                        df_atual.loc[df_atual["ID"] == ordem_id, "Status_ERP"] = f"Suficiente ({int(saldo_erp)})"
+                    else:
+                        df_atual.loc[df_atual["ID"] == ordem_id, "Status_ERP"] = f"Insuficiente ({int(saldo_erp)})"
+                else:
+                    df_atual.loc[df_atual["ID"] == ordem_id, "Status_ERP"] = "Insuficiente (0)"
+
+            salvar_dados(df_atual)
+            flash("Validação de Saldo do ERP concluída com sucesso!", "success")
+            
+    return redirect(url_for('index', aba=aba_origem))
+
+
+
+@app.route('/atualizar_ive', methods=['POST'])
+def atualizar_ive():
+    ordem_id = request.form.get('id_ordem')
+    ive_marcado = request.form.get('ive_status') # 'Sim' se marcado, 'Não' caso contrário
+    aba_origem = request.form.get('aba_origem', 'inventario')
+    
+    if ordem_id:
+        df_atual = carregar_dados()
+        # Busca estritamente pelo ID único para não afetar códigos duplicados
+        mask = pd.to_numeric(df_atual["ID"], errors="coerce") == int(ordem_id)
+        df_atual.loc[mask, "IVE"] = "Sim" if ive_marcado == "Sim" else "Não"
+        
+        salvar_dados(df_atual)
+        flash("Status IVE atualizado com sucesso!", "info")
+        
+    return redirect(url_for('index', aba=aba_origem))
