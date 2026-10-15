@@ -1337,72 +1337,79 @@ async function carregarInventario() {
     
 
 function filtrarTabelaInventario() {
-        let tbody = document.querySelector('#tabela-inventario tbody');
-        if (!tbody) return;
+    let tbody = document.querySelector('#tabela-inventario tbody');
+    if (!tbody) return;
 
-        let classificacaoFiltro = document.getElementById('filtro-classificacao-inv').value.toLowerCase();
-        let inventarioFeitoFiltro = document.getElementById('filtro-status-inv').value.toLowerCase();
-        let apenasIveMarcado = document.getElementById('filtro-ive-check').checked;
+    let classificacaoFiltro = document.getElementById('filtro-classificacao-inv').value.toLowerCase();
+    let inventarioFeitoFiltro = document.getElementById('filtro-status-inv').value.toLowerCase();
+    let elCheckIve = document.getElementById('filtro-ive-check');
+    let apenasIveMarcado = elCheckIve ? elCheckIve.checked : false;
 
-        tbody.innerHTML = '';
+    tbody.innerHTML = '';
 
-        let itensFiltrados = dadosInventarioCache.filter(item => {
-            let classificacao = (item.Classificacao || '').trim().toLowerCase();
-            let statusFeito = (item.InventarioFeito || 'não').trim().toLowerCase();
-            
-            // Verifica o estado do IVE
-            let ivestatus = item.IVE === true || item.IVE === 'Sim' || item.IVE === 'sim' || item.IVE === 'SIM';
+    let itensFiltrados = dadosInventarioCache.filter(item => {
+        let classificacao = (item.Classificacao || '').trim().toLowerCase();
+        let statusFeito = (item.InventarioFeito || 'não').trim().toLowerCase();
+        
+        let valIve = item.IVE !== undefined ? item.IVE : item.ive;
+        let ivestatus = (valIve === true || valIve === 'Sim' || valIve === 'sim' || valIve === 'SIM' || valIve === 'TRUE');
 
-            // 1. Filtro de Classificação
-            if (classificacaoFiltro !== 'todas' && classificacaoFiltro !== '' && classificacao !== classificacaoFiltro) {
-                return false;
-            }
-
-            // 2. Filtro de Inventário Feito
-            if (inventarioFeitoFiltro !== 'todos' && statusFeito !== inventarioFeitoFiltro) {
-                return false;
-            }
-
-            // 3. Filtro da Caixa de IVE (só aplica se estiver marcada)
-            if (apenasIveMarcado && !ivestatus) {
-                return false;
-            }
-
-            return true;
-        });
-
-        if (itensFiltrados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item corresponde aos filtros selecionados.</td></tr>';
-            return;
+        if (classificacaoFiltro !== 'todas' && classificacaoFiltro !== '' && classificacao !== classificacaoFiltro) {
+            return false;
         }
 
-        // Desenha as linhas na tabela mantendo o teu layout original exato
-        itensFiltrados.forEach((item, index) => {
-            let tr = document.createElement('tr');
-            let isCheckedIve = (item.IVE === true || item.IVE === 'Sim' || item.IVE === 'sim' || item.IVE === 'SIM') ? 'checked' : '';
+        if (inventarioFeitoFiltro !== 'todos' && statusFeito !== inventarioFeitoFiltro) {
+            return false;
+        }
 
-            tr.innerHTML = `
-                <td>${item.Data || ''}</td>
-                <td><strong>${item.Codigo || ''}</strong></td>
-                <td>${item.Quantidade || ''}</td>
-                <td>${item.Tipo || ''}</td>
-                <td>${item.Classificacao || ''}</td>
-                <td><span style="color: #6c757d;">${item.StatusERP || '-'}</span></td>
-                <td>
-                    <select class="form-control form-control-sm status-inventario" data-aba="${item.Aba || ''}" data-linha="${item.Linha || ''}" onchange="atualizarInventarioFeito(this)">
-                        <option value="Não" ${item.InventarioFeito === 'Não' ? 'selected' : ''}>Não</option>
-                        <option value="Sim" ${item.InventarioFeito === 'Sim' ? 'selected' : ''}>Sim</option>
-                    </select>
-                </td>
-                <td style="text-align: center;">
-                    <input type="checkbox" ${isCheckedIve} onchange="atualizarIVE(this, '${item.Aba || ''}', ${item.Linha || ''})" style="width: 18px; height: 18px; cursor: pointer;">
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
+        if (apenasIveMarcado && !ivestatus) {
+            return false;
+        }
+
+        return true;
+    });
+
+    let totalFaltam = dadosInventarioCache.filter(item => (item.InventarioFeito || 'Não').trim() === 'Não').length;
+    let badgeFaltam = document.getElementById('contador-inventario-faltam');
+    if (badgeFaltam) {
+        badgeFaltam.textContent = `Faltam fazer: ${totalFaltam} inventários`;
     }
 
+    if (itensFiltrados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item corresponde aos filtros selecionados.</td></tr>';
+        return;
+    }
 
+    itensFiltrados.forEach((item, index) => {
+        let tr = document.createElement('tr');
+        let valIve = item.IVE !== undefined ? item.IVE : item.ive;
+        let isCheckedIve = (valIve === true || valIve === 'Sim' || valIve === 'sim' || valIve === 'SIM' || valIve === 'TRUE') ? 'checked' : '';
+
+        let statusErpTexto = item.Status_ERP || item.StatusERP || '';
+        let corStatusErp = '#6c757d';
+        if (statusErpTexto.includes('Insuficiente')) corStatusErp = '#dc3545';
+        else if (statusErpTexto.includes('Suficiente')) corStatusErp = '#28a745';
+
+        tr.innerHTML = `
+            <td>${item.Data || ''}</td>
+            <td><strong>${item.Codigo || ''}</strong></td>
+            <td>${item.Quantidade || ''}</td>
+            <td>${item.Tipo || ''}</td>
+            <td>${item.Classificacao || ''}</td>
+            <td>${statusErpTexto ? `<span style="color: ${corStatusErp}; font-weight: bold;">${statusErpTexto}</span>` : '<span style="color: #6c757d;">-</span>'}</td>
+            <td style="text-align: center;">
+                <select class="form-control form-control-sm status-inventario" data-aba="${item.Aba || ''}" data-linha="${item.Linha || ''}" onchange="atualizarStatusInventario(this, '${item.Aba || ''}', ${item.Linha || ''})" style="color: ${(item.InventarioFeito || 'Não') === 'Sim' ? 'green' : 'red'}; font-weight: bold;">
+                    <option value="Não" ${(item.InventarioFeito || 'Não') !== 'Sim' ? 'selected' : ''} style="color: red;">Não</option>
+                    <option value="Sim" ${(item.InventarioFeito || 'Não') === 'Sim' ? 'selected' : ''} style="color: green;">Sim</option>
+                </select>
+            </td>
+            <td style="text-align: center;">
+                <input type="checkbox" ${isCheckedIve} onchange="atualizarIveServidor(this, '${item.Aba || ''}', ${item.Linha || ''})" style="width: 18px; height: 18px; cursor: pointer;">
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
 
     
 
