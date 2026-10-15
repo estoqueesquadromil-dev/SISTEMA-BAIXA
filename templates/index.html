@@ -261,7 +261,7 @@
             Faltam fazer: 0 inventários
         </div>
 
-    <h3>Controlo de Inventário</h3>
+        <h3>Controlo de Inventário</h3>
         <div class="table-responsive">
             <table id="tabela-inventario" class="table table-striped align-middle">
                 <thead>
@@ -306,10 +306,15 @@
                                 {% endif %}
                             </td>
 
-                            <!-- 7. Inventário Feito? (Status) -->
-                            <td style="text-align: center;">{{ item.Status }}</td>
+                            <!-- 7. Inventário Feito? (Mantém o seletor original do script) -->
+                            <td style="text-align: center;">
+                                <select class="form-select form-select-sm" onchange="atualizarStatusInventario('{{ item.ID }}', this.value)">
+                                    <option value="Não" {% if item.Status != 'Sim' %}selected{% endif %}>Não</option>
+                                    <option value="Sim" {% if item.Status == 'Sim' %}selected{% endif %}>Sim</option>
+                                </select>
+                            </td>
 
-                            <!-- 8. IVE (Caixa de seleção correta na última coluna) -->
+                            <!-- 8. IVE (Caixa de marcação com submissão por ID oculto) -->
                             <td style="text-align: center;">
                                 <form action="{{ url_for('atualizar_ive') }}" method="POST" style="margin: 0;">
                                     <input type="hidden" name="id_ordem" value="{{ item.ID }}">
@@ -332,6 +337,9 @@
         </div>
     </div>
 </div>
+
+
+    
 <!-- PAINEL ORDENS -->
 <div id="painel-ordens" class="painel" style="display: 20px;">
     <h2>Sistema de Criação de Ordens de Produção</h2>
