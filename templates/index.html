@@ -1338,9 +1338,14 @@ function filtrarTabelaInventario() {
         let tbody = document.querySelector('#tabela-inventario tbody');
         if (!tbody) return;
 
-        let classificacaoFiltro = document.getElementById('classificacao-inventario').value.toLowerCase();
-        let inventarioFeitoFiltro = document.getElementById('inventario-feito-filtro').value.toLowerCase();
-        let apenasIveMarcado = document.getElementById('filtro-ive-check').checked; // Lê o estado da nossa nova caixa
+        // Lê os elementos de filtro de forma segura usando os IDs reais do teu HTML
+        let elClassificacao = document.getElementById('filtro-classificacao-inv');
+        let elStatusInv = document.getElementById('filtro-status-inv');
+        let elCheckIve = document.getElementById('filtro-ive-check');
+
+        let classificacaoFiltro = elClassificacao ? elClassificacao.value.toLowerCase() : 'todas';
+        let inventarioFeitoFiltro = elStatusInv ? elStatusInv.value.toLowerCase() : 'todos';
+        let apenasIveMarcado = elCheckIve ? elCheckIve.checked : false;
 
         tbody.innerHTML = '';
 
@@ -1348,21 +1353,20 @@ function filtrarTabelaInventario() {
             let classificacao = (item.Classificacao || '').trim().toLowerCase();
             let statusFeito = (item.InventarioFeito || 'não').trim().toLowerCase();
             
-            // Verifica o estado real do checkbox IVE na linha da tabela (ou no cache se já vier mapeado)
-            // Se o item estiver guardado com ivestatus ou similar, ajusta conforme a tua propriedade:
-            let ivestatus = item.IVE === true || item.IVE === 'Sim' || item.IVE === 'sim';
+            // Verifica o estado do IVE na linha
+            let ivestatus = item.IVE === true || item.IVE === 'Sim' || item.IVE === 'sim' || item.IVE === 'SIM';
 
-            // Filtro de Classificação
+            // 1. Filtro de Classificação (Entrada/Baixa)
             if (classificacaoFiltro !== 'todas' && classificacaoFiltro !== '' && classificacao !== classificacaoFiltro) {
                 return false;
             }
 
-            // Filtro de Inventário Feito (Sim/Não)
+            // 2. Filtro de Inventário Feito (Sim/Não)
             if (inventarioFeitoFiltro !== 'todos' && statusFeito !== inventarioFeitoFiltro) {
                 return false;
             }
 
-            // Filtro da nova Caixa de IVE
+            // 3. Filtro da Caixa de IVE
             if (apenasIveMarcado && !ivestatus) {
                 return false;
             }
@@ -1375,9 +1379,38 @@ function filtrarTabelaInventario() {
             return;
         }
 
-        // Renderiza as linhas filtradas na tabela...
-        // (mantém o código que já tens para desenhar as linhas no tbody)
+        // Desenha as linhas filtradas na tabela
+        itensFiltrados.forEach((item, index) => {
+            let tr = document.createElement('tr');
+            
+            // Tratamento do estado do checkbox IVE na célula
+            let isCheckedIve = (item.IVE === true || item.IVE === 'Sim' || item.IVE === 'sim' || item.IVE === 'SIM') ? 'checked' : '';
+
+            tr.innerHTML = `
+                <td>${item.Data || ''}</td>
+                <td><strong>${item.Codigo || ''}</strong></td>
+                <td>${item.Quantidade || ''}</td>
+                <td>${item.Tipo || ''}</td>
+                <td>${item.Classificacao || ''}</td>
+                <td><span style="color: #6c757d;">${item.StatusERP || '-'}</span></td>
+                <td>
+                    <select class="form-control form-control-sm status-inventario" data-aba="${item.Aba || ''}" data-linha="${item.Linha || index}" onchange="atualizarInventarioFeito(this)">
+                        <option value="Não" ${item.InventarioFeito === 'Não' ? 'selected' : ''}>Não</option>
+                        <option value="Sim" ${item.InventarioFeito === 'Sim' ? 'selected' : ''}>Sim</option>
+                    </select>
+                </td>
+                <td style="text-align: center;">
+                    <input type="checkbox" ${isCheckedIve} onchange="atualizarIVE(this, '${item.Aba || ''}', ${item.Linha || index})" style="width: 18px; height: 18px; cursor: pointer;">
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
     }
+
+
+
+
+    
 
     function renderizarTabelaInventario(dados) {
         let tbody = document.querySelector('#tabela-inventario tbody');
