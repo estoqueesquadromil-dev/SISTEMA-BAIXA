@@ -1529,3 +1529,81 @@ def salvar_suficiente_erp():
         return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes salvos na coluna I com sucesso!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+@app.route('/exportar_excel_consultar_baixas', methods=['GET'])
+def exportar_excel_consultar_baixas():
+    data_consulta = request.args.get('data', '').strip()
+    filtro_tipo = request.args.get('tipo', 'TODOS').strip().lower()
+    filtro_status_erp = request.args.get('status_erp', 'TODOS').strip().lower()
+
+    if not data_consulta:
+        return "Data não informada.", 400
+
+    try:
+        gc = conectar_google_sheets()
+        if not gc:
+            return "Erro de conexão com o Google Sheets.", 500
+
+        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+        
+        try:
+            sheet_mov = planilha_mov.worksheet(data_consulta)
+        except gspread.exceptions.WorksheetNotFound:
+            return f"Nenhuma baixa encontrada para o dia {data_consulta}.", 404
+
+        linhas = sheet_mov.get_all_values()
+        if not linhas or len(linhas) < 2:
+            return "A planilha está vazia.", 404
+
+        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+
+        import csv
+        from io import StringIO
+        from flask import Response
+
+        output = StringIO()
+        writer = csv.writer(output, delimiter=';')
+        
+        # Cabeçalho do CSV correspondente à aba de Consulta
+        writer.writerow(['Data', 'Código', 'Quantidade', 'Tipo', 'Status ERP', 'Status Baixa'])
+
+        for idx in range(1, len(linhas)):
+            row = linhas[idx]
+            if not any(row):
+                continue
+            
+            # Extração segura dos campos
+            data_val = row[cabecalhos.index("DATA")] if "DATA" in cabecalhos and len(row) > cabecalhos.index("DATA") else data_consulta
+            codigo_val = row[cabecalhos.index("CÓDIGO")] if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO") else (row[cabecalhos.index("CODIGO")] if "CODIGO" in cabecalhos and len(row) > cabecalhos.index("CODIGO") else "")
+            qtd_val = row[cabecalhos.index("QUANTIDADE")] if "QUANTIDADE" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE") else "1"
+            tipo_val = row[cabecalhos.index("TIPO")] if "TIPO" in cabecalhos and len(row) > cabecalhos.index("TIPO") else "Baixa Diaria"
+            status_val = row[cabecalhos.index("STATUS")] if "STATUS" in cabecalhos and len(row) > cabecalhos.index("STATUS") else "Não"
+            
+            # Status ERP (se existir coluna)
+            status_erp_val = "Não informado"
+            if "STATUS_ERP" in cabecalhos and len(row) > cabecalhos.index("STATUS_ERP"):
+                status_erp_val = row[cabecalhos.index("STATUS_ERP")] or "Não informado"
+
+            # Aplicação dos filtros do utilizador
+            if filtro_tipo != 'todos' and tipo_val.strip().lower() != filtro_tipo:
+                continue
+
+            if filtro_status_erp != 'todos':
+                if filtro_status_erp == 'ok' and 'ok' not in status_erp_val.lower():
+                    continue
+                if filtro_status_erp == 'insuficiente' and 'insuficiente' not in status_erp_val.lower():
+                    continue
+
+            writer.writerow([data_val, codigo_val, qtd_val, tipo_val, status_erp_val, status_val])
+
+        output.seek(0)
+        
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": f"attachment;filename=consultar_baixas_{data_consulta}.csv"}
+        )
+
+    except Exception as e:
+        return f"Erro ao exportar Excel: {str(e)}", 500
