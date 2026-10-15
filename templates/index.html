@@ -210,8 +210,23 @@
         <div id="mensagem-consulta" style="margin-top: 15px; font-weight: bold;"></div>
     </div>
 
-    <!-- PAINEL 3: INVENTÁRIO -->
+<!-- PAINEL 3: INVENTÁRIO -->
     <div id="painel-inventario" class="painel">
+        
+        <!-- Área de Validação de Saldos do ERP -->
+        <form action="{{ url_for('validar_saldo_erp') }}" method="POST" class="mb-4 p-3 bg-light border rounded">
+            <input type="hidden" name="aba_origem" value="inventario">
+            <label class="form-label text-primary fw-bold" style="display: block; margin-bottom: 8px;">
+                Cole os Saldos do ERP para validação de Sucata (Ex: C219-500 12):
+            </label>
+            <div style="display: flex; gap: 10px;">
+                <textarea name="txt_saldos_erp" class="form-control" rows="3" placeholder="UB009-973 3&#10;UB013-1376 1&#10;UB013-886 1" style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></textarea>
+                <button type="submit" class="btn btn-success fw-bold px-4" style="background-color: #28a745; color: white; border: none; padding: 0 20px; border-radius: 4px; cursor: pointer;">
+                    Validar Saldo ERP
+                </button>
+            </div>
+        </form>
+
         <div class="form-row">
             <div class="form-group" style="max-width: 160px;">
                 <label for="data-inicio-inv">Data Início:</label>
@@ -242,34 +257,74 @@
         </div>
 
         <!-- Contador de Faltantes -->
-        <div id="contador-inventario-faltam" class="contador-badge" style="background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; margin-bottom: 15px; display: inline-block;">
+        <div id="contador-inventario-faltam" class="contador-badge" style="background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; margin-bottom: 15px; display: inline-block; padding: 6px 12px; border-radius: 4px;">
             Faltam fazer: 0 inventários
         </div>
 
         <h3>Controlo de Inventário</h3>
         <div class="table-responsive">
-            <table id="tabela-inventario">
+            <table id="tabela-inventario" class="table table-striped align-middle">
                 <thead>
                     <tr>
+                        <th>ID</th>
                         <th>Data</th>
                         <th>Código</th>
                         <th>Quantidade</th>
                         <th>Tipo</th>
                         <th>Classificação</th>
+                        <th>Status ERP</th>
                         <th style="text-align: center;">Inventário Feito?</th>
+                        <th style="text-align: center;">IVE</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td colspan="6" style="text-align: center; color: #777;">Defina o período e clique em Filtrar Inventário.</td>
-                    </tr>
+                    {% if inventario and inventario|length > 0 %}
+                        {% for item in inventario %}
+                        <tr>
+                            <td>{{ item.ID }}</td>
+                            <td>{{ item.Data }}</td>
+                            <td><strong>{{ item.Codigo }}</strong></td>
+                            <td>{{ item.Quantidade }}</td>
+                            <td>{{ item.Tipo }}</td>
+                            <td>{{ item.Classificacao|default('Baixa') }}</td>
+                            
+                            <!-- Coluna Status ERP -->
+                            <td>
+                                {% if item.Status_ERP and 'Insuficiente' in item.Status_ERP %}
+                                    <span style="color: #dc3545; font-weight: bold;">{{ item.Status_ERP }}</span>
+                                {% elif item.Status_ERP and 'Suficiente' in item.Status_ERP %}
+                                    <span style="color: #28a745; font-weight: bold;">{{ item.Status_ERP }}</span>
+                                {% else %}
+                                    <span style="color: #6c757d;">-</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Inventário Feito (Status existente) -->
+                            <td style="text-align: center;">{{ item.Status }}</td>
+
+                            <!-- Coluna IVE (Caixa de seleção salva automaticamente por ID) -->
+                            <td style="text-align: center;">
+                                <form action="{{ url_for('atualizar_ive') }}" method="POST" style="margin: 0;">
+                                    <input type="hidden" name="id_ordem" value="{{ item.ID }}">
+                                    <input type="hidden" name="aba_origem" value="inventario">
+                                    <input type="checkbox" name="ive_status" value="Sim" 
+                                           onchange="this.form.submit()" 
+                                           {% if item.IVE == 'Sim' %}checked{% endif %} 
+                                           style="transform: scale(1.2); cursor: pointer;">
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="9" style="text-align: center; color: #777;">Defina o período e clique em Filtrar Inventário ou não há registos.</td>
+                        </tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>
     </div>
-
 </div>
-
 <!-- PAINEL ORDENS -->
 <div id="painel-ordens" class="painel" style="display: 20px;">
     <h2>Sistema de Criação de Ordens de Produção</h2>
