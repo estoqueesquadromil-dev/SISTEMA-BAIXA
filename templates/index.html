@@ -1438,7 +1438,7 @@ function renderizarTabelaInventario(dados) {
 
         let html = '';
         dados.forEach(item => {
-            let statusErpTexto = item.Status_ERP || '';
+            let statusErpTexto = item.Status_ERP || item.status_erp || '';
             let corStatusErp = '#6c757d';
             if (statusErpTexto.includes('Insuficiente')) {
                 corStatusErp = '#dc3545';
@@ -1446,8 +1446,8 @@ function renderizarTabelaInventario(dados) {
                 corStatusErp = '#28a745';
             }
 
-            // Mapeamento correto das colunas reais da base de dados
-            let codigoItem = item.Codigo || item.codigo || '';
+            // Mapeamento seguro aceitando qualquer variação de maiúsculas/minúsculas do backend
+            let codigoItem = item.Codigo || item.codigo || item.CODIGO || '';
             let dataItem = item.Data || item.data || '';
             let qtdItem = item.Quantidade || item.quantidade || '';
             let tipoItem = item.Tipo || item.tipo || '';
@@ -1461,7 +1461,7 @@ function renderizarTabelaInventario(dados) {
                     <!-- 1. Data -->
                     <td>${dataItem}</td>
                     
-                    <!-- 2. Código (Agora puxa perfeitamente da coluna Codigo) -->
+                    <!-- 2. Código (Forçado a aparecer corretamente) -->
                     <td><strong>${codigoItem}</strong></td>
                     
                     <!-- 3. Quantidade -->
@@ -1480,20 +1480,20 @@ function renderizarTabelaInventario(dados) {
 
                     <!-- 7. Inventário Feito? (Sim/Não) -->
                     <td style="text-align: center;">
-                        <select class="form-select form-select-sm" onchange="atualizarStatusInventario('${idItem}', this.value)" style="color: ${statusItem === 'Sim' ? 'green' : 'red'}; font-weight: bold;">
-                            <option value="Não" ${statusItem !== 'Sim' ? 'selected' : ''} style="color: red;">Não</option>
-                            <option value="Sim" ${statusItem === 'Sim' ? 'selected' : ''} style="color: green;">Sim</option>
+                        <select class="form-select form-select-sm" onchange="atualizarStatusInventario('${idItem}', this.value)" style="color: ${statusItem.toLowerCase() === 'sim' ? 'green' : 'red'}; font-weight: bold;">
+                            <option value="Não" ${statusItem.toLowerCase() !== 'sim' ? 'selected' : ''} style="color: red;">Não</option>
+                            <option value="Sim" ${statusItem.toLowerCase() === 'sim' ? 'selected' : ''} style="color: green;">Sim</option>
                         </select>
                     </td>
 
-                    <!-- 8. IVE (Caixa de marcação na última coluna) -->
+                    <!-- 8. IVE (Caixa de marcação com envio seguro por ID) -->
                     <td style="text-align: center;">
                         <form action="/atualizar_ive" method="POST" style="margin: 0;">
                             <input type="hidden" name="id_ordem" value="${idItem}">
                             <input type="hidden" name="aba_origem" value="inventario">
                             <input type="checkbox" name="ive_status" value="Sim" 
                                    onchange="this.form.submit()" 
-                                   ${iveItem === 'Sim' ? 'checked' : ''} 
+                                   ${iveItem.toLowerCase() === 'sim' ? 'checked' : ''} 
                                    style="transform: scale(1.3); cursor: pointer;">
                         </form>
                     </td>
@@ -1502,8 +1502,6 @@ function renderizarTabelaInventario(dados) {
         });
         tbody.innerHTML = html;
     }
-
-
     
     async function atualizarStatusInventario(index, valor) {
         let item = dadosInventarioCache[index];
