@@ -1243,51 +1243,54 @@ def validar_saldo_erp():
     txt_saldos = request.form.get('txt_saldos_erp', '')
     aba_origem = request.form.get('aba_origem', 'inventario')
     
-    if txt_saldos.strip():
-        saldos_dict = {}
-        for linha in txt_saldos.strip().split('\n'):
-            partes = linha.strip().split()
-            if len(partes) >= 2:
-                codigo = partes[0].strip().upper()
-                try:
-                    qtd = float(partes[1].replace(',', '.'))
-                    saldos_dict[codigo] = saldos_dict.get(codigo, 0.0) + qtd
-                except ValueError:
-                    continue
+    try:
+        if txt_saldos.strip():
+            saldos_dict = {}
+            for linha in txt_saldos.strip().split('\n'):
+                partes = linha.strip().split()
+                if len(partes) >= 2:
+                    codigo = partes[0].strip().upper()
+                    try:
+                        qtd = float(partes[1].replace(',', '.'))
+                        saldos_dict[codigo] = saldos_dict.get(codigo, 0.0) + qtd
+                    except ValueError:
+                        continue
 
-        df_atual = carregar_dados()
-        if not df_atual.empty:
-            if "Status_ERP" not in df_atual.columns:
-                df_atual["Status_ERP"] = ""
-            if "IVE" not in df_atual.columns:
-                df_atual["IVE"] = "Não"
+            df_atual = carregar_dados()
+            if not df_atual.empty:
+                if "Status_ERP" not in df_atual.columns:
+                    df_atual["Status_ERP"] = ""
+                if "IVE" not in df_atual.columns:
+                    df_atual["IVE"] = "Não"
 
-            for idx, row in df_atual.iterrows():
-                ordem_id = row.get("ID")
-                codigo_ordem = str(row.get("Codigo", "")).strip().upper()
-                
-                # Tenta obter a quantidade da linha de forma segura
-                qtd_str = str(row.get("Quantidade", row.get("Quantidade", "1"))).strip()
-                try:
-                    # Remove eventuais caracteres de texto caso venha misturado
-                    limpa_qtd = ''.join(c for c in qtd_str if c.isdigit() or c in '.,')
-                    qtd_ordem = float(limpa_qtd.replace(',', '.')) if limpa_qtd else 1.0
-                except ValueError:
-                    qtd_ordem = 1.0
-                
-                if codigo_ordem in saldos_dict:
-                    saldo_erp = saldos_dict[codigo_ordem]
-                    if saldo_erp >= qtd_ordem:
-                        df_atual.loc[df_atual["ID"] == ordem_id, "Status_ERP"] = f"Suficiente ({int(saldo_erp)})"
+                for idx, row in df_atual.iterrows():
+                    ordem_id = row.get("ID", row.get("id"))
+                    codigo_ordem = str(row.get("Codigo", row.get("codigo", ""))).strip().upper()
+                    
+                    qtd_str = str(row.get("Quantidade", row.get("quantidade", "1"))).strip()
+                    try:
+                        limpa_qtd = ''.join(c for c in qtd_str if c.isdigit() or c in '.,')
+                        qtd_ordem = float(limpa_qtd.replace(',', '.')) if limpa_qtd else 1.0
+                    except ValueError:
+                        qtd_ordem = 1.0
+                    
+                    if codigo_ordem in saldos_dict:
+                        saldo_erp = saldos_dict[codigo_ordem]
+                        if saldo_erp >= qtd_ordem:
+                            df_atual.loc[df_atual["ID"] == ordem_id, "Status_ERP"] = f"Suficiente ({int(saldo_erp)})"
+                        else:
+                            df_atual.loc[df_atual["ID"] == ordem_id, "Status_ERP"] = f"Insuficiente ({int(saldo_erp)})"
                     else:
-                        df_atual.loc[df_atual["ID"] == ordem_id, "Status_ERP"] = f"Insuficiente ({int(saldo_erp)})"
-                else:
-                    df_atual.loc[df_atual["ID"] == ordem_id, "Status_ERP"] = "Insuficiente (0)"
+                        df_atual.loc[df_atual["ID"] == ordem_id, "Status_ERP"] = "Insuficiente (0)"
 
-            salvar_dados(df_atual)
-            flash("Validação de Saldo do ERP concluída com sucesso!", "success")
-            
+                salvar_dados(df_atual)
+                flash("Validação de Saldo do ERP concluída com sucesso!", "success")
+    except Exception as e:
+        print(f"Erro ao validar saldo ERP: {e}")
+        flash(f"Erro ao processar validação ERP: {e}", "danger")
+        
     return redirect(url_for('index', aba=aba_origem))
+
 
 
 
