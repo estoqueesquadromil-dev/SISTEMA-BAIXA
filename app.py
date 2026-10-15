@@ -1480,10 +1480,11 @@ def salvar_suficiente_erp():
         dados = request.get_json()
         itens = dados.get('itens', [])
         
-        # Certifica-te de que a tua variável de conexão (ex: client ou gc) e o nome/ID da planilha 
-        # correspondem exatamente aos que já usas nas outras rotas do teu app.py
-        # Exemplo:
-        # planilha = client.open("MOVIMENTACAO_NOMUS")
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
         
         for item in itens:
             nome_aba = item.get('aba')
@@ -1491,13 +1492,13 @@ def salvar_suficiente_erp():
             valor_suficiente = item.get('valor')
             
             if nome_aba:
-                worksheet = planilha.worksheet(nome_aba)
+                worksheet = planilha_mov.worksheet(nome_aba)
             else:
-                worksheet = planilha.sheet1
+                worksheet = planilha_mov.sheet1
                 
-            # Atualiza exatamente a Coluna I (ex: I2, I3...) com o valor numérico puro
+            # Atualiza exatamente a Coluna I com o valor numérico puro
             worksheet.update(f'I{linha_idx}', [[valor_suficiente]])
             
-        return jsonify({'sucesso': True, 'mensagem': 'Valores salvos com sucesso!'})
+        return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes salvos na coluna I com sucesso!'})
     except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': str(e)})
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
