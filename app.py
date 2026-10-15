@@ -1407,6 +1407,7 @@ def validar_saldo_erp():
                 todas_abas = planilha_mov.worksheets()
                 
                 for aba in todas_abas:
+                    # Verifica se a aba é uma data válida (ex: 2026-10-15)
                     try:
                         datetime.strptime(aba.title.strip(), '%Y-%m-%d')
                     except ValueError:
@@ -1423,21 +1424,28 @@ def validar_saldo_erp():
                     col_codigo_idx = cabecalhos.index("CÓDIGO") + 1 if "CÓDIGO" in cabecalhos else cabecalhos.index("CODIGO") + 1
                     col_qtd_idx = cabecalhos.index("QUANTIDADE") + 1 if "QUANTIDADE" in cabecalhos else 4
                     
+                    # Identifica ou cria a coluna Status_ERP se não existir
                     if "STATUS_ERP" not in cabecalhos:
-                        nova_col = len(cabecalhos) + 1
-                        aba.update_cell(1, nova_col, "Status_ERP")
-                        col_erp_idx = nova_col
+                        col_erp_idx = len(cabecalhos) + 1
+                        if col_erp_idx > aba.col_count:
+                            aba.add_cols(col_erp_idx - aba.col_count)
+                        aba.update_cell(1, col_erp_idx, "Status_ERP")
                     else:
                         col_erp_idx = cabecalhos.index("STATUS_ERP") + 1
                         
                     cell_updates = []
-                    for idx_l, linha in enumerate(linhas[1:], start=2):
-                        if not any(linha):
+                    for idx_l, linha_vals in enumerate(linhas[1:], start=2):
+                        if not any(linha_vals):
                             continue
-                        codigo_item = str(linha[col_codigo_idx - 1]).strip().upper()
+                        
+                        # Proteção contra linhas curtas
+                        if len(linha_vals) < (col_codigo_idx - 1) or len(linha_vals) < (col_qtd_idx - 1):
+                            continue
+                            
+                        codigo_item = str(linha_vals[col_codigo_idx - 1]).strip().upper()
                         
                         try:
-                            qtd_str = str(linha[col_qtd_idx - 1]).strip()
+                            qtd_str = str(linha_vals[col_qtd_idx - 1]).strip()
                             limpa_qtd = ''.join(c for c in qtd_str if c.isdigit() or c in '.,')
                             qtd_ordem = float(limpa_qtd.replace(',', '.')) if limpa_qtd else 1.0
                         except ValueError:
