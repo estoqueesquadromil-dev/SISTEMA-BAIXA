@@ -1480,24 +1480,46 @@ def salvar_suficiente_erp():
         dados = request.get_json()
         itens = dados.get('itens', [])
         
+        if not itens:
+            return jsonify({'sucesso': True, 'mensagem': 'Nenhum item para salvar.'})
+            
         gc = conectar_google_sheets()
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
             
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
         
+        # Agrupa as atualizações por aba para fazer batch_update de forma limpa e segura
+        atualizacoes_por_aba = {}
         for item in itens:
             nome_aba = item.get('aba')
             linha_idx = int(item.get('linha'))
             valor_suficiente = item.get('valor')
             
-            if nome_aba:
-                worksheet = planilha_mov.worksheet(nome_aba)
-            else:
-                worksheet = planilha_mov.sheet1
+            if not nome_aba:
+                continue
                 
-            # Atualiza exatamente a Coluna I com o valor numérico puro
-            worksheet.update(f'I{linha_idx}', [[valor_suficiente]])
+            if nome_aba not in atualizacoes_por_aba:
+                atualizacoes_por_aba[nome_aba] = []
+            atualizacoes_por_aba[nome_aba].append((linha_idx, valor_suficiente))
+            
+        for nome_aba, lista_valores in atualizacoes_por_aba.items():
+            try:
+                worksheet = planilha_mov.worksheet(nome_aba)
+            except Exception:
+                continue
+                
+            cell_updates = []
+            for linha_idx, valor in lista_valores:
+                # Coluna I é a coluna 9
+                cell_address = gspread.utils.rowcol_to_a1(linha_idx, 9)
+                cell_updates.append({
+                    'range': cell_address,
+                    'values': [[valor]]
+                })
+                
+            if cell_updates:
+                worksheet.batch_update(cell_updates)
             
         return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes salvos na coluna I com sucesso!'})
     except Exception as e:
