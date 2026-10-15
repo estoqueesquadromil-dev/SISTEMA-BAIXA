@@ -1395,12 +1395,10 @@ function filtrarTabelaInventario() {
         if (statusErpTexto.includes('Insuficiente')) corStatusErp = '#dc3545';
         else if (statusErpTexto.includes('Suficiente')) corStatusErp = '#28a745';
 
-        // Procura o valor numérico diretamente no campo dedicado ou extrai do texto do status
+        // Puxa o Saldo ERP diretamente da coluna I guardada ou extrai do texto do status como fallback
         let saldoNumerico = '-';
         if (item.Saldo_ERP !== undefined && item.Saldo_ERP !== null && item.Saldo_ERP !== '') {
             saldoNumerico = item.Saldo_ERP;
-        } else if (item.SaldoERP !== undefined && item.SaldoERP !== null && item.SaldoERP !== '') {
-            saldoNumerico = item.SaldoERP;
         } else if (statusErpTexto.includes('(')) {
             let match = statusErpTexto.match(/\(([^)]+)\)/);
             if (match) saldoNumerico = match[1];
