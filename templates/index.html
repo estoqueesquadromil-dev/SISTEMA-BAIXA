@@ -1421,7 +1421,7 @@ function filtrarTabelaInventario() {
 
     
 // --- FUNÇÃO PARA RENDERIZAR A TABELA DE INVENTÁRIO COM AS 8 COLUNAS CORRETAS ---
-    function renderizarTabelaInventario(dados) {
+function renderizarTabelaInventario(dados) {
         let tbody = document.querySelector('#tabela-inventario tbody');
         if (!tbody) return;
 
@@ -1440,44 +1440,54 @@ function filtrarTabelaInventario() {
                 corStatusErp = '#28a745';
             }
 
+            // Garante que apanha o código independentemente de vir maiúsculo ou minúsculo
+            let codigoItem = item.Codigo || item.codigo || '';
+            let dataItem = item.Data || item.data || '';
+            let qtdItem = item.Quantidade || item.quantidade || '';
+            let tipoItem = item.Tipo || item.tipo || '';
+            let classItem = item.Classificacao || item.classificacao || 'Baixa';
+            let statusItem = item.Status || item.status || 'Não';
+            let iveItem = item.IVE || item.ive || 'Não';
+            let idItem = item.ID || item.id || '';
+
             html += `
                 <tr>
                     <!-- 1. Data -->
-                    <td>${item.Data || ''}</td>
+                    <td>${dataItem}</td>
                     
-                    <!-- 2. Código -->
-                    <td><strong>${item.Codigo || ''}</strong></td>
+                    <!-- 2. Código (Corrigido para aparecer corretamente) -->
+                    <td><strong>${codigoItem}</strong></td>
                     
                     <!-- 3. Quantidade -->
-                    <td>${item.Quantidade || ''}</td>
+                    <td>${qtdItem}</td>
                     
                     <!-- 4. Tipo -->
-                    <td>${item.Tipo || ''}</td>
+                    <td>${tipoItem}</td>
                     
                     <!-- 5. Classificação -->
-                    <td>${item.Classificacao || 'Baixa'}</td>
+                    <td>${classItem}</td>
                     
                     <!-- 6. Status ERP -->
                     <td>
                         ${statusErpTexto ? `<span style="color: ${corStatusErp}; font-weight: bold;">${statusErpTexto}</span>` : '<span style="color: #6c757d;">-</span>'}
                     </td>
 
-                    <!-- 7. Inventário Feito? (Seletor Sim/Não) -->
+                    <!-- 7. Inventário Feito? (Com as opções Sim/Não) -->
                     <td style="text-align: center;">
-                        <select class="form-select form-select-sm" onchange="atualizarStatusInventario('${item.ID}', this.value)">
-                            <option value="Não" ${item.Status !== 'Sim' ? 'selected' : ''}>Não</option>
-                            <option value="Sim" ${item.Status === 'Sim' ? 'selected' : ''}>Sim</option>
+                        <select class="form-select form-select-sm" onchange="atualizarStatusInventario('${idItem}', this.value)" style="color: ${statusItem === 'Sim' ? 'green' : 'red'}; font-weight: bold;">
+                            <option value="Não" ${statusItem !== 'Sim' ? 'selected' : ''} style="color: red;">Não</option>
+                            <option value="Sim" ${statusItem === 'Sim' ? 'selected' : ''} style="color: green;">Sim</option>
                         </select>
                     </td>
 
-                    <!-- 8. IVE (Caixa de marcação enviando o ID por trás) -->
+                    <!-- 8. IVE (Caixa de marcação) -->
                     <td style="text-align: center;">
                         <form action="/atualizar_ive" method="POST" style="margin: 0;">
-                            <input type="hidden" name="id_ordem" value="${item.ID}">
+                            <input type="hidden" name="id_ordem" value="${idItem}">
                             <input type="hidden" name="aba_origem" value="inventario">
                             <input type="checkbox" name="ive_status" value="Sim" 
                                    onchange="this.form.submit()" 
-                                   ${item.IVE === 'Sim' ? 'checked' : ''} 
+                                   ${iveItem === 'Sim' ? 'checked' : ''} 
                                    style="transform: scale(1.3); cursor: pointer;">
                         </form>
                     </td>
@@ -1486,6 +1496,9 @@ function filtrarTabelaInventario() {
         });
         tbody.innerHTML = html;
     }
+
+
+    
     async function atualizarStatusInventario(index, valor) {
         let item = dadosInventarioCache[index];
         item.InventarioFeito = valor;
