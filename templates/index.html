@@ -2107,10 +2107,10 @@ async function validarSaldoERP() {
         let qtdTabela = parseFloat(tds[2].innerText.trim().replace(',', '.')) || 0;
         let statusTd = tds[5];
 
-        // Precisamos recuperar a aba e a linha guardadas nos elementos da linha (ex: nos selects ou inputs da linha)
-        let selectEl = tr.querySelector('.status-inventario');
+        // Procura os atributos de aba e linha onde guardaste a referência original da planilha
+        let selectEl = tr.querySelector('.status-inventario') || tr.querySelector('input') || tr.querySelector('[data-linha]');
         let aba = selectEl ? selectEl.getAttribute('data-aba') : '';
-        let linha = selectEl ? selectEl.getAttribute('data-linha') : '';
+        let linhaPlanilha = selectEl ? selectEl.getAttribute('data-linha') : '';
 
         if (saldosDict.hasOwnProperty(codigoItem)) {
             let saldoErp = saldosDict[codigoItem];
@@ -2119,12 +2119,14 @@ async function validarSaldoERP() {
             if (resultadoCalculo >= 0) {
                 statusTd.innerHTML = `<span style="color: #28a745; font-weight: bold;">Suficiente (${resultadoCalculo})</span>`;
                 
-                // Guarda apenas se for Suficiente e apenas o valor numérico puro
-                itensParaSalvar.push({
-                    aba: aba,
-                    linha: linha,
-                    valor: resultadoCalculo
-                });
+                // Se for suficiente, adiciona à lista para gravar na Coluna I da planilha
+                if (linhaPlanilha) {
+                    itensParaSalvar.push({
+                        aba: aba,
+                        linha: linhaPlanilha,
+                        valor: resultadoCalculo
+                    });
+                }
             } else {
                 statusTd.innerHTML = `<span style="color: #dc3545; font-weight: bold;">Insuficiente (0)</span>`;
             }
@@ -2136,7 +2138,6 @@ async function validarSaldoERP() {
     });
 
     if (validadas > 0) {
-        // Envia automaticamente para salvar na planilha apenas o que for Suficiente
         if (itensParaSalvar.length > 0) {
             try {
                 let resposta = await fetch('/salvar_suficiente_erp', {
@@ -2146,16 +2147,16 @@ async function validarSaldoERP() {
                 });
                 let resultado = await resposta.json();
                 if (resultado.sucesso) {
-                    alert('Validação efetuada e valores suficientes guardados na planilha!');
+                    alert('Validação efetuada e valores suficientes guardados na Coluna I para o robô!');
                 } else {
-                    alert('Validação feita na tela, mas houve um erro ao salvar na planilha: ' + resultado.mensagem);
+                    alert('Erro ao gravar na planilha: ' + resultado.mensagem);
                 }
             } catch (err) {
                 console.error(err);
                 alert('Erro de comunicação ao tentar salvar na planilha.');
             }
         } else {
-            alert('Validação efetuada, mas nenhum item atingiu saldo suficiente para ser salvo.');
+            alert('Validação efetuada, mas nenhum item atingiu saldo suficiente.');
         }
     } else {
         alert('Nenhum registo encontrado na tabela para validar. Filtre o inventário primeiro.');
