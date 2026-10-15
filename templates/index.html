@@ -2070,14 +2070,13 @@ async function excluirDefinitivo(id) {
     }
 }
 
-function validarSaldoERP() {
+async function validarSaldoERP() {
     let textoSaldos = document.getElementById('txt_saldos_erp').value;
     if (!textoSaldos.trim()) {
         alert('Por favor, cole os saldos do ERP.');
         return;
     }
 
-    // 1. Processa os saldos colados (código e quantidade do ERP)
     let saldosDict = {};
     let linhasTexto = textoSaldos.trim().split('\n');
     
@@ -2093,36 +2092,41 @@ function validarSaldoERP() {
         }
     }
 
-    // 2. Percorre a tabela de inventário e calcula considerando a quantidade da tabela + saldo do ERP
     let tbody = document.querySelector('#tabela-inventario tbody');
     if (!tbody) return;
     
     let linhasTabela = tbody.querySelectorAll('tr');
     let validadas = 0;
+    let itensParaSalvar = [];
 
     linhasTabela.forEach(tr => {
         let tds = tr.querySelectorAll('td');
-        if (tds.length < 8) return; // Garante que é uma linha de dados válida
+        if (tds.length < 8) return;
 
         let codigoItem = tds[1].innerText.trim().toUpperCase();
         let qtdTabela = parseFloat(tds[2].innerText.trim().replace(',', '.')) || 0;
-        let statusTd = tds[5]; // Coluna de Status ERP
+        let statusTd = tds[5];
+
+        // Precisamos recuperar a aba e a linha guardadas nos elementos da linha (ex: nos selects ou inputs da linha)
+        let selectEl = tr.querySelector('.status-inventario');
+        let aba = selectEl ? selectEl.getAttribute('data-aba') : '';
+        let linha = selectEl ? selectEl.getAttribute('data-linha') : '';
 
         if (saldosDict.hasOwnProperty(codigoItem)) {
             let saldoErp = saldosDict[codigoItem];
-            
-            // Regra pedida: Quantidade do ERP + Quantidade da tabela do mesmo item
             let resultadoCalculo = saldoErp + qtdTabela;
 
             if (resultadoCalculo >= 0) {
                 statusTd.innerHTML = `<span style="color: #28a745; font-weight: bold;">Suficiente (${resultadoCalculo})</span>`;
-                // Atualiza também na cache local se necessário
-                let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem);
-                if (itemCache) itemCache.Status_ERP = `Suficiente (${resultadoCalculo})`;
+                
+                // Guarda apenas se for Suficiente e apenas o valor numérico puro
+                itensParaSalvar.push({
+                    aba: aba,
+                    linha: linha,
+                    valor: resultadoCalculo
+                });
             } else {
                 statusTd.innerHTML = `<span style="color: #dc3545; font-weight: bold;">Insuficiente (0)</span>`;
-                let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem);
-                if (itemCache) itemCache.Status_ERP = `Insuficiente (0)`;
             }
             validadas++;
         } else {
@@ -2132,7 +2136,27 @@ function validarSaldoERP() {
     });
 
     if (validadas > 0) {
-        alert('Validação de saldo do ERP efetuada com sucesso!');
+        // Envia automaticamente para salvar na planilha apenas o que for Suficiente
+        if (itensParaSalvar.length > 0) {
+            try {
+                let resposta = await fetch('/salvar_suficiente_erp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itens: itensParaSalvar })
+                });
+                let resultado = await resposta.json();
+                if (resultado.sucesso) {
+                    alert('Validação efetuada e valores suficientes guardados na planilha!');
+                } else {
+                    alert('Validação feita na tela, mas houve um erro ao salvar na planilha: ' + resultado.mensagem);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Erro de comunicação ao tentar salvar na planilha.');
+            }
+        } else {
+            alert('Validação efetuada, mas nenhum item atingiu saldo suficiente para ser salvo.');
+        }
     } else {
         alert('Nenhum registo encontrado na tabela para validar. Filtre o inventário primeiro.');
     }
