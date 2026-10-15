@@ -384,7 +384,7 @@ def consultar_inventario_periodo():
                         
                         linha_planilha = index + 1
                         
-                        # ID (Procura na coluna ID ou gera índice)
+                        # ID
                         row_id = ''
                         if "ID" in cabecalhos and len(row) > cabecalhos.index("ID"):
                             row_id = row[cabecalhos.index("ID")]
@@ -440,6 +440,11 @@ def consultar_inventario_periodo():
                         if "STATUS_ERP" in cabecalhos and len(row) > cabecalhos.index("STATUS_ERP"):
                             erp_val = row[cabecalhos.index("STATUS_ERP")] or ''
 
+                        # Leitura da Coluna I (Coluna 9) para o Saldo ERP salvo
+                        saldo_erp_val = ''
+                        if len(row) >= 9:
+                            saldo_erp_val = str(row[8]).strip()
+
                         item_formatado = {
                             "ID": row_id,
                             "Linha": linha_planilha,
@@ -451,7 +456,8 @@ def consultar_inventario_periodo():
                             "Status": status_val,
                             "InventarioFeito": inv_val,
                             "IVE": ive_val,
-                            "Status_ERP": erp_val
+                            "Status_ERP": erp_val,
+                            "Saldo_ERP": saldo_erp_val
                         }
                         todos_itens.append(item_formatado)
             except ValueError:
@@ -463,7 +469,6 @@ def consultar_inventario_periodo():
     
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
 
 
 
