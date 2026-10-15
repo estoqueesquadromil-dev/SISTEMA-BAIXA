@@ -1354,23 +1354,19 @@ function filtrarTabelaInventario() {
         let valIve = item.IVE !== undefined ? item.IVE : item.ive;
         let ivestatus = (valIve === true || valIve === 'Sim' || valIve === 'sim' || valIve === 'SIM' || valIve === 'TRUE');
 
-        // Determina a classificação exata do item (mesma lógica usada na tabela)
         let isSucata = (item.Tipo || '').toLowerCase().includes('sucata') || (item.Tipo || '').toLowerCase().includes('aproveitamento');
         let classificacaoItem = (item.Classificacao || (isSucata ? 'Entrada' : 'Baixa')).trim().toLowerCase();
 
-        // 1. Filtro de Classificação
         if (classificacaoFiltro !== 'todos' && classificacaoFiltro !== 'todas' && classificacaoFiltro !== '') {
             if (classificacaoItem !== classificacaoFiltro) {
                 return false;
             }
         }
 
-        // 2. Filtro de Inventário Feito
         if (inventarioFeitoFiltro !== 'todos' && statusFeito !== inventarioFeitoFiltro) {
             return false;
         }
 
-        // 3. Filtro da Caixa de IVE
         if (apenasIveMarcado && !ivestatus) {
             return false;
         }
@@ -1378,7 +1374,6 @@ function filtrarTabelaInventario() {
         return true;
     });
 
-    // Atualiza o contador de inventários faltantes
     let totalFaltam = dadosInventarioCache.filter(item => (item.InventarioFeito || 'Não').trim() === 'Não').length;
     let badgeFaltam = document.getElementById('contador-inventario-faltam');
     if (badgeFaltam) {
@@ -1400,14 +1395,13 @@ function filtrarTabelaInventario() {
         if (statusErpTexto.includes('Insuficiente')) corStatusErp = '#dc3545';
         else if (statusErpTexto.includes('Suficiente')) corStatusErp = '#28a745';
 
-        // Extrai apenas o número do saldo calculado (ex: de "Suficiente (20)" extrai "20")
+        // Extrai apenas o número do saldo calculado (ex: de "Suficiente (4)" extrai apenas "4")
         let saldoNumerico = '';
         if (statusErpTexto.includes('(')) {
             let match = statusErpTexto.match(/\(([^)]+)\)/);
             if (match) saldoNumerico = match[1];
         }
 
-        // Tratamento seguro para garantir que a Classificação aparece preenchida
         let isSucata = (item.Tipo || '').toLowerCase().includes('sucata') || (item.Tipo || '').toLowerCase().includes('aproveitamento');
         let classificacaoItem = item.Classificacao || (isSucata ? 'Entrada' : 'Baixa');
 
