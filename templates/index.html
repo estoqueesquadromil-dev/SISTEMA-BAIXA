@@ -275,6 +275,7 @@
                         <th>Quantidade</th>
                         <th>Tipo</th>
                         <th>Classificação</th>
+                        <th>Saldo ERP</th> <!-- Nova coluna -->
                         <th>Status ERP</th>
                         <th style="text-align: center;">Inventário Feito?</th>
                         <th style="text-align: center;">IVE</th>
@@ -1385,7 +1386,7 @@ function filtrarTabelaInventario() {
     }
 
     if (itensFiltrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item corresponde aos filtros selecionados.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #777;">Nenhum item corresponde aos filtros selecionados.</td></tr>';
         return;
     }
 
@@ -1399,6 +1400,13 @@ function filtrarTabelaInventario() {
         if (statusErpTexto.includes('Insuficiente')) corStatusErp = '#dc3545';
         else if (statusErpTexto.includes('Suficiente')) corStatusErp = '#28a745';
 
+        // Extrai apenas o número do saldo calculado (ex: de "Suficiente (20)" extrai "20")
+        let saldoNumerico = '';
+        if (statusErpTexto.includes('(')) {
+            let match = statusErpTexto.match(/\(([^)]+)\)/);
+            if (match) saldoNumerico = match[1];
+        }
+
         // Tratamento seguro para garantir que a Classificação aparece preenchida
         let isSucata = (item.Tipo || '').toLowerCase().includes('sucata') || (item.Tipo || '').toLowerCase().includes('aproveitamento');
         let classificacaoItem = item.Classificacao || (isSucata ? 'Entrada' : 'Baixa');
@@ -1409,6 +1417,7 @@ function filtrarTabelaInventario() {
             <td>${item.Quantidade || ''}</td>
             <td>${item.Tipo || ''}</td>
             <td>${classificacaoItem}</td>
+            <td><strong>${saldoNumerico}</strong></td>
             <td>${statusErpTexto ? `<span style="color: ${corStatusErp}; font-weight: bold;">${statusErpTexto}</span>` : '<span style="color: #6c757d;">-</span>'}</td>
             <td style="text-align: center;">
                 <select class="form-control form-control-sm status-inventario" data-aba="${item.Aba || ''}" data-linha="${item.Linha || ''}" onchange="atualizarStatusInventario(this, '${item.Aba || ''}', ${item.Linha || ''})" style="color: ${(item.InventarioFeito || 'Não') === 'Sim' ? 'green' : 'red'}; font-weight: bold;">
