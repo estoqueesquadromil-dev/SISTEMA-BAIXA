@@ -1348,23 +1348,28 @@ function filtrarTabelaInventario() {
     tbody.innerHTML = '';
 
     let itensFiltrados = dadosInventarioCache.filter(item => {
-        let classificacao = (item.Classificacao || '').trim().toLowerCase();
         let statusFeito = (item.InventarioFeito || 'não').trim().toLowerCase();
         
         let valIve = item.IVE !== undefined ? item.IVE : item.ive;
         let ivestatus = (valIve === true || valIve === 'Sim' || valIve === 'sim' || valIve === 'SIM' || valIve === 'TRUE');
 
-        // 1. Filtro de Classificação (só aplica se não for 'todos' ou 'todas')
-        if (classificacaoFiltro !== 'todas' && classificacaoFiltro !== 'todos' && classificacaoFiltro !== '' && classificacao !== classificacaoFiltro) {
-            return false;
+        // Determina a classificação exata do item (mesma lógica usada na tabela)
+        let isSucata = (item.Tipo || '').toLowerCase().includes('sucata') || (item.Tipo || '').toLowerCase().includes('aproveitamento');
+        let classificacaoItem = (item.Classificacao || (isSucata ? 'Entrada' : 'Baixa')).trim().toLowerCase();
+
+        // 1. Filtro de Classificação
+        if (classificacaoFiltro !== 'todos' && classificacaoFiltro !== 'todas' && classificacaoFiltro !== '') {
+            if (classificacaoItem !== classificacaoFiltro) {
+                return false;
+            }
         }
 
-        // 2. Filtro de Inventário Feito (só aplica se não for 'todos')
+        // 2. Filtro de Inventário Feito
         if (inventarioFeitoFiltro !== 'todos' && statusFeito !== inventarioFeitoFiltro) {
             return false;
         }
 
-        // 3. Filtro da Caixa de IVE (só oculta se a caixa estiver marcada E o item não tiver IVE)
+        // 3. Filtro da Caixa de IVE
         if (apenasIveMarcado && !ivestatus) {
             return false;
         }
