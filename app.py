@@ -1478,31 +1478,12 @@ def validar_saldo_erp():
 def salvar_suficiente_erp():
     try:
         dados = request.get_json()
-        itens = dados.get('itens', []) # Lista com {aba, linha, valor}
-        
-        # Aqui fazes a integração com a tua API do Google Sheets para atualizar a célula correspondente
-        # Exemplo conceptual:
-        for item in itens:
-            aba_nome = item.get('aba')
-            linha_idx = int(item.get('linha'))
-            valor_suficiente = item.get('valor')
-            
-            # ATENÇÃO: Substitui 'coluna_destino' pela letra ou índice da coluna nova na tua planilha (ex: coluna 'I' ou outra)
-            # sheet.worksheet(aba_nome).update_cell(linha_idx, coluna_indice, valor_suficiente)
-            
-        return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes salvos na planilha com sucesso!'})
-    except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': str(e)})
-
-
-@app.route('/salvar_suficiente_erp', methods=['POST'])
-def salvar_suficiente_erp():
-    try:
-        dados = request.get_json()
         itens = dados.get('itens', [])
         
-        # Certifica-te de que usas a mesma variável de conexão ao gspread/planilha que já tens no teu app.py
-        # Exemplo: spreadsheet = client.open_by_key("1AxOxmxQzhNX-eNTZ-1CHPXDVBBOlbl5nMGuxlR9Ojew")
+        # Certifica-te de que a tua variável de conexão (ex: client ou gc) e o nome/ID da planilha 
+        # correspondem exatamente aos que já usas nas outras rotas do teu app.py
+        # Exemplo:
+        # planilha = client.open("MOVIMENTACAO_NOMUS")
         
         for item in itens:
             nome_aba = item.get('aba')
@@ -1510,13 +1491,13 @@ def salvar_suficiente_erp():
             valor_suficiente = item.get('valor')
             
             if nome_aba:
-                worksheet = spreadsheet.worksheet(nome_aba)
+                worksheet = planilha.worksheet(nome_aba)
             else:
-                worksheet = spreadsheet.sheet1 # fallback para a primeira aba se o nome vier vazio
+                worksheet = planilha.sheet1
                 
-            # Atualiza a célula correspondente na Coluna I (ex: I2, I3, etc.) com apenas o número
+            # Atualiza exatamente a Coluna I (ex: I2, I3...) com o valor numérico puro
             worksheet.update(f'I{linha_idx}', [[valor_suficiente]])
             
-        return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes salvos na coluna I com sucesso!'})
+        return jsonify({'sucesso': True, 'mensagem': 'Valores salvos com sucesso!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)})
