@@ -261,12 +261,11 @@
             Faltam fazer: 0 inventários
         </div>
 
-        <h3>Controlo de Inventário</h3>
+<h3>Controlo de Inventário</h3>
         <div class="table-responsive">
             <table id="tabela-inventario" class="table table-striped align-middle">
                 <thead>
                     <tr>
-                        <th>ID</th>
                         <th>Data</th>
                         <th>Código</th>
                         <th>Quantidade</th>
@@ -281,14 +280,18 @@
                     {% if inventario and inventario|length > 0 %}
                         {% for item in inventario %}
                         <tr>
-                            <td>{{ item.ID }}</td>
+                            <!-- Data -->
                             <td>{{ item.Data }}</td>
+                            <!-- Código -->
                             <td><strong>{{ item.Codigo }}</strong></td>
+                            <!-- Quantidade -->
                             <td>{{ item.Quantidade }}</td>
+                            <!-- Tipo -->
                             <td>{{ item.Tipo }}</td>
+                            <!-- Classificação -->
                             <td>{{ item.Classificacao|default('Baixa') }}</td>
                             
-                            <!-- Coluna Status ERP -->
+                            <!-- Status ERP -->
                             <td>
                                 {% if item.Status_ERP and 'Insuficiente' in item.Status_ERP %}
                                     <span style="color: #dc3545; font-weight: bold;">{{ item.Status_ERP }}</span>
@@ -299,10 +302,10 @@
                                 {% endif %}
                             </td>
 
-                            <!-- Inventário Feito (Status existente) -->
+                            <!-- Inventário Feito? -->
                             <td style="text-align: center;">{{ item.Status }}</td>
 
-                            <!-- Coluna IVE (Caixa de seleção salva automaticamente por ID) -->
+                            <!-- Coluna IVE (O ID vai escondido aqui dentro para processar a alteração corretamente) -->
                             <td style="text-align: center;">
                                 <form action="{{ url_for('atualizar_ive') }}" method="POST" style="margin: 0;">
                                     <input type="hidden" name="id_ordem" value="{{ item.ID }}">
@@ -317,7 +320,7 @@
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="9" style="text-align: center; color: #777;">Defina o período e clique em Filtrar Inventário ou não há registos.</td>
+                            <td colspan="8" style="text-align: center; color: #777;">Defina o período e clique em Filtrar Inventário ou não há registos.</td>
                         </tr>
                     {% endif %}
                 </tbody>
