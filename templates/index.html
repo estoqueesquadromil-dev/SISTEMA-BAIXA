@@ -1281,7 +1281,7 @@ async function excluirConsulta(data, rowId, codigo) {
     
     // --- LÓGICA DA ABA INVENTÁRIO ---
 // --- LÓGICA DA ABA INVENTÁRIO ---
-    async function carregarInventario() {
+async function carregarInventario() {
         let dataInicio = document.getElementById('data-inicio-inv').value;
         let dataFim = document.getElementById('data-fim-inv').value;
         let tbody = document.querySelector('#tabela-inventario tbody');
@@ -1303,23 +1303,23 @@ async function excluirConsulta(data, rowId, codigo) {
                 return;
             }
 
-            // APLICAÇÃO DA REGRA DE NEGÓCIO EXATA:
-            // 1. Baixa Diária NÃO PODE APARECER de todo.
-            // 2. Aproveitamento de Sucata só aparece se o status for 'Sim'.
-            // 3. Outros tipos aparecem independentemente do status.
+            // APLICAÇÃO RIGOROSA DA TUA REGRA DE NEGÓCIO:
             dadosInventarioCache = resultado.itens.filter(item => {
                 let tipo = (item.Tipo || '').trim().toLowerCase();
                 let status = (item.Status || '').trim().toLowerCase();
 
-                if (tipo.includes('baixa diaria') || tipo.includes('baixa diária')) {
+                // 1. Baixa Diária NÃO PODE APARECER DE FORMA NENHUMA
+                if (tipo.includes('baixa diaria') || tipo.includes('baixa diária') || tipo === '') {
                     return false;
                 }
 
+                // 2. Aproveitamento de Sucata SÓ APARECE se o status for 'sim'
                 let isSucata = tipo.includes('sucata') || tipo.includes('aproveitamento');
                 if (isSucata) {
                     return status === 'sim';
                 }
 
+                // 3. Outros tipos devem aparecer INDEPENDENTEMENTE do status
                 return true;
             });
 
@@ -1329,6 +1329,9 @@ async function excluirConsulta(data, rowId, codigo) {
             tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">Erro ao carregar dados do inventário.</td></tr>';
         }
     }
+
+
+    
 
     function filtrarTabelaInventario() {
         let filtroClassificacao = document.getElementById('filtro-classificacao-inv').value;
