@@ -211,23 +211,20 @@
     </div>
 
 <!-- PAINEL 3: INVENTÁRIO -->
-<!-- PAINEL 3: INVENTÁRIO -->
     <div id="painel-inventario" class="painel">
         
-        <!-- Área de Validação de Saldos do ERP (Mantida com o teu formulário original) -->
-        <form action="{{ url_for('validar_saldo_erp') }}" method="POST" class="mb-4 p-3 bg-light border rounded">
-            <input type="hidden" name="aba_origem" value="inventario">
+        <!-- Área de Validação de Saldos do ERP (Local) -->
+        <div class="mb-4 p-3 bg-light border rounded">
             <label class="form-label text-primary fw-bold" style="display: block; margin-bottom: 8px;">
                 Cole os Saldos do ERP para validação de Sucata (Ex: C219-500 12):
             </label>
             <div style="display: flex; gap: 10px;">
-                <textarea name="txt_saldos_erp" class="form-control" rows="3" placeholder="UB009-973 3&#10;UB013-1376 1&#10;UB013-886 1" style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></textarea>
-                <button type="button" onclick="validarSaldoERP()" class="btn btn-success fw-bold px-4" ...>
+                <textarea id="txt_saldos_erp" class="form-control" rows="3" placeholder="UB009-973 3&#10;UB013-1376 1&#10;UB013-886 1" style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></textarea>
+                <button type="button" onclick="validarSaldoERP()" class="btn btn-success fw-bold px-4" style="background-color: #28a745; color: white; border: none; padding: 0 20px; border-radius: 4px; cursor: pointer;">
                     Validar Saldo ERP
                 </button>
             </div>
-        </form>
-
+        </div>
         <div class="form-row">
             <div class="form-group" style="max-width: 160px;">
                 <label for="data-inicio-inv">Data Início:</label>
