@@ -363,7 +363,6 @@ def consultar_inventario_periodo():
 
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
         todos_itens = []
-        
         todas_abas = planilha_mov.worksheets()
         
         for aba in todas_abas:
@@ -385,7 +384,14 @@ def consultar_inventario_periodo():
                         
                         linha_planilha = index + 1
                         
-                        # Extração segura e limpa (blocos if/else tradicionais)
+                        # ID (Procura na coluna ID ou gera índice)
+                        row_id = ''
+                        if "ID" in cabecalhos and len(row) > cabecalhos.index("ID"):
+                            row_id = row[cabecalhos.index("ID")]
+                        if not row_id:
+                            row_id = f"{nome_aba}_l{linha_planilha}"
+
+                        # Código
                         codigo_val = ''
                         if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO"):
                             codigo_val = row[cabecalhos.index("CÓDIGO")]
@@ -394,25 +400,28 @@ def consultar_inventario_periodo():
                         elif len(row) > 2:
                             codigo_val = row[2]
 
+                        # Quantidade
                         qtd_val = 1
                         if "QUANTIDADE" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE"):
                             qtd_val = row[cabecalhos.index("QUANTIDADE")]
                         elif len(row) > 3:
                             qtd_val = row[3]
 
+                        # Tipo
                         tipo_val = 'Baixa Diaria'
                         if "TIPO" in cabecalhos and len(row) > cabecalhos.index("TIPO"):
                             tipo_val = row[cabecalhos.index("TIPO")]
                         elif len(row) > 4:
                             tipo_val = row[4]
 
+                        # Status
                         status_val = 'Não'
                         if "STATUS" in cabecalhos and len(row) > cabecalhos.index("STATUS"):
                             status_val = row[cabecalhos.index("STATUS")]
                         elif len(row) > 5:
                             status_val = row[5]
                         
-                        # Procura a coluna de inventário feito dinamicamente
+                        # Inventário Feito
                         inv_val = 'Não'
                         for h_nome in ['INVENTARIO FEITO', 'INVENTARIO']:
                             if h_nome in cabecalhos and len(row) > cabecalhos.index(h_nome):
@@ -421,15 +430,28 @@ def consultar_inventario_periodo():
                         if inv_val == 'Não' and len(row) > 6:
                             inv_val = row[6] or 'Não'
 
+                        # IVE
+                        ive_val = 'Não'
+                        if "IVE" in cabecalhos and len(row) > cabecalhos.index("IVE"):
+                            ive_val = row[cabecalhos.index("IVE")] or 'Não'
+
+                        # Status ERP
+                        erp_val = ''
+                        if "STATUS_ERP" in cabecalhos and len(row) > cabecalhos.index("STATUS_ERP"):
+                            erp_val = row[cabecalhos.index("STATUS_ERP")] or ''
+
                         item_formatado = {
+                            "ID": row_id,
                             "Linha": linha_planilha,
                             "Aba": nome_aba,
                             "Data": nome_aba,
-                            "Código": codigo_val,
+                            "Codigo": codigo_val,
                             "Quantidade": qtd_val,
                             "Tipo": tipo_val,
                             "Status": status_val,
-                            "InventarioFeito": inv_val
+                            "InventarioFeito": inv_val,
+                            "IVE": ive_val,
+                            "Status_ERP": erp_val
                         }
                         todos_itens.append(item_formatado)
             except ValueError:
@@ -1292,38 +1314,119 @@ def validar_saldo_erp():
     return redirect(url_for('index', aba=aba_origem))
 
 
+@app.route('/validar_saldo_erp_inventario', methods=['POST'])
+def validar_saldo_erp_inventario():
+    try:
+        dados = request.get_json()
+        txt_saldos = dados.get('texto_saldos', '')
+        itens_visiveis = dados.get('itens', [])
+        
+        if not txt_saldos.strip():
+            return jsonify({'sucesso': False, 'mensagem': 'Nenhum saldo informado.'}), 400
+
+        saldos_dict = {}
+        for linha in txt_saldos.strip().split('\n'):
+            partes = linha.strip().split()
+            if len(partes) >= 2:
+                codigo = partes[0].strip().upper()
+                try:
+                    qtd = float(partes[1].replace(',', '.'))
+                    saldos_dict[codigo] = saldos_dict.get(codigo, 0.0) + qtd
+                except ValueError:
+                    continue
+
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+
+        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+        
+        for item in itens_visiveis:
+            aba = item.get('Aba')
+            linha = int(item.get('Linha'))
+            codigo_ordem = str(item.get('Codigo', '')).strip().upper()
+            
+            try:
+                qtd_str = str(item.get('Quantidade', '1')).strip()
+                limpa_qtd = ''.join(c for c in qtd_str if c.isdigit() or c in '.,')
+                qtd_ordem = float(limpa_qtd.replace(',', '.')) if limpa_qtd else 1.0
+            except ValueError:
+                qtd_ordem = 1.0
+
+            if codigo_ordem in saldos_dict:
+                saldo_erp = saldos_dict[codigo_ordem]
+                if saldo_erp >= qtd_ordem:
+                    status_erp_str = f"Suficiente ({int(saldo_erp)})"
+                else:
+                    status_erp_str = f"Insuficiente ({int(saldo_erp)})"
+            else:
+                status_erp_str = "Insuficiente (0)"
+
+            item['Status_ERP'] = status_erp_str
+
+            # Atualiza na planilha do Google Sheets a coluna Status_ERP
+            try:
+                sheet_mov_aba = planilha_mov.worksheet(aba)
+                cabecalho = [col.upper().strip() for col in sheet_mov_aba.row_values(1)]
+                col_erp_idx = None
+                for idx, col in enumerate(cabecalho):
+                    if col == 'STATUS_ERP':
+                        col_erp_idx = idx + 1
+                        break
+                if not col_erp_idx:
+                    col_erp_idx = len(cabecalho) + 1
+                    sheet_mov_aba.update_cell(1, col_erp_idx, 'Status_ERP')
+                sheet_mov_aba.update_cell(linha, col_erp_idx, status_erp_str)
+            except Exception:
+                pass
+
+        return jsonify({'sucesso': True, 'itens': itens_visiveis, 'mensagem': 'Validação de Saldo ERP concluída!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
 
 
 @app.route('/atualizar_ive', methods=['POST'])
 def atualizar_ive():
-    ordem_id = request.form.get('id_ordem')
-    ive_marcado = request.form.get('ive_status') # 'Sim' se marcado, None se desmarcado
-    aba_origem = request.form.get('aba_origem', 'inventario')
-    
     try:
-        if ordem_id:
-            df_atual = carregar_dados()
-            if not df_atual.empty:
-                # Normaliza colunas para evitar erros de maiúsculas/minúsculas
-                df_atual.columns = [str(c).lower().strip() for c in df_atual.columns]
-                
-                if "ive" not in df_atual.columns:
-                    df_atual["ive"] = "Não"
-                if "id" not in df_atual.columns:
-                    # Se não tiver id explícito, usa o índice ou outra referência
-                    df_atual["id"] = df_atual.index.astype(str)
-
-                # Converte o ID para string para comparar de forma segura
-                novo_valor = "Sim" if ive_marcado == "Sim" else "Não"
-                
-                # Atualiza na linha correspondente
-                mask = df_atual["id"].astype(str).str.strip() == str(ordem_id).strip()
-                df_atual.loc[mask, "ive"] = novo_valor
-                
-                salvar_dados(df_atual)
-                flash("Status IVE atualizado com sucesso!", "success")
-    except Exception as e:
-        print(f"Erro crítico ao atualizar IVE: {e}")
-        flash(f"Erro ao atualizar IVE: {e}", "danger")
+        dados = request.get_json() if request.is_json else request.form
+        ordem_id = dados.get('id_ordem')
+        ive_marcado = dados.get('ive_status', 'Não')
+        aba_alvo = dados.get('aba')
+        linha_alvo = dados.get('linha')
         
-    return redirect(url_for('index', aba=aba_origem))
+        if not aba_alvo or not linha_alvo:
+            return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos.'}), 400
+
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+
+        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+        sheet_mov = planilha_mov.worksheet(aba_alvo)
+        
+        cabecalho = [col.upper().strip() for col in sheet_mov.row_values(1)]
+        coluna_idx = None
+        
+        for idx, col in enumerate(cabecalho):
+            if col == 'IVE':
+                coluna_idx = idx + 1
+                break
+                
+        # Se a coluna IVE não existir, cria-a na coluna seguinte
+        if not coluna_idx:
+            coluna_idx = len(cabecalho) + 1
+            sheet_mov.update_cell(1, coluna_idx, 'IVE')
+            
+        sheet_mov.update_cell(int(linha_alvo), coluna_idx, "Sim" if ive_marcado == "Sim" else "Não")
+        
+        if request.is_json:
+            return jsonify({'sucesso': True, 'mensagem': 'IVE atualizado com sucesso!'})
+        else:
+            return redirect(url_for('index'))
+            
+    except Exception as e:
+        if request.is_json:
+            return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+        return f"Erro: {str(e)}", 500
