@@ -1340,14 +1340,9 @@ function filtrarTabelaInventario() {
         let tbody = document.querySelector('#tabela-inventario tbody');
         if (!tbody) return;
 
-        // Lê os elementos de filtro de forma segura usando os IDs reais do teu HTML
-        let elClassificacao = document.getElementById('filtro-classificacao-inv');
-        let elStatusInv = document.getElementById('filtro-status-inv');
-        let elCheckIve = document.getElementById('filtro-ive-check');
-
-        let classificacaoFiltro = elClassificacao ? elClassificacao.value.toLowerCase() : 'todas';
-        let inventarioFeitoFiltro = elStatusInv ? elStatusInv.value.toLowerCase() : 'todos';
-        let apenasIveMarcado = elCheckIve ? elCheckIve.checked : false;
+        let classificacaoFiltro = document.getElementById('filtro-classificacao-inv').value.toLowerCase();
+        let inventarioFeitoFiltro = document.getElementById('filtro-status-inv').value.toLowerCase();
+        let apenasIveMarcado = document.getElementById('filtro-ive-check').checked;
 
         tbody.innerHTML = '';
 
@@ -1355,20 +1350,20 @@ function filtrarTabelaInventario() {
             let classificacao = (item.Classificacao || '').trim().toLowerCase();
             let statusFeito = (item.InventarioFeito || 'não').trim().toLowerCase();
             
-            // Verifica o estado do IVE na linha
+            // Verifica o estado do IVE
             let ivestatus = item.IVE === true || item.IVE === 'Sim' || item.IVE === 'sim' || item.IVE === 'SIM';
 
-            // 1. Filtro de Classificação (Entrada/Baixa)
+            // 1. Filtro de Classificação
             if (classificacaoFiltro !== 'todas' && classificacaoFiltro !== '' && classificacao !== classificacaoFiltro) {
                 return false;
             }
 
-            // 2. Filtro de Inventário Feito (Sim/Não)
+            // 2. Filtro de Inventário Feito
             if (inventarioFeitoFiltro !== 'todos' && statusFeito !== inventarioFeitoFiltro) {
                 return false;
             }
 
-            // 3. Filtro da Caixa de IVE
+            // 3. Filtro da Caixa de IVE (só aplica se estiver marcada)
             if (apenasIveMarcado && !ivestatus) {
                 return false;
             }
@@ -1381,11 +1376,9 @@ function filtrarTabelaInventario() {
             return;
         }
 
-        // Desenha as linhas filtradas na tabela
+        // Desenha as linhas na tabela mantendo o teu layout original exato
         itensFiltrados.forEach((item, index) => {
             let tr = document.createElement('tr');
-            
-            // Tratamento do estado do checkbox IVE na célula
             let isCheckedIve = (item.IVE === true || item.IVE === 'Sim' || item.IVE === 'sim' || item.IVE === 'SIM') ? 'checked' : '';
 
             tr.innerHTML = `
@@ -1396,19 +1389,18 @@ function filtrarTabelaInventario() {
                 <td>${item.Classificacao || ''}</td>
                 <td><span style="color: #6c757d;">${item.StatusERP || '-'}</span></td>
                 <td>
-                    <select class="form-control form-control-sm status-inventario" data-aba="${item.Aba || ''}" data-linha="${item.Linha || index}" onchange="atualizarInventarioFeito(this)">
+                    <select class="form-control form-control-sm status-inventario" data-aba="${item.Aba || ''}" data-linha="${item.Linha || ''}" onchange="atualizarInventarioFeito(this)">
                         <option value="Não" ${item.InventarioFeito === 'Não' ? 'selected' : ''}>Não</option>
                         <option value="Sim" ${item.InventarioFeito === 'Sim' ? 'selected' : ''}>Sim</option>
                     </select>
                 </td>
                 <td style="text-align: center;">
-                    <input type="checkbox" ${isCheckedIve} onchange="atualizarIVE(this, '${item.Aba || ''}', ${item.Linha || index})" style="width: 18px; height: 18px; cursor: pointer;">
+                    <input type="checkbox" ${isCheckedIve} onchange="atualizarIVE(this, '${item.Aba || ''}', ${item.Linha || ''})" style="width: 18px; height: 18px; cursor: pointer;">
                 </td>
             `;
             tbody.appendChild(tr);
         });
     }
-
 
 
 
