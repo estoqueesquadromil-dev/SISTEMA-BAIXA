@@ -249,10 +249,12 @@
                     <option value="Sim">Sim</option>
                     <option value="Não">Não</option>
                 </select>
-                <div class="col-md-3" style="display: flex; align-items: center; gap: 8px;">
-                    <input type="checkbox" id="filtro-ive-check" onchange="filtrarTabelaInventario()" style="width: 20px; height: 20px; cursor: pointer;">
-                    <label for="filtro-ive-check" class="form-label fw-bold mb-0" style="cursor: pointer;">Apenas IVE Marcado</label>
-                </div>
+
+            </div>
+
+            <div class="col-md-3" style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="filtro-ive-check" onchange="filtrarTabelaInventario()" style="width: 20px; height: 20px; cursor: pointer;">
+                <label for="filtro-ive-check" class="form-label fw-bold mb-0" style="cursor: pointer;">Apenas IVE Marcado</label>
             </div>
             <button class="btn-pesquisar" onclick="carregarInventario()">Filtrar Inventário</button>
             <button class="btn-excel" onclick="exportarExcelInventario()">Baixar Excel (CSV)</button>
