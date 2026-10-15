@@ -1303,13 +1303,13 @@ async function carregarInventario() {
                 return;
             }
 
-            // APLICAÇÃO RIGOROSA DA TUA REGRA DE NEGÓCIO:
+            // Filtro rigoroso: Oculta Baixa Diária, números soltos, e restringe Sucata ao status 'Sim'
             dadosInventarioCache = resultado.itens.filter(item => {
                 let tipo = (item.Tipo || '').trim().toLowerCase();
                 let status = (item.Status || '').trim().toLowerCase();
 
-                // 1. Baixa Diária NÃO PODE APARECER DE FORMA NENHUMA
-                if (tipo.includes('baixa diaria') || tipo.includes('baixa diária') || tipo === '') {
+                // 1. Bloqueia Baixa Diária, campos vazios ou números soltos na coluna tipo
+                if (tipo === '' || !isNaN(tipo) || tipo.includes('baixa') || tipo.includes('diaria') || tipo.includes('diária')) {
                     return false;
                 }
 
@@ -1319,7 +1319,7 @@ async function carregarInventario() {
                     return status === 'sim';
                 }
 
-                // 3. Outros tipos devem aparecer INDEPENDENTEMENTE do status
+                // 3. Outros tipos legítimos entram sempre independentemente do status
                 return true;
             });
 
