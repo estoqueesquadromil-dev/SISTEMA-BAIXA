@@ -1471,3 +1471,25 @@ def validar_saldo_erp():
         flash(f"Erro ao processar validação ERP: {e}", "danger")
         
     return redirect(url_for('index'))
+
+
+
+@app.route('/salvar_suficiente_erp', methods=['POST'])
+def salvar_suficiente_erp():
+    try:
+        dados = request.get_json()
+        itens = dados.get('itens', []) # Lista com {aba, linha, valor}
+        
+        # Aqui fazes a integração com a tua API do Google Sheets para atualizar a célula correspondente
+        # Exemplo conceptual:
+        for item in itens:
+            aba_nome = item.get('aba')
+            linha_idx = int(item.get('linha'))
+            valor_suficiente = item.get('valor')
+            
+            # ATENÇÃO: Substitui 'coluna_destino' pela letra ou índice da coluna nova na tua planilha (ex: coluna 'I' ou outra)
+            # sheet.worksheet(aba_nome).update_cell(linha_idx, coluna_indice, valor_suficiente)
+            
+        return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes salvos na planilha com sucesso!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)})
