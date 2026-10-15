@@ -2077,7 +2077,6 @@ async function validarSaldoERP() {
         return;
     }
 
-    // 1. Processa os saldos colados do ERP
     let saldosDict = {};
     let linhasTexto = textoSaldos.trim().split('\n');
     
@@ -2108,40 +2107,31 @@ async function validarSaldoERP() {
         let qtdTabela = parseFloat(tds[2].innerText.trim().replace(',', '.')) || 0;
         let statusTd = tds[5];
 
-        // Procura o select do "Inventário Feito?" para verificar se está como "Não"
         let selectInventario = tr.querySelector('.status-inventario');
         let statusInventarioVal = selectInventario ? selectInventario.value.trim() : 'Não';
 
-        // REGRAS 1: O cálculo SÓ pode ser feito para produtos cujo Inventário Feito seja "Não"
+        // Regra: Só calcula se o Inventário Feito for "Não"
         if (statusInventarioVal.toLowerCase() === 'sim') {
-            return; // Ignora esta linha e passa para a próxima
+            return;
         }
 
         let aba = selectInventario ? selectInventario.getAttribute('data-aba') : '';
         let linhaPlanilha = selectInventario ? selectInventario.getAttribute('data-linha') : '';
 
-        // REGRAS 2: Se o produto não existir no texto colado do ERP, tratamos o saldo do ERP como 0
-        let saldoErp = 0;
-        if (saldosDict.hasOwnProperty(codigoItem)) {
-            saldoErp = saldosDict[codigoItem];
-        } else {
-            saldoErp = 0; // Produtos que não existem no campo colado contam como 0
-        }
-
+        // Regra: Se o produto não existe no ERP colado, conta como 0
+        let saldoErp = saldosDict.hasOwnProperty(codigoItem) ? saldosDict[codigoItem] : 0;
         let resultadoCalculo = saldoErp + qtdTabela;
 
         if (resultadoCalculo >= 0) {
             statusTd.innerHTML = `<span style="color: #28a745; font-weight: bold;">Suficiente (${resultadoCalculo})</span>`;
             
-            // Atualiza também na cache local
             let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
             if (itemCache) itemCache.Status_ERP = `Suficiente (${resultadoCalculo})`;
 
-            // Se for suficiente, adiciona para salvar na Coluna I da planilha para o robô
-            if (linhaPlanilha) {
+            if (linhaPlanilha && aba) {
                 itensParaSalvar.push({
                     aba: aba,
-                    linha: linhaPlanilha,
+                    linha: parseInt(linhaPlanilha),
                     valor: resultadoCalculo
                 });
             }
@@ -2163,7 +2153,7 @@ async function validarSaldoERP() {
                 });
                 let resultado = await resposta.json();
                 if (resultado.sucesso) {
-                    alert('Validação efetuada (apenas inventários pendentes) e valores suficientes guardados na Coluna I!');
+                    alert('Validação efetuada e valores suficientes guardados na Coluna I em lote!');
                 } else {
                     alert('Erro ao gravar na planilha: ' + resultado.mensagem);
                 }
@@ -2178,7 +2168,6 @@ async function validarSaldoERP() {
         alert('Nenhum item elegível (Inventário Feito = "Não") encontrado na tabela para validar.');
     }
 }
-
     
 </script>
 
