@@ -2215,6 +2215,45 @@ function exportarExcelConsultarBaixas() {
     // Redireciona para a rota enviando os filtros aplicados
     window.location.href = `/exportar_excel_consultar_baixas?data=${dataConsulta}&tipo=${encodeURIComponent(filtroTipo)}&status_erp=${encodeURIComponent(filtroStatusERP)}`;
 }
+
+
+
+
+
+async function atualizarStatusInventario(selectEl, aba, linha) {
+    let novoStatus = selectEl.value;
+    
+    // Altera a cor visualmente de imediato
+    if (novoStatus === 'Sim') {
+        selectEl.style.color = 'green';
+    } else {
+        selectEl.style.color = 'red';
+    }
+
+    try {
+        let resposta = await fetch('/atualizar_inventario', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                aba: aba,
+                linha: linha,
+                inventarioFeito: novoStatus
+            })
+        });
+        
+        let resultado = await resposta.json();
+        if (!resultado.sucesso) {
+            alert('Erro ao atualizar na planilha: ' + resultado.mensagem);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Erro de comunicação ao salvar o status do inventário.');
+    }
+}
+
+
+
+
     
 </script>
 
