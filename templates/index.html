@@ -4,7 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Baixa - Inventário</title>
+
+    
+
+    
     <style>
+
+                /* Destaca o código duplicado em vermelho forte */
+        .codigo-duplicado {
+          color: #dc3545 !important;
+          font-weight: bold;
+          background-color: #f8d7da !important; /* Fundo levemente avermelhado para destacar */
+        }
+
+
+        
         body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 15px; color: #333; box-sizing: border-box; }
         .container { max-width: 100%; width: 100%; margin: 0 auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); box-sizing: border-box; }
         h1 { color: #0056b3; font-size: 22px; margin-top: 0; }
@@ -1428,59 +1442,80 @@ function filtrarTabelaInventario() {
 }
     
 
-    function renderizarTabelaInventario(dados) {
-        let tbody = document.querySelector('#tabela-inventario tbody');
-        if (!tbody) return;
+function renderizarTabelaInventario(dados) {
+    let tbody = document.querySelector('#tabela-inventario tbody');
+    if (!tbody) return;
 
-        if (!dados || dados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item filtrado para exibir.</td></tr>';
-            return;
-        }
-
-        let html = '';
-        dados.forEach(item => {
-            let statusErpTexto = item.Status_ERP || '';
-            let corStatusErp = '#6c757d';
-            if (statusErpTexto.includes('Insuficiente')) {
-                corStatusErp = '#dc3545';
-            } else if (statusErpTexto.includes('Suficiente')) {
-                corStatusErp = '#28a745';
-            }
-
-            let codigoItem = item.Codigo || '';
-            let dataItem = item.Data || '';
-            let qtdItem = item.Quantidade || '';
-            let tipoItem = item.Tipo || '';
-            let isSucata = tipoItem.toLowerCase().includes('sucata') || tipoItem.toLowerCase().includes('aproveitamento');
-            let classItem = isSucata ? 'Entrada' : 'Baixa';
-            let statusItem = item.InventarioFeito || 'Não';
-            let iveItem = item.IVE || 'Não';
-
-            html += `
-                <tr>
-                    <td>${dataItem}</td>
-                    <td><strong>${codigoItem}</strong></td>
-                    <td>${qtdItem}</td>
-                    <td>${tipoItem}</td>
-                    <td>${classItem}</td>
-                    <td>
-                        ${statusErpTexto ? `<span style="color: ${corStatusErp}; font-weight: bold;">${statusErpTexto}</span>` : '<span style="color: #6c757d;">-</span>'}
-                    </td>
-                    <td style="text-align: center;">
-                        <select class="form-select form-select-sm" onchange="atualizarStatusInventario(this, '${item.Aba}', ${item.Linha})" style="color: ${statusItem === 'Sim' ? 'green' : 'red'}; font-weight: bold;">
-                            <option value="Não" ${statusItem !== 'Sim' ? 'selected' : ''} style="color: red;">Não</option>
-                            <option value="Sim" ${statusItem === 'Sim' ? 'selected' : ''} style="color: green;">Sim</option>
-                        </select>
-                    </td>
-                    <td style="text-align: center;">
-                        <input type="checkbox" onchange="atualizarIveServidor(this, '${item.Aba}', ${item.Linha})" ${iveItem === 'Sim' ? 'checked' : ''} style="transform: scale(1.3); cursor: pointer;">
-                    </td>
-                </tr>
-            `;
-        });
-        tbody.innerHTML = html;
+    if (!dados || dados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item filtrado para exibir.</td></tr>';
+        return;
     }
 
+    // =========================================================================
+    // 1. CONTAGEM DOS CÓDIGOS PARA IDENTIFICAR REPETIDOS
+    // =========================================================================
+    let contagemCodigos = {};
+    dados.forEach(item => {
+        let cod = String(item.Codigo || '').trim().toUpperCase();
+        if (cod) {
+            contagemCodigos[cod] = (contagemCodigos[cod] || 0) + 1;
+        }
+    });
+
+    let html = '';
+    dados.forEach(item => {
+        let statusErpTexto = item.Status_ERP || '';
+        let corStatusErp = '#6c757d';
+        if (statusErpTexto.includes('Insuficiente')) {
+            corStatusErp = '#dc3545';
+        } else if (statusErpTexto.includes('Suficiente')) {
+            corStatusErp = '#28a745';
+        }
+
+        let codigoItem = item.Codigo || '';
+        
+        // =========================================================================
+        // 2. VERIFICA SE O CÓDIGO É REPETIDO E DEFINE A COR VERMELHA
+        // =========================================================================
+        let codChave = String(codigoItem).trim().toUpperCase();
+        let eRepetido = contagemCodigos[codChave] > 1;
+        let corCodigo = eRepetido ? '#dc3545' : '#000000'; // Vermelho se for repetido, senão preto
+
+        let dataItem = item.Data || '';
+        let qtdItem = item.Quantidade || '';
+        let tipoItem = item.Tipo || '';
+        let isSucata = tipoItem.toLowerCase().includes('sucata') || tipoItem.toLowerCase().includes('aproveitamento');
+        let classItem = isSucata ? 'Entrada' : 'Baixa';
+        let statusItem = item.InventarioFeito || 'Não';
+        let iveItem = item.IVE || 'Não';
+
+        html += `
+            <tr>
+                <td>${dataItem}</td>
+                <!-- Aplica a cor vermelha diretamente no estilo do código -->
+                <td style="color: ${corCodigo}; font-weight: bold;">
+                    ${codigoItem} ${eRepetido ? '<span style="font-size: 0.75rem; background-color: #dc3545; color: white; padding: 2px 5px; border-radius: 4px; margin-left: 5px;">Repetido</span>' : ''}
+                </td>
+                <td>${qtdItem}</td>
+                <td>${tipoItem}</td>
+                <td>${classItem}</td>
+                <td>
+                    ${statusErpTexto ? `<span style="color: ${corStatusErp}; font-weight: bold;">${statusErpTexto}</span>` : '<span style="color: #6c757d;">-</span>'}
+                </td>
+                <td style="text-align: center;">
+                    <select class="form-select form-select-sm" onchange="atualizarStatusInventario(this, '${item.Aba}', ${item.Linha})" style="color: ${statusItem === 'Sim' ? 'green' : 'red'}; font-weight: bold;">
+                        <option value="Não" ${statusItem !== 'Sim' ? 'selected' : ''} style="color: red;">Não</option>
+                        <option value="Sim" ${statusItem === 'Sim' ? 'selected' : ''} style="color: green;">Sim</option>
+                    </select>
+                </td>
+                <td style="text-align: center;">
+                    <input type="checkbox" onchange="atualizarIveServidor(this, '${item.Aba}', ${item.Linha})" ${iveItem === 'Sim' ? 'checked' : ''} style="transform: scale(1.3); cursor: pointer;">
+                </td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+}
     async function atualizarStatusInventario(selectEl, aba, linha) {
         let novoValor = selectEl.value;
         selectEl.style.color = novoValor === 'Sim' ? 'green' : 'red';
