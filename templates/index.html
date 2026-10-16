@@ -1451,16 +1451,19 @@ function renderizarTabelaInventario(dados) {
         return;
     }
 
-    // =========================================================================
-    // 1. CONTAGEM DOS CÓDIGOS PARA IDENTIFICAR REPETIDOS
-    // =========================================================================
+    // 1. Conta quantas vezes cada código aparece
     let contagemCodigos = {};
     dados.forEach(item => {
-        let cod = String(item.Codigo || '').trim().toUpperCase();
+        // Aceita tanto 'Codigo' quanto 'CODIGO' ou 'codigo'
+        let valCod = item.Codigo || item.CODIGO || item.codigo || '';
+        let cod = String(valCod).trim().toUpperCase();
         if (cod) {
             contagemCodigos[cod] = (contagemCodigos[cod] || 0) + 1;
         }
     });
+
+    // Mostra no F12 (Consola) a contagem para sabermos se detetou algum repetido
+    console.log("Contagem de códigos detetados:", contagemCodigos);
 
     let html = '';
     dados.forEach(item => {
@@ -1472,14 +1475,14 @@ function renderizarTabelaInventario(dados) {
             corStatusErp = '#28a745';
         }
 
-        let codigoItem = item.Codigo || '';
-        
-        // =========================================================================
-        // 2. VERIFICA SE O CÓDIGO É REPETIDO E DEFINE A COR VERMELHA
-        // =========================================================================
+        let codigoItem = item.Codigo || item.CODIGO || item.codigo || '';
         let codChave = String(codigoItem).trim().toUpperCase();
+        
+        // Verifica se é maior que 1
         let eRepetido = contagemCodigos[codChave] > 1;
-        let corCodigo = eRepetido ? '#dc3545' : '#000000'; // Vermelho se for repetido, senão preto
+        
+        // Se for repetido força vermelho forte e fundo claro
+        let estiloCodigo = eRepetido ? 'color: #dc3545; font-weight: bold; background-color: #f8d7da;' : 'font-weight: bold;';
 
         let dataItem = item.Data || '';
         let qtdItem = item.Quantidade || '';
@@ -1492,8 +1495,7 @@ function renderizarTabelaInventario(dados) {
         html += `
             <tr>
                 <td>${dataItem}</td>
-                <!-- Aplica a cor vermelha diretamente no estilo do código -->
-                <td style="color: ${corCodigo}; font-weight: bold;">
+                <td style="${estiloCodigo}">
                     ${codigoItem} ${eRepetido ? '<span style="font-size: 0.75rem; background-color: #dc3545; color: white; padding: 2px 5px; border-radius: 4px; margin-left: 5px;">Repetido</span>' : ''}
                 </td>
                 <td>${qtdItem}</td>
@@ -1516,33 +1518,8 @@ function renderizarTabelaInventario(dados) {
     });
     tbody.innerHTML = html;
 }
-    async function atualizarStatusInventario(selectEl, aba, linha) {
-        let novoValor = selectEl.value;
-        selectEl.style.color = novoValor === 'Sim' ? 'green' : 'red';
 
-        // Atualiza na cache local
-        let itemCache = dadosInventarioCache.find(i => i.Aba === aba && i.Linha === linha);
-        if (itemCache) itemCache.InventarioFeito = novoValor;
-
-        // Atualiza o contador de faltantes em tempo real
-        let totalFaltam = dadosInventarioCache.filter(item => (item.InventarioFeito || 'Não').trim() === 'Não').length;
-        let badgeFaltam = document.getElementById('contador-inventario-faltam');
-        badgeFaltam.textContent = `Faltam fazer: ${totalFaltam} inventários`;
-
-        try {
-            let resposta = await fetch('/atualizar_inventario', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ aba: aba, linha: linha, inventarioFeito: novoValor })
-            });
-            let resultado = await resposta.json();
-            if (!resultado.sucesso) {
-                alert('Erro ao atualizar: ' + resultado.mensagem);
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    }
+    
 
     async function atualizarIveServidor(checkboxEl, aba, linha) {
         let novoValor = checkboxEl.checked ? 'Sim' : 'Não';
