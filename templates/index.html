@@ -1399,6 +1399,15 @@ function filtrarTabelaInventario() {
         return;
     }
 
+    // 1. Conta quantas vezes cada código aparece nos itens filtrados
+    let contagemCodigos = {};
+    itensFiltrados.forEach(item => {
+        let cod = String(item.Codigo || '').trim().toUpperCase();
+        if (cod) {
+            contagemCodigos[cod] = (contagemCodigos[cod] || 0) + 1;
+        }
+    });
+
     itensFiltrados.forEach((item, index) => {
         let tr = document.createElement('tr');
         let valIve = item.IVE !== undefined ? item.IVE : item.ive;
@@ -1406,7 +1415,6 @@ function filtrarTabelaInventario() {
 
         let statusErpTexto = item.Status_ERP || item.StatusERP || '';
         
-        // Conteúdo da coluna Saldo ERP: Se já tiver texto salvo (ex: Suficiente (4)), exibe-o colorido. Senão, exibe só o número limpo guardado.
         let conteudoSaldoErp = '-';
         if (statusErpTexto) {
             let corStatusErp = '#6c757d';
@@ -1420,9 +1428,17 @@ function filtrarTabelaInventario() {
         let isSucata = (item.Tipo || '').toLowerCase().includes('sucata') || (item.Tipo || '').toLowerCase().includes('aproveitamento');
         let classificacaoItem = item.Classificacao || (isSucata ? 'Entrada' : 'Baixa');
 
+        // 2. Verifica se o código é repetido na listagem para aplicar a cor vermelha
+        let codigoItem = item.Codigo || '';
+        let codChave = String(codigoItem).trim().toUpperCase();
+        let eRepetido = contagemCodigos[codChave] > 1;
+        let estiloCodigo = eRepetido ? 'color: #dc3545; font-weight: bold;' : 'font-weight: bold;';
+
         tr.innerHTML = `
             <td>${item.Data || ''}</td>
-            <td><strong>${item.Codigo || ''}</strong></td>
+            <td style="${estiloCodigo}">
+                ${codigoItem} ${eRepetido ? '<span style="font-size: 0.75rem; background-color: #dc3545; color: white; padding: 1px 4px; border-radius: 3px; margin-left: 4px;">Repetido</span>' : ''}
+            </td>
             <td>${item.Quantidade || ''}</td>
             <td>${item.Tipo || ''}</td>
             <td>${classificacaoItem}</td>
@@ -1440,6 +1456,8 @@ function filtrarTabelaInventario() {
         tbody.appendChild(tr);
     });
 }
+
+
     
 
 function renderizarTabelaInventario(dados) {
