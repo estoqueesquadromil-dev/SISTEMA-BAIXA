@@ -1357,67 +1357,6 @@ def validar_saldo_erp_inventario():
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
 
 
-@app.route('/salvar_suficiente_erp', methods=['POST'])
-def salvar_suficiente_erp():
-    try:
-        dados = request.get_json()
-        itens = dados.get('itens', [])
-        
-        if not itens:
-            return jsonify({'sucesso': True, 'mensagem': 'Nenhum item para salvar.'})
-            
-        gc = conectar_google_sheets()
-        if not gc:
-            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
-            
-        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
-        
-        # Agrupa as atualizações por aba para fazer batch_update de forma limpa e segura
-        atualizacoes_por_aba = {}
-        for item in itens:
-            nome_aba = item.get('aba')
-            linha_idx = int(item.get('linha'))
-            valor_suficiente = item.get('valor')
-            
-            if not nome_aba:
-                continue
-                
-            if nome_aba not in atualizacoes_por_aba:
-                atualizacoes_por_aba[nome_aba] = []
-            atualizacoes_por_aba[nome_aba].append((linha_idx, valor_suficiente))
-            
-        for nome_aba, lista_valores in atualizacoes_por_aba.items():
-            try:
-                worksheet = planilha_mov.worksheet(nome_aba)
-            except Exception:
-                continue
-            
-            # GARANTE QUE A ABA TEM PELO MENOS 9 COLUNAS (COLUNA I)
-            if worksheet.col_count < 9:
-                worksheet.add_cols(9 - worksheet.col_count)
-                
-            cell_updates = []
-            for linha_idx, valor in lista_valores:
-                # Converte para inteiro limpo antes de salvar na Coluna I
-                try:
-                    val_str = str(valor).replace('.', '').replace(',', '.')
-                    val_limpo = int(round(float(val_str)))
-                except (ValueError, TypeError):
-                    val_limpo = valor
-
-                cell_address = gspread.utils.rowcol_to_a1(linha_idx, 9)
-                cell_updates.append({
-                    'range': cell_address,
-                    'values': [[val_limpo]]
-                })
-                
-            if cell_updates:
-                worksheet.batch_update(cell_updates)
-            
-        return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes salvos na coluna I com sucesso!'})
-    except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
 
 
 
@@ -1575,7 +1514,6 @@ def salvar_suficiente_erp():
             
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
         
-        # Agrupa as atualizações por aba para fazer batch_update de forma limpa e segura
         atualizacoes_por_aba = {}
         for item in itens:
             nome_aba = item.get('aba')
@@ -1595,13 +1533,12 @@ def salvar_suficiente_erp():
             except Exception:
                 continue
             
-            # GARANTE QUE A ABA TEM PELO MENOS 9 COLUNAS (COLUNA I)
+            # Garante que a aba tem pelo menos 9 colunas (Coluna I)
             if worksheet.col_count < 9:
                 worksheet.add_cols(9 - worksheet.col_count)
                 
             cell_updates = []
             for linha_idx, valor in lista_valores:
-                # Converte para inteiro limpo antes de salvar na Coluna I
                 try:
                     val_str = str(valor).replace('.', '').replace(',', '.')
                     val_limpo = int(round(float(val_str)))
@@ -1620,7 +1557,6 @@ def salvar_suficiente_erp():
         return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes salvos na coluna I com sucesso!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
 
 
 
