@@ -1513,6 +1513,10 @@ def salvar_suficiente_erp():
                 worksheet = planilha_mov.worksheet(nome_aba)
             except Exception:
                 continue
+            
+            # --- ADICIONADO AQUI: GARANTE QUE A ABA TEM PELO MENOS 9 COLUNAS (COLUNA I) ---
+            if worksheet.col_count < 9:
+                worksheet.add_cols(9 - worksheet.col_count)
                 
             cell_updates = []
             for linha_idx, valor in lista_valores:
