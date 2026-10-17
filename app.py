@@ -1540,24 +1540,27 @@ def salvar_suficiente_erp():
             cell_updates = []
             for linha_idx, valor in lista_valores:
                 try:
-                    val_str = str(valor).replace('.', '').replace(',', '.')
-                    val_limpo = int(round(float(val_str)))
+                    # Limpa qualquer formatação prévia e converte para inteiro limpo
+                    val_str_limpo = str(valor).replace('.', '').replace(',', '.').replace('Suficiente', '').replace('Insuficiente', '').strip()
+                    val_float = float(val_str_limpo)
+                    val_limpo = int(round(val_float))
                 except (ValueError, TypeError):
-                    val_limpo = valor
+                    val_limpo = str(valor)
 
                 cell_address = gspread.utils.rowcol_to_a1(linha_idx, 9)
+                
+                # Usamos USER_ENTERED para que o Google Sheets interprete corretamente como número
                 cell_updates.append({
                     'range': cell_address,
                     'values': [[val_limpo]]
                 })
                 
             if cell_updates:
-                worksheet.batch_update(cell_updates)
+                worksheet.batch_update(cell_updates, value_input_option='USER_ENTERED')
             
         return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes salvos na coluna I com sucesso!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
 
 
 @app.route('/exportar_excel_consultar_baixas', methods=['GET'])
