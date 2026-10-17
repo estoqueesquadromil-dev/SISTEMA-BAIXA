@@ -1283,7 +1283,17 @@ def validar_saldo_erp_inventario():
             if len(partes) >= 2:
                 codigo = partes[0].strip().upper()
                 try:
-                    qtd = float(partes[1].replace(',', '.'))
+                    # Trata o formato do ERP: remove ponto de milhar e converte vírgula decimal
+                    val_str = partes[1].strip()
+                    if '.' in val_str and ',' in val_str:
+                        val_str = val_str.replace('.', '').replace(',', '.')
+                    elif ',' in val_str:
+                        val_str = val_str.replace(',', '.')
+                    elif '.' in val_str:
+                        # Se for no formato "8.000" (milhar sem decimal)
+                        val_str = val_str.replace('.', '')
+                    
+                    qtd = float(val_str)
                     saldos_dict[codigo] = saldos_dict.get(codigo, 0.0) + qtd
                 except ValueError:
                     continue
@@ -1302,16 +1312,23 @@ def validar_saldo_erp_inventario():
             try:
                 qtd_str = str(item.get('Quantidade', '1')).strip()
                 limpa_qtd = ''.join(c for c in qtd_str if c.isdigit() or c in '.,')
-                qtd_ordem = float(limpa_qtd.replace(',', '.')) if limpa_qtd else 1.0
+                qtd_ordem = float(limpa_qtd.replace('.', '').replace(',', '.')) if limpa_qtd else 1.0
             except ValueError:
                 qtd_ordem = 1.0
 
             if codigo_ordem in saldos_dict:
                 saldo_erp = saldos_dict[codigo_ordem]
-                if saldo_erp >= qtd_ordem:
-                    status_erp_str = f"Suficiente ({int(saldo_erp)})"
+                # Soma o Saldo ERP com a Quantidade do item
+                total_calculado = saldo_erp + qtd_ordem
+                
+                # Formata como inteiro limpo com ponto separador de milhar (ex: 10.752)
+                val_int = int(round(total_calculado))
+                val_formatado = f"{val_int:,}".replace(",", ".")
+
+                if total_calculado >= 0:
+                    status_erp_str = f"Suficiente ({val_formatado})"
                 else:
-                    status_erp_str = f"Insuficiente ({int(saldo_erp)})"
+                    status_erp_str = f"Insuficiente ({val_formatado})"
             else:
                 status_erp_str = "Insuficiente (0)"
 
@@ -1328,12 +1345,76 @@ def validar_saldo_erp_inventario():
                         break
                 if not col_erp_idx:
                     col_erp_idx = len(cabecalho) + 1
-                    sheet_mov_aba.update_cell(1, col_erp_idx, 'Status_ERP')
+                    if col_erp_idx > sheet_mov_aba.col_count:
+                        sheet_mov_aba.add_cols(col_erp_idx - sheet_mov_aba.col_count)
+                    sheet_mov_aba.update_cell(1, col_erp_idx, 'STATUS_ERP')
                 sheet_mov_aba.update_cell(linha, col_erp_idx, status_erp_str)
             except Exception:
                 pass
 
         return jsonify({'sucesso': True, 'itens': itens_visiveis, 'mensagem': 'Validação de Saldo ERP concluída!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+@app.route('/salvar_suficiente_erp', methods=['POST'])
+def salvar_suficiente_erp():
+    try:
+        dados = request.get_json()
+        itens = dados.get('itens', [])
+        
+        if not itens:
+            return jsonify({'sucesso': True, 'mensagem': 'Nenhum item para salvar.'})
+            
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+        
+        # Agrupa as atualizações por aba para fazer batch_update de forma limpa e segura
+        atualizacoes_por_aba = {}
+        for item in itens:
+            nome_aba = item.get('aba')
+            linha_idx = int(item.get('linha'))
+            valor_suficiente = item.get('valor')
+            
+            if not nome_aba:
+                continue
+                
+            if nome_aba not in atualizacoes_por_aba:
+                atualizacoes_por_aba[nome_aba] = []
+            atualizacoes_por_aba[nome_aba].append((linha_idx, valor_suficiente))
+            
+        for nome_aba, lista_valores in atualizacoes_por_aba.items():
+            try:
+                worksheet = planilha_mov.worksheet(nome_aba)
+            except Exception:
+                continue
+            
+            # GARANTE QUE A ABA TEM PELO MENOS 9 COLUNAS (COLUNA I)
+            if worksheet.col_count < 9:
+                worksheet.add_cols(9 - worksheet.col_count)
+                
+            cell_updates = []
+            for linha_idx, valor in lista_valores:
+                # Converte para inteiro limpo antes de salvar na Coluna I
+                try:
+                    val_str = str(valor).replace('.', '').replace(',', '.')
+                    val_limpo = int(round(float(val_str)))
+                except (ValueError, TypeError):
+                    val_limpo = valor
+
+                cell_address = gspread.utils.rowcol_to_a1(linha_idx, 9)
+                cell_updates.append({
+                    'range': cell_address,
+                    'values': [[val_limpo]]
+                })
+                
+            if cell_updates:
+                worksheet.batch_update(cell_updates)
+            
+        return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes salvos na coluna I com sucesso!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
 
@@ -1514,17 +1595,23 @@ def salvar_suficiente_erp():
             except Exception:
                 continue
             
-            # --- ADICIONADO AQUI: GARANTE QUE A ABA TEM PELO MENOS 9 COLUNAS (COLUNA I) ---
+            # GARANTE QUE A ABA TEM PELO MENOS 9 COLUNAS (COLUNA I)
             if worksheet.col_count < 9:
                 worksheet.add_cols(9 - worksheet.col_count)
                 
             cell_updates = []
             for linha_idx, valor in lista_valores:
-                # Coluna I é a coluna 9
+                # Converte para inteiro limpo antes de salvar na Coluna I
+                try:
+                    val_str = str(valor).replace('.', '').replace(',', '.')
+                    val_limpo = int(round(float(val_str)))
+                except (ValueError, TypeError):
+                    val_limpo = valor
+
                 cell_address = gspread.utils.rowcol_to_a1(linha_idx, 9)
                 cell_updates.append({
                     'range': cell_address,
-                    'values': [[valor]]
+                    'values': [[val_limpo]]
                 })
                 
             if cell_updates:
@@ -1533,6 +1620,8 @@ def salvar_suficiente_erp():
         return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes salvos na coluna I com sucesso!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
 
 
 @app.route('/exportar_excel_consultar_baixas', methods=['GET'])
