@@ -2429,8 +2429,8 @@ async function carregarDadosBaguetes() {
                     <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.quantidade}</td>
                     <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.tipo}</td>
                     <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px; font-weight: bold; color: #0056b3;">${item.perfil}</td>
-                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.medida.toLocaleString('pt-BR', {minimumFractionDigits: 1})}</td>
-                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${totalLinha.toLocaleString('pt-BR', {minimumFractionDigits: 3})}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.medida.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${totalLinha.toLocaleString('pt-BR', {minimumFractionDigits: 3, maximumFractionDigits: 3})}</td>
                 `;
                 tbodyPerdas.appendChild(tr);
             });
@@ -2451,8 +2451,8 @@ async function carregarDadosBaguetes() {
                     <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.quantidade}</td>
                     <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.tipo}</td>
                     <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px; font-weight: bold; color: #28a745;">${item.perfil}</td>
-                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.medida.toLocaleString('pt-BR', {minimumFractionDigits: 1})}</td>
-                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${totalLinha.toLocaleString('pt-BR', {minimumFractionDigits: 3})}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.medida.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${totalLinha.toLocaleString('pt-BR', {minimumFractionDigits: 3, maximumFractionDigits: 3})}</td>
                 `;
                 tbodySucata.appendChild(tr);
             });
@@ -2463,7 +2463,10 @@ async function carregarDadosBaguetes() {
             let chave = perf.toUpperCase();
             if (chave === 'BJ06L') chave = 'BJ06L';
             let liquido = (somasPerdas[chave] || 0) - (somasSucata[chave] || 0);
-            document.getElementById(`liquido-${perf}`).textContent = liquido.toLocaleString('pt-BR', {minimumFractionDigits: 3});
+            let elementoLiquido = document.getElementById(`liquido-${perf}`);
+            if (elementoLiquido) {
+                elementoLiquido.textContent = liquido.toLocaleString('pt-BR', {minimumFractionDigits: 3, maximumFractionDigits: 3});
+            }
         });
 
     } catch (err) {
@@ -2471,8 +2474,6 @@ async function carregarDadosBaguetes() {
         alert('Erro ao processar dados.');
     }
 }
-
-    
 
     
 </script>
