@@ -2496,7 +2496,7 @@ async function carregarDadosBaguetes() {
             tbodySucata.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #777;">Nenhum aproveitamento registado.</td></tr>';
         } else {
             itensSucata.forEach(item => {
-                let totalLinha = item.medida * item.quantidade;
+                let totalLinha = (item.medida * item.quantidade) / 100;
                 somasSucata[item.perfil] = (somasSucata[item.perfil] || 0) + totalLinha;
 
                 let tr = document.createElement('tr');
