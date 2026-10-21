@@ -1643,3 +1643,139 @@ def exportar_excel_consultar_baixas():
 
     except Exception as e:
         return f"Erro ao exportar Excel: {str(e)}", 500
+
+
+
+
+
+@app.route('/consultar_baguetes_periodo', methods=['GET'])
+def consultar_baguetes_periodo():
+    inicio_str = request.args.get('inicio')
+    fim_str = request.args.get('fim')
+    
+    if not inicio_str or not fim_str:
+        return jsonify({'sucesso': False, 'mensagem': 'Datas de início e fim obrigatórias.'}), 400
+    
+    try:
+        data_inicio = datetime.strptime(inicio_str, '%Y-%m-%d')
+        data_fim = datetime.strptime(fim_str, '%Y-%m-%d')
+        
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+
+        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+        lista_perdas = []
+        lista_sucatas = []
+        todas_abas = planilha_mov.worksheets()
+        
+        tipos_perdas_validos = ['baixa diaria', 'perfil maior', 'perfil menor', 'erro no corte', 'outros']
+
+        prefixos_map = {
+            "B219P-": "BJ03",
+            "B219-": "BJ05",
+            "B072-": "BJ06L",
+            "B708-": "BJ06L",
+            "B120-": "BJ06L",
+            "B249-": "BB01B",
+            "B248-": "BB01B",
+            "B221-": "BJ05",
+            "B013-": "BJ03"
+        }
+
+        for aba in todas_abas:
+            nome_aba = aba.title.strip()
+            try:
+                data_aba = datetime.strptime(nome_aba, '%Y-%m-%d')
+                if data_inicio <= data_aba <= data_fim:
+                    linhas = aba.get_all_values()
+                    if not linhas or len(linhas) < 2:
+                        continue
+                    
+                    cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+                    
+                    for index in range(1, len(linhas)):
+                        row = linhas[index]
+                        if not any(row):
+                            continue
+                        
+                        # Extrai Código
+                        codigo_val = ''
+                        for h in ["CÓDIGO", "CODIGO"]:
+                            if h in cabecalhos and len(row) > cabecalhos.index(h):
+                                codigo_val = str(row[cabecalhos.index(h)]).strip()
+                                break
+                        if not codigo_val and len(row) > 2:
+                            codigo_val = str(row[2]).strip()
+
+                        if not codigo_val.upper().startswith('B'):
+                            continue
+
+                        # Extrai Tipo
+                        tipo_val = 'Baixa Diaria'
+                        for h in ["TIPO"]:
+                            if h in cabecalhos and len(row) > cabecalhos.index(h):
+                                tipo_val = str(row[cabecalhos.index(h)]).strip()
+                                break
+                        if tipo_val == 'Baixa Diaria' and len(row) > 4:
+                            tipo_val = str(row[4]).strip()
+
+                        tipo_lower = tipo_val.lower()
+                        is_sucata = 'aproveitamento de sucata' in tipo_lower
+                        is_perda = tipo_lower in tipos_perdas_validos
+
+                        if not is_sucata and not is_perda:
+                            continue
+
+                        # Identifica o Perfil
+                        codigo_up = codigo_val.upper()
+                        perfil_atribuido = None
+                        for pref, prof in prefixos_map.items():
+                            if codigo_up.startswith(pref):
+                                perfil_atribuido = prof
+                                break
+
+                        if not perfil_atribuido:
+                            continue
+
+                        # Extrai Quantidade
+                        qtd_val = 1.0
+                        for h in ["QUANTIDADE"]:
+                            if h in cabecalhos and len(row) > cabecalhos.index(h):
+                                try:
+                                    qtd_val = float(str(row[cabecalhos.index(h)]).replace(',', '.'))
+                                except:
+                                    qtd_val = 1.0
+                                break
+
+                        # Extrai Medida (parte final após o último hífen)
+                        medida_val = 0.0
+                        if '-' in codigo_val:
+                            partes = codigo_val.split('-')
+                            parte_final = partes[-1].strip()
+                            try:
+                                medida_val = float(parte_final.replace(',', '.'))
+                            except:
+                                medida_val = 0.0
+
+                        item_dict = {
+                            "data": nome_aba,
+                            "codigo": codigo_val,
+                            "quantidade": qtd_val,
+                            "tipo": tipo_val,
+                            "perfil": perfil_atribuido,
+                            "medida": medida_val
+                        }
+
+                        if is_sucata:
+                            lista_sucatas.append(item_dict)
+                        else:
+                            lista_perdas.append(item_dict)
+
+            except ValueError:
+                continue
+
+        return jsonify({'sucesso': True, 'perdas': lista_perdas, 'sucatas': lista_sucatas})
+    
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
