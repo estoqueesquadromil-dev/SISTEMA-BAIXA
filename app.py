@@ -225,8 +225,13 @@ def consultar_movimentacao():
                         if not any(row):
                             continue
                         
-                        # Extrai dados da linha
-                        row_id = f"{nome_aba}_{index}"
+                        # Extrai o ID real da planilha (ou cria fallback se não existir)
+                        linha_planilha = index + 1
+                        row_id = ''
+                        if "ID" in cabecalhos and len(row) > cabecalhos.index("ID"):
+                            row_id = str(row[cabecalhos.index("ID")]).strip()
+                        if not row_id:
+                            row_id = f"{nome_aba}_{index}"
                         
                         codigo_val = ''
                         for h in ["CÓDIGO", "CODIGO"]:
