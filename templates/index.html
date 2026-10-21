@@ -89,6 +89,7 @@
         <button class="btn-aba" onclick="mudarAba('inventario', this)">Inventário</button>
         <button class="btn-aba" onclick="mudarAba('ordens', this)">Ordens</button>
         <button class="btn-aba" onclick="mudarAba('kg-m', this)">kg-m</button>
+        <button class="btn-aba" onclick="mudarAba('aba-b', this)">B (Baguetes)</button>
     </div>
 
     <!-- PAINEL 1: REALIZAR BAIXA -->
@@ -589,6 +590,102 @@
 </div>
 
 
+
+
+
+
+
+<!-- PAINEL ABA B (BAGUETES E SUCATAS) -->
+<div id="painel-b" class="painel" style="display: none;">
+    <h2>Controlo de Perfis de Baguete (Perdas vs. Aproveitamento)</h2>
+    
+    <!-- Filtros de Período -->
+    <div class="form-row" style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 15px; border: 1px solid #ddd;">
+        <div class="form-group" style="max-width: 160px;">
+            <label for="data-inicio-b">Data Início:</label>
+            <input type="date" id="data-inicio-b">
+        </div>
+        <div class="form-group" style="max-width: 160px;">
+            <label for="data-fim-b">Data Fim:</label>
+            <input type="date" id="data-fim-b">
+        </div>
+        <button class="btn-pesquisar" onclick="carregarDadosBaguetes()">Filtrar Baguetes</button>
+    </div>
+
+    <!-- Totais Superiores Líquidos (Perdas - Sucatas) -->
+    <div style="display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap;">
+        <div class="contador-badge" style="background: #e3f2fd; color: #0d47a1; border: 1px solid #bbdefb; flex: 1; min-width: 180px; text-align: center; padding: 12px;">
+            <div style="font-size: 12px; font-weight: bold;">LÍQUIDO BB01B</div>
+            <div id="liquido-bb01b" style="font-size: 20px; margin-top: 5px;">0,000</div>
+        </div>
+        <div class="contador-badge" style="background: #e8f5e9; color: #1b5e20; border: 1px solid #c8e6c9; flex: 1; min-width: 180px; text-align: center; padding: 12px;">
+            <div style="font-size: 12px; font-weight: bold;">LÍQUIDO BJ03</div>
+            <div id="liquido-bj03" style="font-size: 20px; margin-top: 5px;">0,000</div>
+        </div>
+        <div class="contador-badge" style="background: #fff8e1; color: #f57f17; border: 1px solid #ffecb3; flex: 1; min-width: 180px; text-align: center; padding: 12px;">
+            <div style="font-size: 12px; font-weight: bold;">LÍQUIDO BJ05</div>
+            <div id="liquido-bj05" style="font-size: 20px; margin-top: 5px;">0,000</div>
+        </div>
+        <div class="contador-badge" style="background: #f3e5f5; color: #4a148c; border: 1px solid #e1bee7; flex: 1; min-width: 180px; text-align: center; padding: 12px;">
+            <div style="font-size: 12px; font-weight: bold;">LÍQUIDO BJ06L</div>
+            <div id="liquido-bj06l" style="font-size: 20px; margin-top: 5px;">0,000</div>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+        <!-- Tabela 1: Perdas -->
+        <div style="flex: 1; min-width: 480px;">
+            <h3 style="color: #dc3545;">📉 Tabela de Perdas (Baixas, Erros, etc.)</h3>
+            <div class="table-responsive">
+                <table id="tabela-baguetes-perdas" style="width: 100%; border-collapse: collapse; background: white;">
+                    <thead>
+                        <tr style="background-color: #f8f9fa; text-align: left;">
+                            <th style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">Data</th>
+                            <th style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">Código</th>
+                            <th style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">Qtd</th>
+                            <th style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">Tipo</th>
+                            <th style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">Perfil</th>
+                            <th style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">Medida</th>
+                            <th style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="7" style="text-align: center; color: #777; padding: 10px;">Sem dados.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tabela 2: Aproveitamento de Sucata -->
+        <div style="flex: 1; min-width: 480px;">
+            <h3 style="color: #28a745;">♻️ Tabela de Aproveitamento de Sucata</h3>
+            <div class="table-responsive">
+                <table id="tabela-baguetes-sucata" style="width: 100%; border-collapse: collapse; background: white;">
+                    <thead>
+                        <tr style="background-color: #f8f9fa; text-align: left;">
+                            <th style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">Data</th>
+                            <th style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">Código</th>
+                            <th style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">Qtd</th>
+                            <th style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">Tipo</th>
+                            <th style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">Perfil</th>
+                            <th style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">Medida</th>
+                            <th style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="7" style="text-align: center; color: #777; padding: 10px;">Sem dados.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+    
     
 <script>
 
@@ -2253,6 +2350,112 @@ async function atualizarStatusInventario(selectEl, aba, linha) {
 
 
 
+document.addEventListener("DOMContentLoaded", function() {
+    let hoje = new Date();
+    let primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    let inputInicioB = document.getElementById('data-inicio-b');
+    let inputFimB = document.getElementById('data-fim-b');
+
+    if (inputInicioB && inputFimB) {
+        inputInicioB.value = primeiroDiaMes.toISOString().split('T')[0];
+        inputFimB.value = hoje.toISOString().split('T')[0];
+    }
+});
+
+
+
+
+async function carregarDadosBaguetes() {
+    let inicio = document.getElementById('data-inicio-b').value;
+    let fim = document.getElementById('data-fim-b').value;
+    let tbodyPerdas = document.querySelector('#tabela-baguetes-perdas tbody');
+    let tbodySucata = document.querySelector('#tabela-baguetes-sucata tbody');
+
+    if (!inicio || !fim) {
+        alert('Selecione a Data Início e a Data Fim.');
+        return;
+    }
+
+    tbodyPerdas.innerHTML = '<tr><td colspan="7" style="text-align: center;">A carregar...</td></tr>';
+    tbodySucata.innerHTML = '<tr><td colspan="7" style="text-align: center;">A carregar...</td></tr>';
+
+    try {
+        let resposta = await fetch(`/consultar_baguetes_periodo?inicio=${inicio}&fim=${fim}`);
+        let resultado = await resposta.json();
+
+        if (!resultado.sucesso) {
+            alert('Erro ao carregar baguetes: ' + resultado.mensagem);
+            return;
+        }
+
+        let itensPerdas = resultado.perdas;
+        let itensSucata = resultado.sucatas;
+
+        tbodyPerdas.innerHTML = '';
+        tbodySucata.innerHTML = '';
+
+        let somasPerdas = { 'BB01B': 0, 'BJ03': 0, 'BJ05': 0, 'BJ06L': 0 };
+        let somasSucata = { 'BB01B': 0, 'BJ03': 0, 'BJ05': 0, 'BJ06L': 0 };
+
+        // Preenche Tabela de Perdas
+        if (itensPerdas.length === 0) {
+            tbodyPerdas.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #777;">Nenhuma perda registada.</td></tr>';
+        } else {
+            itensPerdas.forEach(item => {
+                let totalLinha = item.medida * item.quantidade;
+                somasPerdas[item.perfil] = (somasPerdas[item.perfil] || 0) + totalLinha;
+
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.data}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${item.codigo}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.quantidade}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.tipo}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px; font-weight: bold; color: #0056b3;">${item.perfil}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.medida.toLocaleString('pt-BR', {minimumFractionDigits: 1})}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${totalLinha.toLocaleString('pt-BR', {minimumFractionDigits: 3})}</td>
+                `;
+                tbodyPerdas.appendChild(tr);
+            });
+        }
+
+        // Preenche Tabela de Sucata
+        if (itensSucata.length === 0) {
+            tbodySucata.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #777;">Nenhum aproveitamento registado.</td></tr>';
+        } else {
+            itensSucata.forEach(item => {
+                let totalLinha = item.medida * item.quantidade;
+                somasSucata[item.perfil] = (somasSucata[item.perfil] || 0) + totalLinha;
+
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.data}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${item.codigo}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.quantidade}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.tipo}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px; font-weight: bold; color: #28a745;">${item.perfil}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px;">${item.medida.toLocaleString('pt-BR', {minimumFractionDigits: 1})}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${totalLinha.toLocaleString('pt-BR', {minimumFractionDigits: 3})}</td>
+                `;
+                tbodySucata.appendChild(tr);
+            });
+        }
+
+        // Calcula e Atualiza os Cartões Superiores (Líquido = Perdas - Sucata)
+        ['bb01b', 'bj03', 'bj05', 'bj06l'].forEach(perf => {
+            let chave = perf.toUpperCase();
+            if (chave === 'BJ06L') chave = 'BJ06L';
+            let liquido = (somasPerdas[chave] || 0) - (somasSucata[chave] || 0);
+            document.getElementById(`liquido-${perf}`).textContent = liquido.toLocaleString('pt-BR', {minimumFractionDigits: 3});
+        });
+
+    } catch (err) {
+        console.error(err);
+        alert('Erro ao processar dados.');
+    }
+}
+
+    
 
     
 </script>
