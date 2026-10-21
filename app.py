@@ -1657,8 +1657,8 @@ def consultar_baguetes_periodo():
         return jsonify({'sucesso': False, 'mensagem': 'Datas de início e fim obrigatórias.'}), 400
     
     try:
-        data_inicio = datetime.strptime(inicio_str, '%Y-%m-%d')
-        data_fim = datetime.strptime(fim_str, '%Y-%m-%d')
+        data_inicio = datetime.strptime(inicio_str.strip(), '%Y-%m-%d')
+        data_fim = datetime.strptime(fim_str.strip(), '%Y-%m-%d')
         
         gc = conectar_google_sheets()
         if not gc:
@@ -1685,8 +1685,18 @@ def consultar_baguetes_periodo():
 
         for aba in todas_abas:
             nome_aba = aba.title.strip()
+            
+            # Limpa eventuais horários ou caracteres extras no nome da aba (ex: "2026-10-19 00:00:00" -> "2026-10-19")
+            if ' ' in nome_aba:
+                nome_aba = nome_aba.split(' ')[0]
+            if 'T' in nome_aba:
+                nome_aba = nome_aba.split('T')[0]
+
             try:
+                # Tenta converter a aba para data
                 data_aba = datetime.strptime(nome_aba, '%Y-%m-%d')
+                
+                # Verifica se está dentro do período selecionado
                 if data_inicio <= data_aba <= data_fim:
                     linhas = aba.get_all_values()
                     if not linhas or len(linhas) < 2:
@@ -1722,12 +1732,12 @@ def consultar_baguetes_periodo():
 
                         tipo_lower = tipo_val.lower()
                         is_sucata = 'aproveitamento de sucata' in tipo_lower
-                        is_perda = tipo_lower in tipos_perdas_validos
+                        is_perda = any(p in tipo_lower for p in tipos_perdas_validos)
 
                         if not is_sucata and not is_perda:
                             continue
 
-                        # Identifica o Perfil
+                        # Identifica o Perfil verificando os prefixos
                         codigo_up = codigo_val.upper()
                         perfil_atribuido = None
                         for pref, prof in prefixos_map.items():
@@ -1748,13 +1758,13 @@ def consultar_baguetes_periodo():
                                     qtd_val = 1.0
                                 break
 
-                        # Extrai Medida (parte final após o último hífen)
+                        # Extrai Medida (parte final após o último hífen, dividida por 10 para ajustar a vírgula ex: 218 -> 21.8)
                         medida_val = 0.0
                         if '-' in codigo_val:
                             partes = codigo_val.split('-')
                             parte_final = partes[-1].strip()
                             try:
-                                medida_val = float(parte_final.replace(',', '.'))
+                                medida_val = float(parte_final.replace(',', '.')) / 10.0
                             except:
                                 medida_val = 0.0
 
@@ -1773,6 +1783,7 @@ def consultar_baguetes_periodo():
                             lista_perdas.append(item_dict)
 
             except ValueError:
+                # Ignora abas que não têm formato de data (ex: "Resumo", "Página1", etc.)
                 continue
 
         return jsonify({'sucesso': True, 'perdas': lista_perdas, 'sucatas': lista_sucatas})
