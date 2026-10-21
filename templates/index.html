@@ -89,7 +89,7 @@
         <button class="btn-aba" onclick="mudarAba('inventario', this)">Inventário</button>
         <button class="btn-aba" onclick="mudarAba('ordens', this)">Ordens</button>
         <button class="btn-aba" onclick="mudarAba('kg-m', this)">kg-m</button>
-        <button class="btn-aba" onclick="mudarAba('aba-b', this)">B (Baguetes)</button>
+        <button class="btn-aba" onclick="mudarAba('aba-b', this)">B</button>
     </div>
 
     <!-- PAINEL 1: REALIZAR BAIXA -->
@@ -901,42 +901,54 @@ async function consultarPerdasServidor() {
     const divResultados = document.getElementById('resultados-busca');
     const inputQtd = document.getElementById('input-qtd');
 
-function mudarAba(aba, btn) {
-    // Oculta todos os painéis e remove a classe ativo dos botões
-    document.querySelectorAll('.painel').forEach(p => p.style.display = 'none');
-    document.querySelectorAll('.btn-aba').forEach(b => b.classList.remove('ativo'));
+
     
-    // Mostra o painel selecionado correspondente
+
+function mudarAba(aba, btn) {
+    // 1. Oculta todos os painéis e remove a classe "ativo" dos botões
+    document.querySelectorAll('.painel').forEach(p => {
+        p.style.display = 'none';
+        p.classList.remove('ativo');
+    });
+    document.querySelectorAll('.btn-aba').forEach(b => b.classList.remove('ativo'));
+
+    // 2. Mostra o painel selecionado correspondente
     if (aba === 'baixa') {
-        document.getElementById('painel-baixa').style.display = 'block';
+        let painel = document.getElementById('painel-baixa');
+        if (painel) { painel.style.display = 'block'; painel.classList.add('ativo'); }
     } else if (aba === 'consulta') {
-        document.getElementById('painel-consulta').style.display = 'block';
+        let painel = document.getElementById('painel-consulta');
+        if (painel) { painel.style.display = 'block'; painel.classList.add('ativo'); }
     } else if (aba === 'inventario') {
-        document.getElementById('painel-inventario').style.display = 'block';
+        let painel = document.getElementById('painel-inventario');
+        if (painel) { painel.style.display = 'block'; painel.classList.add('ativo'); }
     } else if (aba === 'ordens') {
-        document.getElementById('painel-ordens').style.display = 'block';
+        let painel = document.getElementById('painel-ordens');
+        if (painel) { painel.style.display = 'block'; painel.classList.add('ativo'); }
         if (typeof dadosOrdensCache !== 'undefined' && dadosOrdensCache.length === 0) {
             carregarDadosOrdens();
         }
     } else if (aba === 'kg-m') {
         let painelKgM = document.getElementById('kg-m');
-        if (painelKgM) {
-            painelKgM.style.display = 'block';
-        }
+        if (painelKgM) { painelKgM.style.display = 'block'; painelKgM.classList.add('ativo'); }
         if (typeof consultarPerdasServidor === 'function') {
             consultarPerdasServidor();
         }
     } else if (aba === 'aba-b') {
         let painelB = document.getElementById('painel-b');
-        if (painelB) {
-            painelB.style.display = 'block';
+        if (painelB) { 
+            painelB.style.display = 'block'; 
+            painelB.classList.add('ativo');
+        }
+        // Carrega automaticamente os dados do mês atual ao clicar na aba
+        if (typeof carregarDadosBaguetes === 'function') {
+            carregarDadosBaguetes();
         }
     }
-    
+
+    // 3. Marca o botão clicado como ativo
     if (btn) btn.classList.add('ativo');
 }
-
-
 
     
     
