@@ -707,6 +707,45 @@
     
 <script>
 
+
+
+// 1. Variável global única no topo do script
+let listaItensConsultaAtual = [];
+
+// 2. Único evento DOMContentLoaded para inicializar todas as datas necessárias
+document.addEventListener("DOMContentLoaded", function() {
+    let hoje = new Date();
+    let primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    let dataIso = hoje.toISOString().split('T')[0];
+    let primeiroDiaIso = primeiroDiaMes.toISOString().split('T')[0];
+
+    // Inicializa datas do painel de inventário (se existirem)
+    let inputInicioInv = document.getElementById('data-inicio-inv');
+    let inputFimInv = document.getElementById('data-fim-inv');
+    if (inputInicioInv && inputFimInv) {
+        inputInicioInv.value = primeiroDiaIso;
+        inputFimInv.value = dataIso;
+    }
+
+    // Inicializa datas do painel de consulta de baixas (se existirem)
+    let inputInicioConsulta = document.getElementById('data-inicio-consulta');
+    let inputFimConsulta = document.getElementById('data-fim-consulta');
+    if (inputInicioConsulta && inputFimConsulta) {
+        inputInicioConsulta.value = primeiroDiaIso;
+        inputFimConsulta.value = dataIso;
+    }
+
+    // Inicializa datas da Aba B (se existirem)
+    let inputInicioB = document.getElementById('data-inicio-b');
+    let inputFimB = document.getElementById('data-fim-b');
+    if (inputInicioB && inputFimB) {
+        inputInicioB.value = primeiroDiaIso;
+        inputFimB.value = dataIso;
+    }
+});
+
+    
+
 function toggleSecaoLixeira() {
     let secao = document.getElementById('secao-lixeira');
     if (secao.style.display === 'none') {
@@ -719,19 +758,7 @@ function toggleSecaoLixeira() {
 
 
 
-// Define o dia 1 do mês atual e a data de hoje automaticamente ao carregar a página
-document.addEventListener("DOMContentLoaded", function() {
-    let hoje = new Date();
-    let primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
-    let inputInicio = document.getElementById('data-inicio-inv');
-    let inputFim = document.getElementById('data-fim-inv');
-
-    if (inputInicio && inputFim) {
-        inputInicio.value = primeiroDiaMes.toISOString().split('T')[0];
-        inputFim.value = hoje.toISOString().split('T')[0];
-    }
-});
 
 function adicionarItemPerdaTemp() {
     let data = document.getElementById('perda-data').value;
@@ -911,7 +938,6 @@ async function consultarPerdasServidor() {
 
     
     let itensSelecionados = [];
-    let listaItensConsultaAtual = [];
     let saldosErpMap = {};
     let dadosInventarioCache = [];
 
@@ -1250,18 +1276,7 @@ function renderizarTabelaConsulta(itens) {
 
 
 
-document.addEventListener("DOMContentLoaded", function() {
-    let hoje = new Date();
-    let primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
-    let inputInicioConsulta = document.getElementById('data-inicio-consulta');
-    let inputFimConsulta = document.getElementById('data-fim-consulta');
-
-    if (inputInicioConsulta && inputFimConsulta) {
-        inputInicioConsulta.value = primeiroDiaMes.toISOString().split('T')[0];
-        inputFimConsulta.value = hoje.toISOString().split('T')[0];
-    }
-});
 
 async function consultarBaixas() {
     let dataInicio = document.getElementById('data-inicio-consulta').value;
@@ -2419,17 +2434,6 @@ async function atualizarStatusInventario(selectEl, aba, linha) {
 
 
 
-document.addEventListener("DOMContentLoaded", function() {
-    let hoje = new Date();
-    let primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    let inputInicioB = document.getElementById('data-inicio-b');
-    let inputFimB = document.getElementById('data-fim-b');
-
-    if (inputInicioB && inputFimB) {
-        inputInicioB.value = primeiroDiaMes.toISOString().split('T')[0];
-        inputFimB.value = hoje.toISOString().split('T')[0];
-    }
-});
 
 
 
