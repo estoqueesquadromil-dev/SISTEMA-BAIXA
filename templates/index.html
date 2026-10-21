@@ -1250,7 +1250,9 @@ function renderizarTabelaConsulta(itens) {
 
 
 
-// Define datas padrão ao carregar a página
+// Declaração global no topo do ficheiro JS
+let listaItensConsultaAtual = [];
+
 document.addEventListener("DOMContentLoaded", function() {
     let hoje = new Date();
     let primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
@@ -1263,10 +1265,6 @@ document.addEventListener("DOMContentLoaded", function() {
         inputFimConsulta.value = hoje.toISOString().split('T')[0];
     }
 });
-
-
-
-    
 
 async function consultarBaixas() {
     let dataInicio = document.getElementById('data-inicio-consulta').value;
@@ -1289,7 +1287,6 @@ async function consultarBaixas() {
     if (checkTodos) checkTodos.checked = false;
 
     try {
-        // Envia o período de datas para o backend em vez de apenas uma data
         let resposta = await fetch(`/consultar_movimentacao?inicio=${dataInicio}&fim=${dataFim}`);
         let resultado = await resposta.json();
 
@@ -1303,8 +1300,6 @@ async function consultarBaixas() {
         listaItensConsultaAtual = resultado.itens;
         
         renderizarTabelaConsulta(listaItensConsultaAtual);
-        
-        // Aplica todos os filtros selecionados (Tipo, Status ERP, Código e Status Sim/Não)
         filtrarTabelaConsulta();
 
     } catch (err) {
@@ -1312,6 +1307,10 @@ async function consultarBaixas() {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
     }
 }
+
+
+
+    
 
 function filtrarTabelaConsulta() {
     let filtroTipo = document.getElementById('filtro-tipo').value;
