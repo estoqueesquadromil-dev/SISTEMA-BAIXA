@@ -186,65 +186,100 @@ def atualizar_status_lote_por_id():
 
 @app.route('/consultar_movimentacao', methods=['GET'])
 def consultar_movimentacao():
-    data_consulta = request.args.get('data', '').strip()
-    if not data_consulta:
-        return jsonify({'sucesso': False, 'mensagem': 'Data não informada!'})
-
+    inicio_str = request.args.get('inicio')
+    fim_str = request.args.get('fim')
+    
+    if not inicio_str or not fim_str:
+        return jsonify({'sucesso': False, 'mensagem': 'Data de início e fim são obrigatórias.'}), 400
+    
     try:
+        data_inicio = datetime.strptime(inicio_str.strip(), '%Y-%m-%d')
+        data_fim = datetime.strptime(fim_str.strip(), '%Y-%m-%d')
+        
         gc = conectar_google_sheets()
         if not gc:
-            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'})
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
 
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
-        
-        try:
-            sheet_mov = planilha_mov.worksheet(data_consulta)
-        except gspread.exceptions.WorksheetNotFound:
-            return jsonify({'sucesso': True, 'itens': [], 'mensagem': f'Nenhuma baixa encontrada para o dia {data_consulta}.'})
+        todas_abas = planilha_mov.worksheets()
+        lista_itens = []
 
-        linhas = sheet_mov.get_all_values()
-        if not linhas or len(linhas) < 2:
-            return jsonify({'sucesso': True, 'itens': [], 'mensagem': f'Nenhuma baixa encontrada para o dia {data_consulta}.'})
+        for aba in todas_abas:
+            nome_aba = aba.title.strip()
+            if ' ' in nome_aba:
+                nome_aba = nome_aba.split(' ')[0]
+            if 'T' in nome_aba:
+                nome_aba = nome_aba.split('T')[0]
 
-        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
-        tem_id = "ID" in cabecalhos
+            try:
+                data_aba = datetime.strptime(nome_aba, '%Y-%m-%d')
+                if data_inicio <= data_aba <= data_fim:
+                    linhas = aba.get_all_values()
+                    if not linhas or len(linhas) < 2:
+                        continue
+                    
+                    cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+                    
+                    for index in range(1, len(linhas)):
+                        row = linhas[index]
+                        if not any(row):
+                            continue
+                        
+                        # Extrai dados da linha
+                        row_id = f"{nome_aba}_{index}"
+                        
+                        codigo_val = ''
+                        for h in ["CÓDIGO", "CODIGO"]:
+                            if h in cabecalhos and len(row) > cabecalhos.index(h):
+                                codigo_val = str(row[cabecalhos.index(h)]).strip()
+                                break
+                        if not codigo_val and len(row) > 2:
+                            codigo_val = str(row[2]).strip()
 
-        itens_formatados = []
-        for idx in range(1, len(linhas)):
-            row = linhas[idx]
-            if not any(row):
+                        qtd_val = 1
+                        for h in ["QUANTIDADE"]:
+                            if h in cabecalhos and len(row) > cabecalhos.index(h):
+                                try:
+                                    qtd_val = int(float(str(row[cabecalhos.index(h)]).replace(',', '.')))
+                                except:
+                                    qtd_val = 1
+                                break
+
+                        tipo_val = 'Baixa Diaria'
+                        for h in ["TIPO"]:
+                            if h in cabecalhos and len(row) > cabecalhos.index(h):
+                                tipo_val = str(row[cabecalhos.index(h)]).strip()
+                                break
+                        if tipo_val == 'Baixa Diaria' and len(row) > 4:
+                            tipo_val = str(row[4]).strip()
+
+                        status_val = 'Não'
+                        for h in ["STATUS"]:
+                            if h in cabecalhos and len(row) > cabecalhos.index(h):
+                                val_col = str(row[cabecalhos.index(h)]).strip()
+                                if val_col:
+                                    status_val = val_col
+                                break
+
+                        lista_itens.append({
+                            "ID": row_id,
+                            "Data": nome_aba,
+                            "Código": codigo_val,
+                            "Quantidade": qtd_val,
+                            "Tipo": tipo_val,
+                            "Status": status_val,
+                            "Aba": nome_aba,
+                            "Linha": index + 1
+                        })
+            except ValueError:
                 continue
-            
-            if tem_id:
-                # Mapeamento com ID (abas novas)
-                row_id = row[cabecalhos.index("ID")] if "ID" in cabecalhos and len(row) > cabecalhos.index("ID") else f"linha_{idx+1}"
-                data_val = row[cabecalhos.index("DATA")] if "DATA" in cabecalhos and len(row) > cabecalhos.index("DATA") else data_consulta
-                codigo_val = row[cabecalhos.index("CÓDIGO")] if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO") else (row[cabecalhos.index("CODIGO")] if "CODIGO" in cabecalhos and len(row) > cabecalhos.index("CODIGO") else "")
-                qtd_val = row[cabecalhos.index("QUANTIDADE")] if "QUANTIDADE" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE") else 1
-                tipo_val = row[cabecalhos.index("TIPO")] if "TIPO" in cabecalhos and len(row) > cabecalhos.index("TIPO") else "Baixa Diaria"
-                status_val = row[cabecalhos.index("STATUS")] if "STATUS" in cabecalhos and len(row) > cabecalhos.index("STATUS") else "Não"
-            else:
-                # Mapeamento fallback para abas antigas (sem ID)
-                row_id = f"fallback_{idx+1}"
-                data_val = row[0] if len(row) > 0 else data_consulta
-                codigo_val = row[1] if len(row) > 1 else ""
-                qtd_val = row[2] if len(row) > 2 else 1
-                tipo_val = row[3] if len(row) > 3 else "Baixa Diaria"
-                status_val = row[4] if len(row) > 4 else "Não"
 
-            itens_formatados.append({
-                "ID": row_id,
-                "Data": data_val,
-                "Código": codigo_val,
-                "Quantidade": qtd_val,
-                "Tipo": tipo_val,
-                "Status": status_val
-            })
-
-        return jsonify({'sucesso': True, 'itens': itens_formatados})
-
+        return jsonify({'sucesso': True, 'itens': lista_itens})
+    
     except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': f'Erro ao consultar: {str(e)}'})
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
 
 
 
