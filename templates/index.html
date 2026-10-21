@@ -926,6 +926,11 @@ function mudarAba(aba, btn) {
         if (typeof consultarPerdasServidor === 'function') {
             consultarPerdasServidor();
         }
+    } else if (aba === 'aba-b') {
+        let painelB = document.getElementById('painel-b');
+        if (painelB) {
+            painelB.style.display = 'block';
+        }
     }
     
     if (btn) btn.classList.add('ativo');
