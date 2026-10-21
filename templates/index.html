@@ -1090,73 +1090,72 @@ function processarValidacaoSucata() {
 
     
 function renderizarTabelaConsulta(itens) {
-        let tbody = document.querySelector('#tabela-consulta tbody');
-        let contadorBadge = document.getElementById('contador-ordens');
-        let painelLote = document.getElementById('painel-lote');
-        let tipoFiltro = document.getElementById('filtro-tipo').value;
+    let tbody = document.querySelector('#tabela-consulta tbody');
+    let contadorBadge = document.getElementById('contador-ordens');
+    let painelLote = document.getElementById('painel-lote');
+    let tipoFiltro = document.getElementById('filtro-tipo').value;
 
-        tbody.innerHTML = '';
+    tbody.innerHTML = '';
 
-        let itensFiltrados = itens.filter(item => {
-            let tipoLinha = item.Tipo || item.TIPO || 'Baixa Diaria';
-            if (tipoFiltro === 'TODOS') return true;
-            return tipoLinha.trim().toLowerCase() === tipoFiltro.trim().toLowerCase();
-        });
+    let itensFiltrados = itens.filter(item => {
+        let tipoLinha = item.Tipo || item.TIPO || 'Baixa Diaria';
+        if (tipoFiltro === 'TODOS') return true;
+        return tipoLinha.trim().toLowerCase() === tipoFiltro.trim().toLowerCase();
+    });
 
-        if (itensFiltrados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item encontrado com este filtro.</td></tr>';
-            contadorBadge.textContent = `Total de Ordens: 0`;
-            contadorBadge.style.display = 'inline-block';
-            painelLote.style.display = 'none';
-            return;
-        }
-
-        contadorBadge.textContent = `Total de Ordens: ${itensFiltrados.length}`;
+    if (itensFiltrados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item encontrado com este filtro.</td></tr>';
+        contadorBadge.textContent = `Total de Ordens: 0`;
         contadorBadge.style.display = 'inline-block';
-        painelLote.style.display = 'flex';
-
-        let dataConsulta = document.getElementById('data-consulta').value;
-
-        itensFiltrados.forEach(item => {
-            let rowId = item.ID || item.id || '';
-            let dataLinha = item.Data || item.DATA || dataConsulta;
-            let codigoLinha = item.Código || item.CODIGO || '';
-            let qtdLinha = parseInt(item.Quantidade || item.QUANTIDADE || 1);
-            let tipoLinha = item.Tipo || item.TIPO || 'Baixa Diaria';
-            let statusLinha = item.Status || item.STATUS || 'Não';
-
-            let statusErpTexto = "Não informado";
-            let corStatusErp = "#e0a800";
-            let saldoDisponivel = saldosErpMap[codigoLinha.trim().toUpperCase()];
-            if (saldoDisponivel !== undefined) {
-                if (saldoDisponivel >= qtdLinha) {
-                    statusErpTexto = `Suficiente (${saldoDisponivel})`;
-                    corStatusErp = "#28a745";
-                } else {
-                    statusErpTexto = `Insuficiente (${saldoDisponivel})`;
-                    corStatusErp = "#dc3545";
-                }
-            }
-
-            let tr = document.createElement('tr');
-            tr.setAttribute('data-id', rowId);
-            tr.innerHTML = `
-                <td style="text-align: center;"><input type="checkbox" class="check-item" data-id="${rowId}"></td>
-                <td>${dataLinha}</td>
-                <td>${codigoLinha}</td>
-                <td>${qtdLinha}</td>
-                <td>${tipoLinha}</td>
-                <td><strong style="color: ${corStatusErp};">${statusErpTexto}</strong></td>
-                <td><strong>${statusLinha}</strong></td>
-                <td>
-                    <button class="btn-acao btn-editar" onclick="editarConsulta('${dataLinha}', '${rowId}', '${codigoLinha}', ${qtdLinha})">Editar</button>
-                    <button class="btn-acao btn-excluir" onclick="excluirConsulta('${dataLinha}', '${rowId}', '${codigoLinha}')">Excluir</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
+        painelLote.style.display = 'none';
+        return;
     }
 
+    contadorBadge.textContent = `Total de Ordens: ${itensFiltrados.length}`;
+    contadorBadge.style.display = 'inline-block';
+    painelLote.style.display = 'flex';
+
+    itensFiltrados.forEach(item => {
+        let rowId = item.ID || item.id || '';
+        let dataLinha = item.Data || item.DATA || '';
+        let codigoLinha = item.Código || item.CODIGO || '';
+        let qtdLinha = parseInt(item.Quantidade || item.QUANTIDADE || 1);
+        let tipoLinha = item.Tipo || item.TIPO || 'Baixa Diaria';
+        let statusLinha = item.Status || item.STATUS || 'Não';
+
+        let statusErpTexto = "Não informado";
+        let corStatusErp = "#e0a800";
+        let saldoDisponivel = saldosErpMap[codigoLinha.trim().toUpperCase()];
+        if (saldoDisponivel !== undefined) {
+            if (saldoDisponivel >= qtdLinha) {
+                statusErpTexto = `Suficiente (${saldoDisponivel})`;
+                corStatusErp = "#28a745";
+            } else {
+                statusErpTexto = `Insuficiente (${saldoDisponivel})`;
+                corStatusErp = "#dc3545";
+            }
+        }
+
+        let tr = document.createElement('tr');
+        tr.setAttribute('data-id', rowId);
+        tr.innerHTML = `
+            <td style="text-align: center;"><input type="checkbox" class="check-item" data-id="${rowId}"></td>
+            <td>${dataLinha}</td>
+            <td>${codigoLinha}</td>
+            <td>${qtdLinha}</td>
+            <td>${tipoLinha}</td>
+            <td><strong style="color: ${corStatusErp};">${statusErpTexto}</strong></td>
+            <td><strong>${statusLinha}</strong></td>
+            <td>
+                <button class="btn-acao btn-editar" onclick="editarConsulta('${dataLinha}', '${rowId}', '${codigoLinha}', ${qtdLinha})">Editar</button>
+                <button class="btn-acao btn-excluir" onclick="excluirConsulta('${dataLinha}', '${rowId}', '${codigoLinha}')">Excluir</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+    
     function adicionarItemLista() {
         let codigoDigitado = inputCodigo.value.trim();
         let quantidade = parseInt(inputQtd.value) || 1;
