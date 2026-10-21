@@ -2474,7 +2474,7 @@ async function carregarDadosBaguetes() {
             tbodyPerdas.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #777;">Nenhuma perda registada.</td></tr>';
         } else {
             itensPerdas.forEach(item => {
-                let totalLinha = item.medida * item.quantidade;
+                let totalLinha = (item.medida * item.quantidade) / 100;
                 somasPerdas[item.perfil] = (somasPerdas[item.perfil] || 0) + totalLinha;
 
                 let tr = document.createElement('tr');
