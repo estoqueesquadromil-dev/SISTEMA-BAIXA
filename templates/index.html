@@ -146,86 +146,104 @@
         <div id="mensagem"></div>
     </div>
 
-    <!-- PAINEL 2: CONSULTAR BAIXAS COM SELEÇÃO, STATUS E VALIDAÇÃO DE ERP -->
-<!-- PAINEL 2: CONSULTAR BAIXAS COM SELEÇÃO, STATUS E VALIDAÇÃO DE ERP -->
-    <div id="painel-consulta" class="painel">
-        <div class="form-row">
-            <div class="form-group" style="max-width: 180px;">
-                <label for="data-consulta">Selecione a Data:</label>
-                <input type="date" id="data-consulta">
-            </div>
-            <div class="form-group" style="max-width: 200px;">
-                <label for="filtro-tipo">Filtrar por Tipo:</label>
-                <select id="filtro-tipo">
-                    <option value="TODOS" selected>Todos os Tipos</option>
-                    <option value="Baixa Diaria">Baixa Diaria</option>
-                    <option value="Aproveitamento de Sucata">Aproveitamento de Sucata</option>
-                    <option value="Erro no corte">Erro no corte</option>
-                    <option value="Perfil Menor">Perfil Menor</option>
-                    <option value="Perfil Maior">Perfil Maior</option>
-                    <option value="Outros">Outros</option>
-                </select>
-            </div>
-            <div class="form-group" style="max-width: 200px;">
-                <label for="filtro-status-erp">Filtrar por Status ERP:</label>
-                <select id="filtro-status-erp">
-                    <option value="TODOS" selected>Todos os Status ERP</option>
-                    <option value="OK">OK</option>
-                    <option value="Insuficiente">Insuficiente</option>
-                </select>
-            </div>
-            <button class="btn-pesquisar" onclick="consultarBaixas()">Pesquisar</button>
-            <button class="btn-excel" onclick="exportarExcelConsultarBaixas()" style="background-color: #28a745; height: 42px; padding: 0 15px; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 15px;">Baixar Excel (CSV)</button>
+<!-- PAINEL 2: CONSULTAR BAIXAS COM PERÍODO, CÓDIGO E STATUS -->
+<div id="painel-consulta" class="painel">
+    <div class="form-row" style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ddd; align-items: flex-end;">
+        <div class="form-group" style="max-width: 150px;">
+            <label for="data-inicio-consulta">Data Início:</label>
+            <input type="date" id="data-inicio-consulta">
         </div>
-        <!-- Campo para colar saldo do ERP na aba de Consulta -->
-        <div class="form-row" style="margin-top: 10px; background: #eef4fc; padding: 10px; border-radius: 6px; border: 1px solid #cce0f5;">
-            <div class="form-group" style="margin: 0;">
-                <label for="input-saldo-erp" style="color: #0056b3;">Cole os Saldos do ERP para validação de Sucata (Ex: C219-500 12):</label>
-                <div style="display: flex; gap: 8px; margin-top: 4px;">
-                    <textarea id="input-saldo-erp" rows="2" placeholder="Cole aqui as linhas copiadas do ERP (Código e Saldo)..." style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; resize: vertical;"></textarea>
-                    <button class="btn-pesquisar" style="height: auto; white-space: nowrap; background-color: #28a745;" onclick="processarValidacaoSucata()">Validar Saldo ERP</button>
-                </div>
-            </div>
+        <div class="form-group" style="max-width: 150px;">
+            <label for="data-fim-consulta">Data Fim:</label>
+            <input type="date" id="data-fim-consulta">
         </div>
-
-        <div id="contador-ordens" class="contador-badge" style="display: none;">Total de Ordens: 0</div>
-
-        <div class="painel-lote-status" id="painel-lote" style="display: none;">
-            <div class="form-group" style="max-width: 200px; margin: 0;">
-                <label for="status-lote">Alterar Status Selecionados:</label>
-                <select id="status-lote">
-                    <option value="Sim">Sim</option>
-                    <option value="Não" selected>Não</option>
-                </select>
-            </div>
-            <button class="btn-pesquisar" style="height: 38px;" onclick="aplicarStatusEmMassa()">Salvar Alteração em Lote</button>
+        <div class="form-group" style="max-width: 160px;">
+            <label for="filtro-codigo">Código Produto:</label>
+            <input type="text" id="filtro-codigo" placeholder="Ex: C219...">
         </div>
-
-        <h3>Itens dados baixa no dia</h3>
-        <div class="table-responsive">
-            <table id="tabela-consulta">
-                <thead>
-                    <tr>
-                        <th style="width: 40px; text-align: center;"><input type="checkbox" id="check-todos" onclick="alternarTodasSelecoes(this)"></th>
-                        <th>Data</th>
-                        <th>Código</th>
-                        <th>Quantidade</th>
-                        <th>Tipo</th>
-                        <th>Status ERP</th>
-                        <th>Status</th>
-                        <th style="width: 110px;">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td colspan="8" style="text-align: center; color: #777;">Selecione uma data e clique em Pesquisar.</td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="form-group" style="max-width: 180px;">
+            <label for="filtro-tipo">Filtrar por Tipo:</label>
+            <select id="filtro-tipo">
+                <option value="TODOS" selected>Todos os Tipos</option>
+                <option value="Baixa Diaria">Baixa Diaria</option>
+                <option value="Aproveitamento de Sucata">Aproveitamento de Sucata</option>
+                <option value="Erro no corte">Erro no corte</option>
+                <option value="Perfil Menor">Perfil Menor</option>
+                <option value="Perfil Maior">Perfil Maior</option>
+                <option value="Outros">Outros</option>
+            </select>
         </div>
-        <div id="mensagem-consulta" style="margin-top: 15px; font-weight: bold;"></div>
+        <div class="form-group" style="max-width: 130px;">
+            <label for="filtro-status">Status:</label>
+            <select id="filtro-status">
+                <option value="TODOS" selected>Todos</option>
+                <option value="Sim">Sim</option>
+                <option value="Não">Não</option>
+            </select>
+        </div>
+        <div class="form-group" style="max-width: 160px;">
+            <label for="filtro-status-erp">Status ERP:</label>
+            <select id="filtro-status-erp">
+                <option value="TODOS" selected>Todos</option>
+                <option value="OK">OK</option>
+                <option value="Insuficiente">Insuficiente</option>
+            </select>
+        </div>
+        <button class="btn-pesquisar" onclick="consultarBaixas()">Pesquisar</button>
+        <button class="btn-excel" onclick="exportarExcelConsultarBaixas()" style="background-color: #28a745; height: 42px; padding: 0 15px; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 15px;">Baixar Excel (CSV)</button>
     </div>
 
+    <!-- Campo para colar saldo do ERP na aba de Consulta -->
+    <div class="form-row" style="margin-top: 10px; background: #eef4fc; padding: 10px; border-radius: 6px; border: 1px solid #cce0f5;">
+        <div class="form-group" style="margin: 0;">
+            <label for="input-saldo-erp" style="color: #0056b3;">Cole os Saldos do ERP para validação de Sucata (Ex: C219-500 12):</label>
+            <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <textarea id="input-saldo-erp" rows="2" placeholder="Cole aqui as linhas copiadas do ERP (Código e Saldo)..." style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; resize: vertical;"></textarea>
+                <button class="btn-pesquisar" style="height: auto; white-space: nowrap; background-color: #28a745;" onclick="processarValidacaoSucata()">Validar Saldo ERP</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="contador-ordens" class="contador-badge" style="display: none;">Total de Ordens: 0</div>
+
+    <div class="painel-lote-status" id="painel-lote" style="display: none;">
+        <div class="form-group" style="max-width: 200px; margin: 0;">
+            <label for="status-lote">Alterar Status Selecionados:</label>
+            <select id="status-lote">
+                <option value="Sim">Sim</option>
+                <option value="Não" selected>Não</option>
+            </select>
+        </div>
+        <button class="btn-pesquisar" style="height: 38px;" onclick="aplicarStatusEmMassa()">Salvar Alteração em Lote</button>
+    </div>
+
+    <h3>Itens dados baixa no período</h3>
+    <div class="table-responsive">
+        <table id="tabela-consulta">
+            <thead>
+                <tr>
+                    <th style="width: 40px; text-align: center;"><input type="checkbox" id="check-todos" onclick="alternarTodasSelecoes(this)"></th>
+                    <th>Data</th>
+                    <th>Código</th>
+                    <th>Quantidade</th>
+                    <th>Tipo</th>
+                    <th>Status ERP</th>
+                    <th>Status</th>
+                    <th style="width: 110px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="8" style="text-align: center; color: #777;">Selecione o período e clique em Pesquisar.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div id="mensagem-consulta" style="margin-top: 15px; font-weight: bold;"></div>
+</div>
+
+
+    
 <!-- PAINEL 3: INVENTÁRIO -->
     <div id="painel-inventario" class="painel">
         
@@ -1230,75 +1248,106 @@ function renderizarTabelaConsulta(itens) {
         }
     }
 
-async function consultarBaixas() {
-        let dataConsulta = document.getElementById('data-consulta').value;
-        let tbody = document.querySelector('#tabela-consulta tbody');
-        let msgDiv = document.getElementById('mensagem-consulta');
-        let contadorBadge = document.getElementById('contador-ordens');
-        let painelLote = document.getElementById('painel-lote');
 
-        if (!dataConsulta) {
-            alert('Selecione uma data para pesquisar.');
+
+// Define datas padrão ao carregar a página
+document.addEventListener("DOMContentLoaded", function() {
+    let hoje = new Date();
+    let primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
+    let inputInicioConsulta = document.getElementById('data-inicio-consulta');
+    let inputFimConsulta = document.getElementById('data-fim-consulta');
+
+    if (inputInicioConsulta && inputFimConsulta) {
+        inputInicioConsulta.value = primeiroDiaMes.toISOString().split('T')[0];
+        inputFimConsulta.value = hoje.toISOString().split('T')[0];
+    }
+});
+
+
+
+    
+
+async function consultarBaixas() {
+    let dataInicio = document.getElementById('data-inicio-consulta').value;
+    let dataFim = document.getElementById('data-fim-consulta').value;
+    let tbody = document.querySelector('#tabela-consulta tbody');
+    let msgDiv = document.getElementById('mensagem-consulta');
+    let contadorBadge = document.getElementById('contador-ordens');
+    let painelLote = document.getElementById('painel-lote');
+
+    if (!dataInicio || !dataFim) {
+        alert('Selecione a Data Início e a Data Fim para pesquisar.');
+        return;
+    }
+
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">A pesquisar...</td></tr>';
+    if (msgDiv) msgDiv.textContent = '';
+    if (contadorBadge) contadorBadge.style.display = 'none';
+    if (painelLote) painelLote.style.display = 'none';
+    let checkTodos = document.getElementById('check-todos');
+    if (checkTodos) checkTodos.checked = false;
+
+    try {
+        // Envia o período de datas para o backend em vez de apenas uma data
+        let resposta = await fetch(`/consultar_movimentacao?inicio=${dataInicio}&fim=${dataFim}`);
+        let resultado = await resposta.json();
+
+        if (!resultado.sucesso || !resultado.itens || resultado.itens.length === 0) {
+            if (msgDiv) msgDiv.textContent = resultado.mensagem || "Nenhum registo encontrado.";
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item registado neste período.</td></tr>';
+            listaItensConsultaAtual = [];
             return;
         }
 
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">A pesquisar...</td></tr>';
-        msgDiv.textContent = '';
-        contadorBadge.style.display = 'none';
-        painelLote.style.display = 'none';
-        document.getElementById('check-todos').checked = false;
+        listaItensConsultaAtual = resultado.itens;
+        
+        renderizarTabelaConsulta(listaItensConsultaAtual);
+        
+        // Aplica todos os filtros selecionados (Tipo, Status ERP, Código e Status Sim/Não)
+        filtrarTabelaConsulta();
 
-        try {
-            let resposta = await fetch(`/consultar_movimentacao?data=${encodeURIComponent(dataConsulta)}`);
-            let resultado = await resposta.json();
-
-            if (!resultado.sucesso || !resultado.itens || resultado.itens.length === 0) {
-                msgDiv.textContent = resultado.mensagem || "Nenhum registo encontrado.";
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #777;">Nenhum item registado nesta data.</td></tr>';
-                listaItensConsultaAtual = [];
-                return;
-            }
-
-            listaItensConsultaAtual = resultado.itens;
-            
-            // REMOVEMOS A LINHA QUE FORÇAVA 'TODOS' AQUI
-            
-            renderizarTabelaConsulta(listaItensConsultaAtual);
-            
-            // Aplica o filtro atual caso já estivesse selecionado
-            filtrarTabelaConsulta();
-
-        } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
-        }
+    } catch (err) {
+        console.error(err);
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">Erro ao comunicar com o servidor.</td></tr>';
     }
+}
+
 function filtrarTabelaConsulta() {
     let filtroTipo = document.getElementById('filtro-tipo').value;
     let filtroStatusERP = document.getElementById('filtro-status-erp') ? document.getElementById('filtro-status-erp').value : 'TODOS';
+    let filtroCodigo = document.getElementById('filtro-codigo') ? document.getElementById('filtro-codigo').value.trim().toUpperCase() : '';
+    let filtroStatus = document.getElementById('filtro-status') ? document.getElementById('filtro-status').value : 'TODOS';
 
     let linhas = document.querySelectorAll('#tabela-consulta tbody tr');
-    let totalVisiveis = 0; // Variável para contar as linhas visíveis
+    let totalVisiveis = 0;
 
     linhas.forEach(tr => {
+        let tdCodigo = tr.children[2];
         let tdTipo = tr.children[4];
-        if (!tdTipo) return;
+        let tdStatus = tr.children[6];
+        if (!tdTipo || !tdCodigo || !tdStatus) return;
 
+        let codigoTexto = tdCodigo.innerText.trim().toUpperCase();
         let tipoTexto = tdTipo.innerText.trim();
+        let statusTexto = tdStatus.innerText.trim();
         let statusERPTexto = tr.getAttribute('data-status-erp') || '';
 
-        // Se o atributo data-status-erp ainda não foi definido, extrai do texto da célula
         if (!statusERPTexto && tr.children[5]) {
             let textoCelula = tr.children[5].innerText.trim();
             if (textoCelula.includes('OK')) statusERPTexto = 'OK';
             else if (textoCelula.includes('Insuficiente')) statusERPTexto = 'Insuficiente';
         }
 
+        // Validação de todos os critérios de filtro
         let atendeTipo = (filtroTipo === 'TODOS' || tipoTexto === filtroTipo);
         let atendeStatusERP = (filtroStatusERP === 'TODOS' || statusERPTexto === filtroStatusERP);
+        let atendeCodigo = (!filtroCodigo || codigoTexto.includes(filtroCodigo));
+        let atendeStatus = (filtroStatus === 'TODOS' || statusTexto === filtroStatus);
 
-        if (atendeTipo && atendeStatusERP) {
+        if (atendeTipo && atendeStatusERP && atendeCodigo && atendeStatus) {
             tr.style.display = '';
-            totalVisiveis++; // Incrementa se a linha passou no filtro
+            totalVisiveis++;
         } else {
             tr.style.display = 'none';
         }
@@ -1308,13 +1357,20 @@ function filtrarTabelaConsulta() {
     let contadorBadge = document.getElementById('contador-ordens');
     if (contadorBadge) {
         contadorBadge.textContent = `Total de Ordens: ${totalVisiveis}`;
+        contadorBadge.style.display = 'inline-block';
+    }
+    let painelLote = document.getElementById('painel-lote');
+    if (painelLote) {
+        painelLote.style.display = totalVisiveis > 0 ? 'flex' : 'none';
     }
 }
+
+function alternarTodasSelecoes(master) {
+    let checkboxes = document.querySelectorAll('.check-item');
+    checkboxes.forEach(cb => cb.checked = master.checked);
+}
+
     
-    function alternarTodasSelecoes(master) {
-        let checkboxes = document.querySelectorAll('.check-item');
-        checkboxes.forEach(cb => cb.checked = master.checked);
-    }
 
 async function aplicarStatusEmMassa() {
     let dataConsulta = document.getElementById('data-consulta').value;
