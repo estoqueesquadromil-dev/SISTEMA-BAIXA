@@ -1383,7 +1383,8 @@ function alternarTodasSelecoes(master) {
     
 
 async function aplicarStatusEmMassa() {
-    let dataConsulta = document.getElementById('data-consulta').value;
+    let dataInicio = document.getElementById('data-inicio-consulta').value;
+    let dataFim = document.getElementById('data-fim-consulta').value;
     let novoStatus = document.getElementById('status-lote').value;
     
     let linhas = document.querySelectorAll('#tabela-consulta tbody tr');
@@ -1392,9 +1393,9 @@ async function aplicarStatusEmMassa() {
     linhas.forEach((tr) => {
         if (tr.style.display === 'none') return;
 
-        let checkbox = tr.querySelector('input[type="checkbox"]');
+        let checkbox = tr.querySelector('.check-item');
         if (checkbox && checkbox.checked) {
-            let rowId = tr.getAttribute('data-id');
+            let rowId = tr.getAttribute('data-id') || checkbox.getAttribute('data-id');
             if (rowId) {
                 idsSelecionados.push(rowId);
             }
@@ -1402,32 +1403,63 @@ async function aplicarStatusEmMassa() {
     });
 
     if (idsSelecionados.length === 0) {
-        alert('Selecione pelo menos um item marcado na tabela!');
+        alert('Selecione pelo menos um item visível na tabela!');
         return;
     }
 
+    // Como as baixas podem vir de várias abas (várias datas) no período consultado, 
+    // enviamos a lista de IDs para uma rota ajustada ou iteramos pela data de cada linha.
+    // Vamos usar a data exibida na própria linha da tabela para garantir que o backend sabe exatamente qual aba atualizar:
+    let atualizacoesPorData = {};
+    
+    linhas.forEach((tr) => {
+        if (tr.style.display === 'none') return;
+        let checkbox = tr.querySelector('.check-item');
+        if (checkbox && checkbox.checked) {
+            let rowId = tr.getAttribute('data-id');
+            let dataLinha = tr.children[1] ? tr.children[1].innerText.trim() : '';
+            if (rowId && dataLinha) {
+                if (!atualizacoesPorData[dataLinha]) {
+                    atualizacoesPorData[dataLinha] = [];
+                }
+                atualizacoesPorData[dataLinha].push(rowId);
+            }
+        }
+    });
+
     try {
-        let resposta = await fetch('/atualizar_status_lote_por_id', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                data: dataConsulta, 
-                ids: idsSelecionados, 
-                status: novoStatus 
-            })
-        });
+        let sucessoGeral = true;
+        let mensagemFinal = "";
+
+        // Executa a atualização para cada aba/data correspondente aos itens selecionados
+        for (let [dataRegisto, idsArray] of Object.entries(atualizacoesPorData)) {
+            let resposta = await fetch('/atualizar_status_lote_por_id', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    data: dataRegisto, 
+                    ids: idsArray, 
+                    status: novoStatus 
+                })
+            });
+            let resultado = await resposta.json();
+            if (!resultado.sucesso) {
+                sucessoGeral = false;
+                mensagemFinal = resultado.mensagem;
+            }
+        }
         
-        let resultado = await resposta.json();
-        
-        alert(resultado.mensagem || 'Operação concluída.');
-        
-        if (resultado.sucesso) {
-            consultarBaixas(); 
+        if (sucessoGeral) {
+            alert('Status atualizado com sucesso em lote!');
+            consultarBaixas(); // Recarrega a tabela atualizada
+        } else {
+            alert('Erro ao atualizar: ' + mensagemFinal);
         }
     } catch (err) {
         alert('Erro de comunicação com o servidor: ' + err.message);
     }
 }
+
     
     
 async function excluirConsulta(data, rowId, codigo) {
