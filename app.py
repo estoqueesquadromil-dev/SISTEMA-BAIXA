@@ -776,7 +776,7 @@ def listar_ordens_criadas():
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
 
-        planilha_ordens = gc.open(NOME_PLANILHA_ORDENS)
+        planilha_ordens = gc.open("DADOS-CRIAR-ORDENS")
         todas_abas = planilha_ordens.worksheets()
         lista_ordens = []
 
