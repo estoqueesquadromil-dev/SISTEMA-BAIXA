@@ -211,14 +211,13 @@ def consultar_movimentacao():
         lista_itens = []
 
         for aba in todas_abas:
-            nome_aba = aba.title.strip()
-            if ' ' in nome_aba:
-                nome_aba = nome_aba.split(' ')[0]
-            if 'T' in nome_aba:
-                nome_aba = nome_aba.split('T')[0]
+            nome_aba_original = aba.title.strip()
+            aba_data_str = nome_aba_original.split(' ')[0]
+            if 'T' in aba_data_str:
+                aba_data_str = aba_data_str.split('T')[0]
 
             try:
-                data_aba = datetime.strptime(nome_aba, '%Y-%m-%d')
+                data_aba = datetime.strptime(aba_data_str, '%Y-%m-%d')
                 if data_inicio <= data_aba <= data_fim:
                     linhas = aba.get_all_values()
                     if not linhas or len(linhas) < 2:
@@ -235,7 +234,7 @@ def consultar_movimentacao():
                         if "ID" in cabecalhos and len(row) > cabecalhos.index("ID"):
                             row_id = str(row[cabecalhos.index("ID")]).strip()
                         if not row_id:
-                            row_id = f"{nome_aba}_{index}"
+                            row_id = f"{aba_data_str}_{index}"
                         
                         codigo_val = ''
                         for h in ["CÓDIGO", "CODIGO"]:
@@ -271,12 +270,12 @@ def consultar_movimentacao():
 
                         lista_itens.append({
                             "ID": row_id,
-                            "Data": nome_aba,
+                            "Data": aba_data_str,
                             "Código": codigo_val,
                             "Quantidade": qtd_val,
                             "Tipo": tipo_val,
                             "Status": status_val,
-                            "Aba": nome_aba,
+                            "Aba": nome_aba_original,
                             "Linha": index + 1
                         })
             except ValueError:
@@ -782,8 +781,8 @@ def listar_ordens_criadas():
         lista_ordens = []
 
         for aba in todas_abas:
-            nome_aba = aba.title.strip()
-            aba_data_str = nome_aba.split(' ')[0]
+            nome_aba_original = aba.title.strip()
+            aba_data_str = nome_aba_original.split(' ')[0]
             if 'T' in aba_data_str:
                 aba_data_str = aba_data_str.split('T')[0]
 
@@ -805,7 +804,7 @@ def listar_ordens_criadas():
                         if "ID" in cabecalhos and len(row) > cabecalhos.index("ID"):
                             row_id = str(row[cabecalhos.index("ID")]).strip()
                         if not row_id:
-                            row_id = f"{nome_aba}_{index}"
+                            row_id = f"{aba_data_str}_{index}"
 
                         codigo_principal = ''
                         for h in ["CÓDIGO PRINCIPAL", "CODIGO PRINCIPAL", "CÓDIGO", "CODIGO"]:
@@ -832,7 +831,7 @@ def listar_ordens_criadas():
 
                         lista_ordens.append({
                             "id": row_id,
-                            "data": nome_aba,
+                            "data": aba_data_str,
                             "codigoPrincipal": codigo_principal,
                             "quantidadeOrdem": qtd_ordem,
                             "feito": feito_val
