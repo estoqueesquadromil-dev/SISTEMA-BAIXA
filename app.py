@@ -264,12 +264,11 @@ def consultar_movimentacao():
                         if tipo_val == 'Baixa Diaria' and len(row) > 4:
                             tipo_val = str(row[4]).strip()
 
-                        status_val = 'Não'
+                        # Lê o valor exato da célula de STATUS sem forçar 'Não' por padrão
+                        status_val = ''
                         for h in ["STATUS"]:
                             if h in cabecalhos and len(row) > cabecalhos.index(h):
-                                val_col = str(row[cabecalhos.index(h)]).strip()
-                                if val_col:
-                                    status_val = val_col
+                                status_val = str(row[cabecalhos.index(h)]).strip()
                                 break
 
                         lista_itens.append({
@@ -289,7 +288,6 @@ def consultar_movimentacao():
     
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
 
 
 
