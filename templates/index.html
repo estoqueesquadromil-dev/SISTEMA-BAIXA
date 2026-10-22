@@ -337,7 +337,6 @@
             <label for="input-codigo-ordem"><strong>Digite ou selecione o Código / Descrição:</strong></label>
             <input type="text" id="input-codigo-ordem" class="form-control" placeholder="Digite para buscar produto ou descrição..." style="width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box;">
             
-            <!-- Caixa de sugestões flutuante -->
             <div id="resultados-busca-ordem" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; max-height: 200px; overflow-y: auto; z-index: 1000; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);"></div>
         </div>
         <div style="flex: 1;">
@@ -413,7 +412,7 @@
         </div>
 
         <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-            <button class="btn btn-primary" onclick="filtrarOrdensProducao()" style="padding: 8px 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Filtrar</button>
+            <button class="btn btn-primary" onclick="carregarOrdensCriadas()" style="padding: 8px 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Filtrar</button>
             <button class="btn btn-success" onclick="baixarExcelOrdens()" style="padding: 8px 16px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Baixar Excel</button>
             <button class="btn btn-secondary" onclick="abrirLixeiraOrdens()" style="padding: 8px 16px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Ver Lixeira</button>
         </div>
@@ -437,6 +436,7 @@
         </div>
     </div>
 </div>
+    
 <!-- ======================================================== -->
         <!-- BLOCO DE ORDENS CRIADAS E LIXEIRA (DENTRO DA ABA ORDENS) -->
         <!-- ======================================================== -->
@@ -2136,7 +2136,6 @@ async function carregarOrdensCriadas() {
     let dataFim = document.getElementById('filtro-data-fim-ordem') ? document.getElementById('filtro-data-fim-ordem').value : '';
     let statusFiltro = document.getElementById('filtro-status-ordem') ? document.getElementById('filtro-status-ordem').value : 'Todos';
     
-    // Valida se as datas estão preenchidas
     if (!dataInicio || !dataFim) {
         let tbody = document.querySelector('#tabela-ordens-criadas tbody');
         if (tbody) {
@@ -2160,12 +2159,11 @@ async function carregarOrdensCriadas() {
             return;
         }
 
-        // Filtra as ordens com base na seleção do usuário (Todos, Sim, Não)
         let ordensFiltradas = dados.ordens.filter(ordem => {
             let isFeito = ordem.feito === true || ordem.feito === 'Sim' || ordem.feito === 'TRUE';
             if (statusFiltro === 'Não' || statusFiltro === 'pendentes') return !isFeito;
             if (statusFiltro === 'Sim' || statusFiltro === 'feitos') return isFeito;
-            return true; // 'Todos'
+            return true;
         });
 
         if (ordensFiltradas.length === 0) {
@@ -2195,6 +2193,7 @@ async function carregarOrdensCriadas() {
         console.error(err);
     }
 }
+
     
     
     // Salva o check diretamente na planilha via backend
