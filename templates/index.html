@@ -1121,7 +1121,7 @@ function renderizarTabelaConsulta(itens) {
         let codigoLinha = item.Código || item.CODIGO || '';
         let qtdLinha = parseInt(item.Quantidade || item.QUANTIDADE || 1);
         let tipoLinha = item.Tipo || item.TIPO || 'Baixa Diaria';
-        let statusLinha = item.Status || item.STATUS || 'Não';
+        let statusLinha = item.Status || item.STATUS || '';
 
         let statusErpTexto = "Não informado";
         let corStatusErp = "#e0a800";
