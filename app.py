@@ -231,8 +231,6 @@ def consultar_movimentacao():
                         if not any(row):
                             continue
                         
-                        # Extrai o ID real da planilha (ou cria fallback se não existir)
-                        linha_planilha = index + 1
                         row_id = ''
                         if "ID" in cabecalhos and len(row) > cabecalhos.index("ID"):
                             row_id = str(row[cabecalhos.index("ID")]).strip()
@@ -264,7 +262,7 @@ def consultar_movimentacao():
                         if tipo_val == 'Baixa Diaria' and len(row) > 4:
                             tipo_val = str(row[4]).strip()
 
-                        # LÊ O VALOR REAL DA COLUNA STATUS SEM FORÇAR "Não" QUANDO VAZIO
+                        # Lê o valor real do status sem forçar "Não" se estiver vazio
                         status_val = ''
                         for h in ["STATUS"]:
                             if h in cabecalhos and len(row) > cabecalhos.index(h):
@@ -779,14 +777,12 @@ def listar_ordens_criadas():
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
 
-        # Certifique-se de que NOME_PLANILHA_ORDENS aponta para a planilha correta de ordens
         planilha_ordens = gc.open(NOME_PLANILHA_ORDENS)
         todas_abas = planilha_ordens.worksheets()
         lista_ordens = []
 
         for aba in todas_abas:
             nome_aba = aba.title.strip()
-            # Tenta converter o nome da aba (ou parte dela) para data
             aba_data_str = nome_aba.split(' ')[0]
             if 'T' in aba_data_str:
                 aba_data_str = aba_data_str.split('T')[0]
@@ -805,7 +801,6 @@ def listar_ordens_criadas():
                         if not any(row):
                             continue
                         
-                        # Extrai os dados da linha de ordem conforme a sua estrutura
                         row_id = ''
                         if "ID" in cabecalhos and len(row) > cabecalhos.index("ID"):
                             row_id = str(row[cabecalhos.index("ID")]).strip()
@@ -849,6 +844,8 @@ def listar_ordens_criadas():
     
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
 
 
 # Nova rota para alternar o status de "Feito" diretamente na linha da planilha
