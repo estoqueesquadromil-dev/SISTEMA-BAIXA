@@ -102,7 +102,13 @@ def salvar_lote():
             codigo = item.get('CODIGO', '')
             quantidade = int(item.get('QUANTIDADE', 1))
             tipo = item.get('TIPO', 'Baixa Diaria')
-            status = 'Não'
+            
+            # Ajuste: Se o tipo for Aproveitamento de Sucata, o status começa vazio ("")
+            if tipo == 'Aproveitamento de Sucata':
+                status = ''
+            else:
+                status = 'Não'
+                
             inventario_feito = 'Não'
             
             # Gera um ID único curto para esta linha específica
