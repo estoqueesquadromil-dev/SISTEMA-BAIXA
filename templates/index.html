@@ -387,7 +387,7 @@
     
     <button id="btn-salvar-ordem" onclick="salvarOrdemProducao()" class="btn btn-success" style="display: none; padding: 10px 20px; background-color: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 4px; margin-bottom: 25px;">💾 Salvar Ordem</button>
 
-    <!-- SEÇÃO DE CONSULTA E FILTROS DE ORDENS DE PRODUÇÃO CRIADAS -->
+    <!-- SEÇÃO DE CONSULTA E FILTROS DE ORDENS DE PRODUÇÃO CRIADAS (ÚNICA E CORRETA) -->
     <div style="margin-top: 30px; border-top: 2px solid #ddd; padding-top: 20px;">
         <h3>Ordens de Produção Criadas</h3>
 
@@ -414,7 +414,7 @@
         <div style="display: flex; gap: 10px; margin-bottom: 20px;">
             <button class="btn btn-primary" onclick="carregarOrdensCriadas()" style="padding: 8px 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Filtrar</button>
             <button class="btn btn-success" onclick="baixarExcelOrdens()" style="padding: 8px 16px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Baixar Excel</button>
-            <button class="btn btn-secondary" onclick="abrirLixeiraOrdens()" style="padding: 8px 16px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Ver Lixeira</button>
+            <button class="btn btn-secondary" onclick="toggleSecaoLixeira()" style="padding: 8px 16px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Ver Lixeira</button>
         </div>
 
         <!-- TABELA DE ORDENS CONSULTADAS -->
@@ -434,75 +434,28 @@
                 </tbody>
             </table>
         </div>
-    </div>
-</div>
-    
-<!-- ======================================================== -->
-        <!-- BLOCO DE ORDENS CRIADAS E LIXEIRA (DENTRO DA ABA ORDENS) -->
-        <!-- ======================================================== -->
-        <div style="margin-top: 40px; border-top: 2px solid #dee2e6; padding-top: 25px; background-color: #fafafa; padding: 20px; border-radius: 8px; border: 1px solid #e3e6f0;">
-            <h3 style="margin-top: 0; color: #333;">Ordens de Produção Criadas</h3>
-            
-            <!-- Filtros e Botões de Ação -->
-            <div style="margin: 15px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <label for="filtro-data-ordens">Filtrar por Data:</label>
-                <input type="date" id="filtro-data-ordens" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
 
-                <select id="filtro-status-ordens" style="padding: 7px; border: 1px solid #ccc; border-radius: 4px;">
-                    <option value="todos">Todos os Status</option>
-                    <option value="pendentes">Faltam Fazer (Pendentes)</option>
-                    <option value="feitos">Já Feitos</option>
-                </select>
-
-                <button onclick="carregarOrdensCriadas()" style="padding: 6px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Filtrar</button>
-                <button onclick="baixarExcelOrdensCriadas()" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Baixar Excel</button>
-                
-                <button onclick="toggleSecaoLixeira()" style="padding: 6px 12px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🗑️ Ver Lixeira</button>
-            </div>
-
-            <!-- Tabela de Ordens Criadas -->
+        <!-- Secção Oculta/Visível da Lixeira -->
+        <div id="secao-lixeira" style="display: none; margin-top: 25px; padding: 15px; border: 1px solid #ccc; background: #fff3f3; border-radius: 6px;">
+            <h3 style="margin-top: 0; color: #dc3545;">Ordens na Lixeira</h3>
             <div style="overflow-x: auto;">
-                <table id="tabela-ordens-criadas" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white;">
+                <table id="tabela-lixeira" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white;">
                     <thead>
                         <tr style="background-color: #f8f9fa; text-align: left;">
-                            <th style="width: 50px; padding: 10px; border: 1px solid #ddd; text-align: center;">Feito</th>
-                            <th style="padding: 10px; border: 1px solid #ddd;">Data</th>
+                            <th style="padding: 10px; border: 1px solid #ddd;">Data Original</th>
                             <th style="padding: 10px; border: 1px solid #ddd;">Código Principal</th>
                             <th style="padding: 10px; border: 1px solid #ddd;">Quantidade Ordem</th>
-                            <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Ações</th>
+                            <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Ações Definitivas</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td colspan="5" style="text-align: center; color: #777; padding: 15px;">Carregando ordens...</td>
-                        </tr>
+                        <tr><td colspan="4" style="text-align: center; color: #777; padding: 15px;">A carregar lixeira...</td></tr>
                     </tbody>
                 </table>
             </div>
-
-            <!-- Secção Oculta/Visível da Lixeira (DENTRO DA ABA ORDENS) -->
-            <div id="secao-lixeira" style="display: none; margin-top: 25px; padding: 15px; border: 1px solid #ccc; background: #fff3f3; border-radius: 6px;">
-                <h3 style="margin-top: 0; color: #dc3545;">Ordens na Lixeira</h3>
-                <div style="overflow-x: auto;">
-                    <table id="tabela-lixeira" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white;">
-                        <thead>
-                            <tr style="background-color: #f8f9fa; text-align: left;">
-                                <th style="padding: 10px; border: 1px solid #ddd;">Data Original</th>
-                                <th style="padding: 10px; border: 1px solid #ddd;">Código Principal</th>
-                                <th style="padding: 10px; border: 1px solid #ddd;">Quantidade Ordem</th>
-                                <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Ações Definitivas</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr><td colspan="4" style="text-align: center; color: #777; padding: 15px;">A carregar lixeira...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </div>
-    </div> <!-- FIM DO PAINEL ORDENS -->
-
-
+    </div>
+</div>
 
 
     
