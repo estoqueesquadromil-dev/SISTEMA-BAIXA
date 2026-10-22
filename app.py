@@ -765,46 +765,88 @@ def salvar_ordem_producao():
 
 @app.route('/listar_ordens_criadas', methods=['GET'])
 def listar_ordens_criadas():
+    inicio_str = request.args.get('inicio')
+    fim_str = request.args.get('fim')
+    
+    if not inicio_str or not fim_str:
+        return jsonify({'sucesso': False, 'mensagem': 'Data de início e fim são obrigatórias.'}), 400
+    
     try:
-        data_filtro = request.args.get('data', '').strip()
+        data_inicio = datetime.strptime(inicio_str.strip(), '%Y-%m-%d')
+        data_fim = datetime.strptime(fim_str.strip(), '%Y-%m-%d')
+        
         gc = conectar_google_sheets()
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
-        
-        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
-        todas_abas = planilha.worksheets()
+
+        # Certifique-se de que NOME_PLANILHA_ORDENS aponta para a planilha correta de ordens
+        planilha_ordens = gc.open(NOME_PLANILHA_ORDENS)
+        todas_abas = planilha_ordens.worksheets()
         lista_ordens = []
-        
+
         for aba in todas_abas:
             nome_aba = aba.title.strip()
-            
-            if data_filtro and nome_aba != data_filtro:
-                continue
-                
+            # Tenta converter o nome da aba (ou parte dela) para data
+            aba_data_str = nome_aba.split(' ')[0]
+            if 'T' in aba_data_str:
+                aba_data_str = aba_data_str.split('T')[0]
+
             try:
-                datetime.strptime(nome_aba, '%Y-%m-%d')
+                data_aba = datetime.strptime(aba_data_str, '%Y-%m-%d')
+                if data_inicio <= data_aba <= data_fim:
+                    linhas = aba.get_all_values()
+                    if not linhas or len(linhas) < 2:
+                        continue
+                    
+                    cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+                    
+                    for index in range(1, len(linhas)):
+                        row = linhas[index]
+                        if not any(row):
+                            continue
+                        
+                        # Extrai os dados da linha de ordem conforme a sua estrutura
+                        row_id = ''
+                        if "ID" in cabecalhos and len(row) > cabecalhos.index("ID"):
+                            row_id = str(row[cabecalhos.index("ID")]).strip()
+                        if not row_id:
+                            row_id = f"{nome_aba}_{index}"
+
+                        codigo_principal = ''
+                        for h in ["CÓDIGO PRINCIPAL", "CODIGO PRINCIPAL", "CÓDIGO", "CODIGO"]:
+                            if h in cabecalhos and len(row) > cabecalhos.index(h):
+                                codigo_principal = str(row[cabecalhos.index(h)]).strip()
+                                break
+
+                        qtd_ordem = 1
+                        for h in ["QUANTIDADE", "QUANTIDADE ORDEM"]:
+                            if h in cabecalhos and len(row) > cabecalhos.index(h):
+                                try:
+                                    qtd_ordem = int(float(str(row[cabecalhos.index(h)]).replace(',', '.')))
+                                except:
+                                    qtd_ordem = 1
+                                break
+
+                        feito_val = False
+                        for h in ["FEITO", "STATUS"]:
+                            if h in cabecalhos and len(row) > cabecalhos.index(h):
+                                val = str(row[cabecalhos.index(h)]).strip()
+                                if val.lower() in ['sim', 'true', '1', 'feito']:
+                                    feito_val = True
+                                break
+
+                        lista_ordens.append({
+                            "id": row_id,
+                            "data": nome_aba,
+                            "codigoPrincipal": codigo_principal,
+                            "quantidadeOrdem": qtd_ordem,
+                            "feito": feito_val
+                        })
             except ValueError:
-                continue 
-            
-            registos = aba.get_all_records()
-            for index, r in enumerate(registos):
-                linha_planilha = index + 2
-                codigo_principal = str(r.get('CodigoPrincipal') or r.get('Código Principal') or '').strip()
-                qtd_ordem = r.get('QuantidadeOrdem') or r.get('Quantidade Ordem') or 0
-                status_feito = str(r.get('Status') or r.get('Feito') or '').strip().lower() in ['true', 'sim', '1', 'yes', 'feito']
-                
-                if not codigo_principal:
-                    continue
-                
-                lista_ordens.append({
-                    "id": f"{nome_aba}|{linha_planilha}",
-                    "data": nome_aba,
-                    "codigoPrincipal": codigo_principal,
-                    "quantidadeOrdem": qtd_ordem,
-                    "feito": status_feito
-                })
-                
+                continue
+
         return jsonify({'sucesso': True, 'ordens': lista_ordens})
+    
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
 
