@@ -475,7 +475,7 @@
             
             <div style="flex: 2; min-width: 220px;">
                 <label for="perda-tipo" style="display: block; margin-bottom: 5px; font-weight: bold;">Tipo de Perda:</label>
-                <select id="perda-tipo" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <select id="perda-tipo" onchange="verificarTipoPerda(this)" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
                     <option value="Transporte">Transporte</option>
                     <option value="Defeito">Defeito</option>
                     <option value="Produção">Produção</option>
@@ -488,9 +488,12 @@
                     <option value="BJ05">BJ05</option>
                     <option value="BJ06L">BJ06L</option>
                     <option value="Sucata Baguete">Sucata Baguete</option>
+                    <option value="VB22">VB22</option>
+                    <option value="VC22">VC22</option>
+                    <option value="VF22">VF22</option>
+                    <option value="VI22">VI22</option>
                 </select>
-            </div>
-            
+            </div>            
             <div style="flex: 1; min-width: 120px;">
                 <label for="perda-qtd" style="display: block; margin-bottom: 5px; font-weight: bold;">Quantidade:</label>
                 <input type="text" id="perda-qtd" value="1,200" placeholder="Ex: 1,200" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
@@ -507,6 +510,24 @@
         </div>
     </div>
 
+
+    <div id="container-medidas-vidro" style="display: none; width: 100%; margin-top: 15px; background: #eef4fc; padding: 12px; border-radius: 6px; border: 1px solid #cce0f5; align-items: center; gap: 15px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 130px;">
+            <label style="font-size: 13px; font-weight: bold; color: #0056b3;">Medida 1:</label>
+            <input type="text" id="vidro-medida1" placeholder="Ex: 1,25" oninput="calcularMetroQuadradoVidro()" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+        </div>
+        <div style="font-weight: bold; font-size: 18px; color: #555; padding-top: 20px;">X</div>
+        <div style="flex: 1; min-width: 130px;">
+            <label style="font-size: 13px; font-weight: bold; color: #0056b3;">Medida 2:</label>
+            <input type="text" id="vidro-medida2" placeholder="Ex: 2,50" oninput="calcularMetroQuadradoVidro()" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+        </div>
+        <div style="flex: 1; min-width: 180px; text-align: center; background: white; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+            <span style="font-size: 11px; font-weight: bold; color: #666; display: block;">TOTAL METRO QUADRADO (m²):</span>
+            <span id="preview-m2" style="font-size: 16px; font-weight: bold; color: #28a745;">0,000</span>
+        </div>
+    </div>
+
+    
     <!-- Tabela Temporária (Lote Pendente) -->
     <div style="margin-top: 20px;">
         <h4>Itens Adicionados para Salvar</h4>
@@ -761,37 +782,88 @@ function toggleSecaoLixeira() {
 
 
 
+// Controla a exibição dos campos de medida quando seleciona VI22
+function verificarTipoPerda(selectEl) {
+    let tipo = selectEl.value;
+    let containerVidro = document.getElementById('container-medidas-vidro');
+    let grupoQtd = document.getElementById('perda-qtd').closest('div'); // Grupo do input de quantidade normal
+
+    if (tipo === 'VI22') {
+        containerVidro.style.display = 'flex';
+        if (grupoQtd) grupoQtd.style.display = 'none'; // Oculta o campo de quantidade comum
+    } else {
+        containerVidro.style.display = 'none';
+        if (grupoQtd) grupoQtd.style.display = 'block'; // Mostra o campo de quantidade comum
+    }
+}
+
+// Calcula em tempo real o metro quadrado e atualiza o painel visual
+function calcularMetroQuadradoVidro() {
+    let m1Str = document.getElementById('vidro-medida1').value.replace(',', '.');
+    let m2Str = document.getElementById('vidro-medida2').value.replace(',', '.');
+    
+    let m1 = parseFloat(m1Str) || 0;
+    let m2 = parseFloat(m2Str) || 0;
+    
+    let totalM2 = m1 * m2;
+    
+    document.getElementById('preview-m2').textContent = totalM2.toLocaleString('pt-BR', {minimumFractionDigits: 3, maximumFractionDigits: 3});
+}
+
+// Atualize a função de adicionar item para processar o VI22 com base no cálculo dos m²
 function adicionarItemPerdaTemp() {
     let data = document.getElementById('perda-data').value;
     let tipo = document.getElementById('perda-tipo').value;
-    
-    let rawInput = document.getElementById('perda-qtd').value.trim();
-    if (!rawInput) {
-        alert('Por favor, informe a quantidade!');
-        return;
-    }
-
-    // Substitui vírgula por ponto e converte para float
-    let valorTratado = rawInput.replace(',', '.');
-    let qtd = parseFloat(valorTratado);
-
-    if (isNaN(qtd) || qtd <= 0) {
-        alert('Por favor, informe uma quantidade válida maior que zero!');
-        return;
-    }
-
-    let perfilCheckbox = document.getElementById('perda-perfil').checked;
-    let perfil = perfilCheckbox ? 'Sim' : 'Não';
+    let qtd = 0;
 
     if (!data) {
         alert('Por favor, informe a data!');
         return;
     }
 
+    // Se o tipo for VI22, a quantidade é o resultado dos dois campos de medidas multiplicados
+    if (tipo === 'VI22') {
+        let m1Str = document.getElementById('vidro-medida1').value.replace(',', '.');
+        let m2Str = document.getElementById('vidro-medida2').value.replace(',', '.');
+        let m1 = parseFloat(m1Str) || 0;
+        let m2 = parseFloat(m2Str) || 0;
+        
+        qtd = m1 * m2;
+
+        if (qtd <= 0) {
+            alert('Por favor, informe medidas válidas para calcular o metro quadrado do vidro!');
+            return;
+        }
+    } else {
+        let rawInput = document.getElementById('perda-qtd').value.trim();
+        if (!rawInput) {
+            alert('Por favor, informe a quantidade!');
+            return;
+        }
+        let valorTratado = rawInput.replace(',', '.');
+        qtd = parseFloat(valorTratado);
+
+        if (isNaN(qtd) || qtd <= 0) {
+            alert('Por favor, informe uma quantidade válida maior que zero!');
+            return;
+        }
+    }
+
+    let perfilCheckbox = document.getElementById('perda-perfil').checked;
+    let perfil = perfilCheckbox ? 'Sim' : 'Não';
+
     listaPerdasTemp.push({ data, tipo, quantidade: qtd, perfil });
     atualizarTabelaLotePerdas();
-}
 
+    // Limpa os campos após adicionar
+    if (tipo === 'VI22') {
+        document.getElementById('vidro-medida1').value = '';
+        document.getElementById('vidro-medida2').value = '';
+        document.getElementById('preview-m2').textContent = '0,000';
+    } else {
+        document.getElementById('perda-qtd').value = '1';
+    }
+}
 
     
     function removerItemPerdaTemp(index) {
