@@ -2654,6 +2654,33 @@ async function carregarDadosBaguetes() {
     }
 }
 
+
+
+function atualizarTabelaLotePerdas() {
+    let tbody = document.querySelector('#tabela-lote-perdas tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (listaPerdasTemp.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777; padding: 12px;">Nenhum item adicionado ao lote.</td></tr>';
+        return;
+    }
+
+    listaPerdasTemp.forEach((item, index) => {
+        let tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="padding: 8px; border: 1px solid #ddd;">${item.data}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${item.tipo}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${Number(item.quantidade).toFixed(3)}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${item.perfil}</td>
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
+                <button onclick="removerItemPerdaTemp(${index})" style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">Excluir</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
     
 </script>
 
