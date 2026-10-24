@@ -2709,6 +2709,31 @@ function alternarTodasOrdens(master) {
         }
     });
 }
+
+
+
+async function removerDefinitivoLixeira(idItem) {
+    if (!confirm('Tem certeza que deseja excluir este item definitivamente?')) return;
+    
+    try {
+        let resp = await fetch('/remover_definitivo_lixeira', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: idItem })
+        });
+        let data = await resp.json();
+        if (data.sucesso) {
+            carregarLixeira(); // Atualiza a tabela da lixeira
+        } else {
+            alert('Erro: ' + data.mensagem);
+        }
+    } catch (err) {
+        alert('Erro de comunicação com o servidor.');
+    }
+}
+
+
+
     
 </script>
 
