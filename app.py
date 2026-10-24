@@ -1217,42 +1217,6 @@ def mover_para_lixeira():
 
 
 
-@app.route('/listar_lixeira', methods=['GET'])
-def listar_lixeira():
-    try:
-        gc = conectar_google_sheets()
-        if not gc:
-            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão.'}), 500
-            
-        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
-        try:
-            aba_lixeira = planilha.worksheet("LIXEIRA")
-        except gspread.exceptions.WorksheetNotFound:
-            return jsonify({'sucesso': True, 'ordens': []})
-            
-        registos = aba_lixeira.get_all_records()
-        lista_lixeira = []
-        
-        for index, r in enumerate(registos):
-            linha_planilha = index + 2
-            data_orig = str(r.get('Data') or r.get('Data Original') or '').strip()
-            codigo = str(r.get('CodigoPrincipal') or r.get('Código Principal') or '').strip()
-            qtd = r.get('QuantidadeOrdem') or r.get('Quantidade Ordem') or 0
-            
-            if not codigo:
-                continue
-                
-            lista_lixeira.append({
-                "id": f"LIXEIRA|{linha_planilha}",
-                "data": data_orig,
-                "codigoPrincipal": codigo,
-                "quantidadeOrdem": qtd
-            })
-            
-        return jsonify({'sucesso': True, 'ordens': lista_lixeira})
-    except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
 
 @app.route('/excluir_definitivo', methods=['POST'])
 def excluir_definitivo():
@@ -1860,5 +1824,87 @@ def consultar_baguetes_periodo():
 
         return jsonify({'sucesso': True, 'perdas': lista_perdas, 'sucatas': lista_sucatas})
     
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
+
+@app.route('/atualizar_status_lote', methods=['POST'])
+def atualizar_status_lote():
+    try:
+        dados = request.get_json()
+        ids = dados.get('ids', [])
+        feito_val = dados.get('feito', False)
+        
+        if not ids:
+            return jsonify({'sucesso': False, 'mensagem': 'Nenhum ID fornecido.'}), 400
+            
+        gc = conectar_google_sheets()
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+        
+        ids_restantes = set(ids)
+        
+        for aba in planilha.worksheets():
+            if not ids_restantes:
+                break
+            if aba.title.upper() in ["LIXEIRA", "DADOS"]:
+                continue
+                
+            linhas = aba.get_all_values()
+            if not linhas or len(linhas) < 2:
+                continue
+                
+            cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+            if "ID" not in cabecalhos:
+                continue
+                
+            col_id_idx = cabecalhos.index("ID") + 1
+            col_status_idx = None
+            for h in ["STATUS", "FEITO"]:
+                if h in cabecalhos:
+                    col_status_idx = cabecalhos.index(h) + 1
+                    break
+            if not col_status_idx:
+                col_status_idx = len(cabecalhos) + 1
+                aba.update_cell(1, col_status_idx, "Status")
+                
+            for idx, row in enumerate(linhas[1:], start=2):
+                val_id = str(row[col_id_idx - 1]).strip() if len(row) >= col_id_idx else ""
+                if val_id in ids_restantes:
+                    aba.update_cell(idx, col_status_idx, "Sim" if feito_val else "Não")
+                    ids_restantes.remove(val_id)
+                    
+        return jsonify({'sucesso': True, 'mensagem': 'Lote atualizado com sucesso!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+@app.route('/listar_lixeira', methods=['GET'])
+def listar_lixeira():
+    try:
+        gc = conectar_google_sheets()
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+        try:
+            aba_lixeira = planilha.worksheet("LIXEIRA")
+        except:
+            return jsonify({'sucesso': True, 'itens': []})
+            
+        linhas = aba_lixeira.get_all_values()
+        if not linhas or len(linhas) < 2:
+            return jsonify({'sucesso': True, 'itens': []})
+            
+        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+        itens = []
+        for row in linhas[1:]:
+            if not any(row):
+                continue
+            itens.append({
+                "id": row[cabecalhos.index("ID")] if "ID" in cabecalhos and len(row) > cabecalhos.index("ID") else "",
+                "data": row[cabecalhos.index("DATA")] if "DATA" in cabecalhos and len(row) > cabecalhos.index("DATA") else "",
+                "codigoPrincipal": row[cabecalhos.index("CÓDIGO PRINCIPAL")] if "CÓDIGO PRINCIPAL" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO PRINCIPAL") else "",
+                "quantidadeOrdem": row[cabecalhos.index("QUANTIDADE ORDEM")] if "QUANTIDADE ORDEM" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE ORDEM") else ""
+            })
+        return jsonify({'sucesso': True, 'itens': itens})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
