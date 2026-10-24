@@ -2390,11 +2390,10 @@ async function carregarLixeira() {
                 tbody.appendChild(tr);
             });
         }
-    } cột (err) {
+    } catch (err) {
         tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: red; padding: 15px;">Erro ao carregar lixeira.</td></tr>';
     }
 }
-
     
 async function excluirDefinitivo(id) {
     if (!confirm('ATENÇÃO: Esta ação é irreversível. Deseja excluir esta ordem permanentemente?')) return;
