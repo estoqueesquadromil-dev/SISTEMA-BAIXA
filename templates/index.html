@@ -965,6 +965,7 @@ async function consultarPerdasServidor() {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777; padding: 15px;">Nenhum registo encontrado com os filtros selecionados.</td></tr>';
         } else {
             // Localize isto dentro da função consultarPerdasServidor()
+            // Localize isto dentro da função consultarPerdasServidor()
             dados.itens.forEach(item => {
                 let qtdNum = parseFloat(String(item.Quantidade).replace(',', '.')) || 0;
             
@@ -2206,11 +2207,12 @@ async function carregarOrdensCriadas() {
             return;
         }
 
+// Localize a parte onde as ordens são desenhadas na tabela em carregarOrdensCriadas()
         ordensFiltradas.forEach(ordem => {
             let tr = document.createElement('tr');
             let isFeito = ordem.feito === true || ordem.feito === 'Sim' || ordem.feito === 'TRUE';
             tr.style.cssText = isFeito ? 'background-color: #e8f5e9; text-decoration: line-through; color: #666;' : '';
-
+        
             tr.innerHTML = `
                 <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
                     <input type="checkbox" ${isFeito ? 'checked' : ''} onchange="atualizarStatusPlanilha('${ordem.id}', this.checked)">
@@ -2224,6 +2226,7 @@ async function carregarOrdensCriadas() {
             `;
             tbody.appendChild(tr);
         });
+        
     } catch (err) {
         console.error(err);
     }
@@ -2317,6 +2320,7 @@ async function excluirPerdaServidor(data, idPerda) {
     }
 }
 
+    
 async function moverParaLixeira(id, dataOrdem, codigoOrdem) {
     if (!confirm('Tem a certeza que deseja mover esta ordem para a lixeira?')) return;
 
