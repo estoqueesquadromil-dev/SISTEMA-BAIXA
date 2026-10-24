@@ -711,7 +711,7 @@ def buscar_dados_ordens():
 def salvar_ordem_producao():
     try:
         dados = request.get_json()
-        data_hoje = dados.get('data') # formato YYYY-MM-DD
+        data_hoje = dados.get('data')
         itens_ordem = dados.get('itens', [])
         
         if not data_hoje or not itens_ordem:
@@ -723,15 +723,14 @@ def salvar_ordem_producao():
             
         planilha = gc.open(PLANILHA_CRIAR_ORDENS)
         
-        # Verifica se já existe uma aba com a data do dia, senão cria uma nova
+        import uuid
         try:
             aba_dia = planilha.worksheet(data_hoje)
         except:
             aba_dia = planilha.add_worksheet(title=data_hoje, rows="1000", cols="5")
-            # Adiciona o cabeçalho limpo na aba nova (apenas 3 colunas)
-            aba_dia.append_row(["Data", "Código Principal", "Quantidade Ordem"])
+            # Adicionamos "ID" na primeira coluna da ordem
+            aba_dia.append_row(["ID", "Data", "Código Principal", "Quantidade Ordem", "Status"])
             
-        # Agrupa os itens para garantir que salvamos apenas uma linha única por Código Principal/Ordem
         ordens_unicas = {}
         for item in itens_ordem:
             cod_prin = item.get('CodigoPrincipal', '')
@@ -739,17 +738,20 @@ def salvar_ordem_producao():
             if cod_prin:
                 ordens_unicas[cod_prin] = qtd_ord
 
-        # Adiciona apenas uma linha limpa por ordem única na aba do dia
         for cod_prin, qtd_ord in ordens_unicas.items():
+            row_id = str(uuid.uuid4())[:8] # ID único para a ordem
             aba_dia.append_row([
+                row_id,
                 data_hoje,
                 cod_prin,
-                qtd_ord
+                qtd_ord,
+                "Não"
             ])
             
         return jsonify({'sucesso': True, 'mensagem': f'Ordem de produção registada com sucesso na aba {data_hoje}!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
 
 
 # ==========================================
@@ -776,12 +778,15 @@ def listar_ordens_criadas():
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
 
-        planilha_ordens = gc.open("DADOS-CRIAR-ORDENS")
+        planilha_ordens = gc.open(PLANILHA_CRIAR_ORDENS)
         todas_abas = planilha_ordens.worksheets()
         lista_ordens = []
 
         for aba in todas_abas:
             nome_aba_original = aba.title.strip()
+            if nome_aba_original.upper() == "LIXEIRA":
+                continue
+                
             aba_data_str = nome_aba_original.split(' ')[0]
             if 'T' in aba_data_str:
                 aba_data_str = aba_data_str.split('T')[0]
@@ -800,11 +805,14 @@ def listar_ordens_criadas():
                         if not any(row):
                             continue
                         
+                        # Lê diretamente o ID único da coluna ID gerada na planilha
                         row_id = ''
                         if "ID" in cabecalhos and len(row) > cabecalhos.index("ID"):
                             row_id = str(row[cabecalhos.index("ID")]).strip()
+                        
+                        # Fallback de segurança caso a linha antiga não tenha ID
                         if not row_id:
-                            row_id = f"{aba_data_str}_{index}"
+                            row_id = f"{nome_aba_original}|{index + 1}"
 
                         codigo_principal = ''
                         for h in ["CÓDIGO PRINCIPAL", "CODIGO PRINCIPAL", "CÓDIGO", "CODIGO"]:
@@ -813,7 +821,7 @@ def listar_ordens_criadas():
                                 break
 
                         qtd_ordem = 1
-                        for h in ["QUANTIDADE", "QUANTIDADE ORDEM"]:
+                        for h in ["QUANTIDADE ORDEM", "QUANTIDADE"]:
                             if h in cabecalhos and len(row) > cabecalhos.index(h):
                                 try:
                                     qtd_ordem = int(float(str(row[cabecalhos.index(h)]).replace(',', '.')))
@@ -843,6 +851,7 @@ def listar_ordens_criadas():
     
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
 
 
 
@@ -987,7 +996,7 @@ NOME_PLANILHA_PERDAS = 'Perdas'
 @app.route('/salvar_lote_perdas', methods=['POST'])
 def salvar_lote_perdas():
     dados = request.get_json()
-    data_lancamento = dados.get('data') # Formato YYYY-MM-DD
+    data_lancamento = dados.get('data')
     itens = dados.get('itens', [])
 
     if not data_lancamento or not itens:
@@ -1001,45 +1010,37 @@ def salvar_lote_perdas():
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
 
-        try:
-            planilha_perdas = gc.open(NOME_PLANILHA_PERDAS)
-        except gspread.exceptions.SpreadsheetNotFound:
-            return jsonify({'sucesso': False, 'mensagem': f'A planilha "{NOME_PLANILHA_PERDAS}" não foi encontrada no Google Drive.'}), 500
+        planilha_perdas = gc.open(NOME_PLANILHA_PERDAS)
 
+        import uuid
         try:
             sheet_mes = planilha_perdas.worksheet(nome_aba_mes)
         except gspread.exceptions.WorksheetNotFound:
-            sheet_mes = planilha_perdas.add_worksheet(title=nome_aba_mes, rows="1000", cols="6")
-            sheet_mes.append_row(["Data", "Tipo de Perda", "Quantidade", "Perfil", "Usuário/Registro", "Qtd_Sistema"])
+            # Adicionamos "ID" na primeira coluna para rastreio exato
+            sheet_mes = planilha_perdas.add_worksheet(title=nome_aba_mes, rows="1000", cols="7")
+            sheet_mes.append_row(["ID", "Data", "Tipo de Perda", "Quantidade", "Perfil", "Usuário/Registro", "Qtd_Sistema"])
 
         linhas_para_adicionar = []
         for item in itens:
             tipo_perda = item.get('tipo', '')
-            
             try:
-                raw_val = str(item.get('quantidade', 0)).replace(',', '.').strip()
-                val_float = float(raw_val)
+                val_float = float(str(item.get('quantidade', 0)).replace(',', '.').strip())
             except (ValueError, TypeError):
                 val_float = 0.0
                 
-            # Coluna C (Quantidade pura normal para os seus dashboards e somas)
-            quantidade_pura = val_float
-            
-            # Coluna F (Quantidade protegida com apóstrofe e vírgula para o sistema ler sem erros)
+            row_id = str(uuid.uuid4())[:8] # ID único curto
             quantidade_protegida = f"'{val_float:.3f}".replace('.', ',')
-                
             perfil = item.get('perfil', 'Não')
             
-            # Ordem: Data, Tipo de Perda, Quantidade (C), Perfil, Usuário/Registro, Qtd_Sistema (F)
-            linhas_para_adicionar.append([data_lancamento, tipo_perda, quantidade_pura, perfil, 'Sistema', quantidade_protegida])
+            # Ordem exata com ID na coluna 1
+            linhas_para_adicionar.append([row_id, data_lancamento, tipo_perda, val_float, perfil, 'Sistema', quantidade_protegida])
 
-        # RAW obriga o Google Sheets a aceitar o apóstrofe na Coluna F sem tentar convertê-lo
         sheet_mes.append_rows(linhas_para_adicionar, value_input_option='RAW')
-        
         return jsonify({'sucesso': True, 'mensagem': f'Perdas guardadas com sucesso na aba {nome_aba_mes}!'})
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao salvar perdas: {str(e)}'}), 500
+
 
 
 
@@ -1122,11 +1123,9 @@ def consultar_perdas():
 def excluir_perda():
     dados = request.get_json()
     data_reg = dados.get('data')
-    tipo_reg = dados.get('tipo')
-    quantidade_reg = str(dados.get('quantidade', '')).strip()
-    perfil_reg = str(dados.get('perfil', '')).strip()
-    
-    if not data_reg or not tipo_reg:
+    row_id = str(dados.get('id', '')).strip()
+
+    if not data_reg or not row_id:
         return jsonify({'sucesso': False, 'mensagem': 'Dados insuficientes para exclusão.'}), 400
 
     try:
@@ -1134,50 +1133,30 @@ def excluir_perda():
         nome_aba_mes = data_obj.strftime('%Y-%m')
 
         gc = conectar_google_sheets()
-        if not gc:
-            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
-
-        planilha_perdas = gc.open(NOME_PLANILHA_PERDAS)
-        try:
-            sheet_mes = planilha_perdas.worksheet(nome_aba_mes)
-        except gspread.exceptions.WorksheetNotFound:
-            return jsonify({'sucesso': False, 'mensagem': 'Aba do mês não encontrada.'}), 404
-
-        registos = sheet_mes.get_all_records()
+        sheet_mes = gc.open(NOME_PLANILHA_PERDAS).worksheet(nome_aba_mes)
+        registos = sheet_mes.get_all_values()
         
-        linha_para_apagar = None
-        for i, r in enumerate(registos):
-            d = str(r.get('Data') or r.get('DATA') or '').strip()
-            t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '').strip()
-            
-            # Pega a quantidade da coluna de sistema (F) ou quantidade pura (C)
-            q = str(r.get('Qtd_Sistema') or r.get('QTD_SISTEMA') or r.get('Quantidade') or r.get('QUANTIDADE') or '').replace("'", "").strip()
-            p = str(r.get('Perfil') or r.get('PERFIL') or '').strip()
-            
-            # Compara todos os campos para garantir que é exatamente o item escolhido
-            if d == data_reg and t.lower() == tipo_reg.lower() and q == quantidade_reg and p.lower() == perfil_reg.lower():
-                linha_para_apagar = i + 2  # i + 2 porque o get_all_records exclui o cabeçalho
-                break
+        if not registos or len(registos) < 2:
+            return jsonify({'sucesso': False, 'mensagem': 'Aba vazia.'}), 404
 
-        # Fallback de segurança caso não ache exato por todos os campos (ex: divergência de formatação decimal)
-        if not linha_para_apagar:
-            for i, r in enumerate(registos):
-                d = str(r.get('Data') or r.get('DATA') or '').strip()
-                t = str(r.get('Tipo de Perda') or r.get('TIPO DE PERDA') or '').strip()
-                if d == data_reg and t.lower() == tipo_reg.lower():
-                    linha_para_apagar = i + 2
-                    break
+        cabecalhos = [str(c).strip().upper() for c in registos[0]]
+        col_id_idx = cabecalhos.index("ID") + 1 if "ID" in cabecalhos else 1
+
+        linha_para_apagar = None
+        for i in range(1, len(registos)):
+            val_id = str(registos[i][col_id_idx - 1]).strip() if len(registos[i]) >= col_id_idx else ""
+            if val_id == row_id:
+                linha_para_apagar = i + 1
+                break
 
         if linha_para_apagar:
             sheet_mes.delete_rows(linha_para_apagar)
             return jsonify({'sucesso': True, 'mensagem': 'Perda excluída com sucesso!'})
         else:
-            return jsonify({'sucesso': False, 'mensagem': 'Registo não encontrado na planilha.'}), 404
+            return jsonify({'sucesso': False, 'mensagem': 'Registo não encontrado pelo ID.'}), 404
 
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao excluir: {str(e)}'}), 500
-
-
 
 
 # ==========================================
