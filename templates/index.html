@@ -863,24 +863,6 @@ function adicionarItemPerdaTemp() {
         atualizarTabelaLotePerdas();
     }
 
-ordensFiltradas.forEach(ordem => {
-            let tr = document.createElement('tr');
-            let isFeito = ordem.feito === true || ordem.feito === 'Sim' || ordem.feito === 'TRUE';
-            tr.style.cssText = isFeito ? 'background-color: #e8f5e9; text-decoration: line-through; color: #666;' : '';
-
-            tr.innerHTML = `
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
-                    <input type="checkbox" ${isFeito ? 'checked' : ''} onchange="atualizarStatusPlanilha('${ordem.id}', this.checked)">
-                </td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.data}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.codigoPrincipal}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.quantidadeOrdem}</td>
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
-                    <button onclick="moverParaLixeira('${ordem.id}')" style="background-color: #ffc107; color: #333; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">Mover p/ Lixeira</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
 
 
 
