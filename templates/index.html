@@ -2384,17 +2384,16 @@ async function carregarLixeira() {
                     <td style="padding: 10px; border: 1px solid #ddd;">${item.codigoPrincipal}</td>
                     <td style="padding: 10px; border: 1px solid #ddd;">${item.quantidadeOrdem}</td>
                     <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
-                        <span style="color: #666; font-size: 12px;">Na Lixeira</span>
+                        <button onclick="removerDefinitivoLixeira('${item.id}', ${item.linha})" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">Excluir Definitivo</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
         }
-    } catch (err) {
+    } cột (err) {
         tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: red; padding: 15px;">Erro ao carregar lixeira.</td></tr>';
     }
 }
-
 
     
 async function excluirDefinitivo(id) {
