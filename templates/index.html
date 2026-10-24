@@ -114,6 +114,7 @@
                 <select id="input-tipo">
                     <option value="Baixa Diaria" selected>Baixa Diaria</option>
                     <option value="Aproveitamento de Sucata">Aproveitamento de Sucata</option>
+                    <option value="Ajuste Entrada">Ajuste Entrada</option>
                     <option value="Erro no corte">Erro no corte</option>
                     <option value="Perfil Menor">Perfil Menor</option>
                     <option value="Perfil Maior">Perfil Maior</option>
@@ -167,6 +168,7 @@
                 <option value="TODOS" selected>Todos os Tipos</option>
                 <option value="Baixa Diaria">Baixa Diaria</option>
                 <option value="Aproveitamento de Sucata">Aproveitamento de Sucata</option>
+                <option value="Ajuste Entrada">Ajuste Entrada</option>
                 <option value="Erro no corte">Erro no corte</option>
                 <option value="Perfil Menor">Perfil Menor</option>
                 <option value="Perfil Maior">Perfil Maior</option>
@@ -1608,11 +1610,12 @@ async function carregarInventario() {
             }
 
             // Filtro rigoroso: Oculta Baixa Diária, números soltos, e restringe Sucata ao status 'Sim'
+// Filtro: Aceita os tipos normais e classifica corretamente
             dadosInventarioCache = resultado.itens.filter(item => {
                 let tipo = (item.Tipo || '').trim().toLowerCase();
                 let status = (item.Status || '').trim().toLowerCase();
 
-                // 1. Bloqueia Baixa Diária, campos vazios ou números soltos na coluna tipo
+                // 1. Bloqueia Baixa Diária, campos vazios ou números soltos
                 if (tipo === '' || !isNaN(tipo) || tipo.includes('baixa') || tipo.includes('diaria') || tipo.includes('diária')) {
                     return false;
                 }
@@ -1623,10 +1626,9 @@ async function carregarInventario() {
                     return status === 'sim';
                 }
 
-                // 3. Outros tipos legítimos entram sempre independentemente do status
+                // 3. Ajuste de Entrada e outros tipos entram sempre independentemente do status
                 return true;
             });
-
             filtrarTabelaInventario();
 
         } catch (err) {
@@ -1654,8 +1656,19 @@ function filtrarTabelaInventario() {
         let valIve = item.IVE !== undefined ? item.IVE : item.ive;
         let ivestatus = (valIve === true || valIve === 'Sim' || valIve === 'sim' || valIve === 'SIM' || valIve === 'TRUE');
 
-        let isSucata = (item.Tipo || '').toLowerCase().includes('sucata') || (item.Tipo || '').toLowerCase().includes('aproveitamento');
-        let classificacaoItem = (item.Classificacao || (isSucata ? 'Entrada' : 'Baixa')).trim().toLowerCase();
+        let tipoBaixaLower = (item.Tipo || '').toLowerCase();
+        let isSucata = tipoBaixaLower.includes('sucata') || tipoBaixaLower.includes('aproveitamento');
+        let isAjusteEntrada = tipoBaixaLower.includes('ajuste entrada');
+
+        // Se for sucata ou ajuste de entrada, entra na regra de exibição contínua
+        if (isSucata || isAjusteEntrada) {
+            // Mantém a regra existente para sucata (exige status 'sim') ou permite ajuste de entrada livremente
+            if (isSucata && statusFeito !== 'sim') {
+                return false;
+            }
+        }
+
+        let classificacaoItem = (item.Classificacao || ((isSucata || isAjusteEntrada) ? 'Entrada' : 'Baixa')).trim().toLowerCase();
 
         if (classificacaoFiltro !== 'todos' && classificacaoFiltro !== 'todas' && classificacaoFiltro !== '') {
             if (classificacaoItem !== classificacaoFiltro) {
@@ -1711,8 +1724,10 @@ function filtrarTabelaInventario() {
             conteudoSaldoErp = `<strong>${item.Saldo_ERP}</strong>`;
         }
 
-        let isSucata = (item.Tipo || '').toLowerCase().includes('sucata') || (item.Tipo || '').toLowerCase().includes('aproveitamento');
-        let classificacaoItem = item.Classificacao || (isSucata ? 'Entrada' : 'Baixa');
+        let tipoBaixaLower = (item.Tipo || '').toLowerCase();
+        let isSucata = tipoBaixaLower.includes('sucata') || tipoBaixaLower.includes('aproveitamento');
+        let isAjusteEntrada = tipoBaixaLower.includes('ajuste entrada');
+        let classificacaoItem = item.Classificacao || ((isSucata || isAjusteEntrada) ? 'Entrada' : 'Baixa');
 
         // 2. Verifica se o código é repetido na listagem para aplicar a cor vermelha
         let codigoItem = item.Codigo || '';
@@ -1742,8 +1757,6 @@ function filtrarTabelaInventario() {
         tbody.appendChild(tr);
     });
 }
-
-
     
 
 function renderizarTabelaInventario(dados) {
