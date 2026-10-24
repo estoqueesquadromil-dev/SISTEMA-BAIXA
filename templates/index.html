@@ -2319,37 +2319,84 @@ async function moverParaLixeira(id, dataOrdem, codigoOrdem) {
 
 
     
-async function carregarLixeira() {
-    try {
-        let resposta = await fetch('/listar_lixeira');
-        let dados = await resposta.json();
-
-        let tbody = document.querySelector('#tabela-lixeira tbody');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-
-        if (!dados.sucesso || dados.ordens.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777; padding: 15px;">A lixeira está vazia.</td></tr>';
-            return;
+// Função para marcar/desmarcar todas as ordens sem sobrecarregar o servidor
+async function alternarTodasOrdens(master) {
+    let checkboxes = document.querySelectorAll('.check-ordem-item');
+    let ids = [];
+    
+    checkboxes.forEach(cb => {
+        cb.checked = master.checked;
+        let idOrdem = cb.getAttribute('data-id');
+        if (idOrdem) {
+            ids.push(idOrdem);
         }
+    });
 
-        dados.ordens.forEach(ordem => {
-            let tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.data}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.codigoPrincipal}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${ordem.quantidadeOrdem}</td>
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
-                    <button onclick="excluirDefinitivo('${ordem.id}')" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">Excluir Definitivo</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
+    if (ids.length === 0) return;
+
+    try {
+        let resposta = await fetch('/atualizar_status_lote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: ids, feito: master.checked })
         });
+        let resultado = await resposta.json();
+        if (!resultado.sucesso) {
+            alert('Erro ao atualizar lote: ' + resultado.mensagem);
+        } else {
+            // Recarrega de forma limpa para refletir os estilos visuais
+            carregarOrdensCriadas();
+        }
     } catch (err) {
-        console.error(err);
+        alert('Erro de comunicação com o servidor.');
     }
 }
 
+// Função para abrir/fechar a lixeira e carregar os dados sem erros
+function toggleSecaoLixeira() {
+    let secao = document.getElementById('secao-lixeira');
+    if (secao.style.display === 'none' || !secao.style.display) {
+        secao.style.display = 'block';
+        carregarLixeira();
+    } else {
+        secao.style.display = 'none';
+    }
+}
+
+async function carregarLixeira() {
+    let tbody = document.querySelector('#tabela-lixeira tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777; padding: 15px;">A carregar lixeira...</td></tr>';
+    
+    try {
+        let resp = await fetch('/listar_lixeira');
+        let data = await resp.json();
+        if (data.sucesso) {
+            if (data.itens.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777; padding: 15px;">A lixeira está vazia.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = '';
+            data.itens.forEach(item => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding: 10px; border: 1px solid #ddd;">${item.data}</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">${item.codigoPrincipal}</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">${item.quantidadeOrdem}</td>
+                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                        <span style="color: #666; font-size: 12px;">Na Lixeira</span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: red; padding: 15px;">Erro ao carregar lixeira.</td></tr>';
+    }
+}
+
+
+    
 async function excluirDefinitivo(id) {
     if (!confirm('ATENÇÃO: Esta ação é irreversível. Deseja excluir esta ordem permanentemente?')) return;
 
