@@ -791,28 +791,30 @@ function verificarTipoPerda(selectEl) {
     let grupoQtd = document.getElementById('perda-qtd').closest('div'); // Grupo do input de quantidade normal
 
     if (tipo === 'VF22') {
-        containerVidro.style.display = 'flex';
-        if (grupoQtd) grupoQtd.style.display = 'none'; // Oculta a quantidade normal apenas no VF22
+        if (containerVidro) containerVidro.style.display = 'flex';
+        if (grupoQtd) grupoQtd.style.display = 'none'; // Oculta kg no VF22
     } else {
-        containerVidro.style.display = 'none';
-        if (grupoQtd) grupoQtd.style.display = 'block'; // Mostra a quantidade normal para todos os outros tipos
+        if (containerVidro) containerVidro.style.display = 'none';
+        if (grupoQtd) grupoQtd.style.display = 'block'; // Mostra kg para todos os outros tipos
     }
 }
 
-// Calcula em tempo real o metro quadrado e atualiza o painel visual
+// 2. Calcula em tempo real o metro quadrado para o VF22
 function calcularMetroQuadradoVidro() {
     let m1Str = document.getElementById('vidro-medida1').value.replace(',', '.');
     let m2Str = document.getElementById('vidro-medida2').value.replace(',', '.');
     
     let m1 = parseFloat(m1Str) || 0;
     let m2 = parseFloat(m2Str) || 0;
-    
     let totalM2 = m1 * m2;
     
-    document.getElementById('preview-m2').textContent = totalM2.toLocaleString('pt-BR', {minimumFractionDigits: 3, maximumFractionDigits: 3});
+    let previewM2 = document.getElementById('preview-m2');
+    if (previewM2) {
+        previewM2.textContent = totalM2.toLocaleString('pt-BR', {minimumFractionDigits: 3, maximumFractionDigits: 3});
+    }
 }
 
-// Atualiza a função de adicionar item para processar o VF22 com base no cálculo dos m²
+// 3. Adiciona o item à lista temporária (separando o cálculo de m² para VF22 e kg para o resto)
 function adicionarItemPerdaTemp() {
     let data = document.getElementById('perda-data').value;
     let tipo = document.getElementById('perda-tipo').value;
@@ -823,23 +825,21 @@ function adicionarItemPerdaTemp() {
         return;
     }
 
-    // Se o tipo for VF22, a quantidade é o resultado dos dois campos de medidas multiplicados
     if (tipo === 'VF22') {
         let m1Str = document.getElementById('vidro-medida1').value.replace(',', '.');
         let m2Str = document.getElementById('vidro-medida2').value.replace(',', '.');
         let m1 = parseFloat(m1Str) || 0;
         let m2 = parseFloat(m2Str) || 0;
-        
         qtd = m1 * m2;
 
         if (qtd <= 0) {
-            alert('Por favor, informe medidas válidas para calcular o metro quadrado do vidro!');
+            alert('Por favor, informe medidas válidas para calcular o metro quadrado do VF22!');
             return;
         }
     } else {
         let rawInput = document.getElementById('perda-qtd').value.trim();
         if (!rawInput) {
-            alert('Por favor, informe a quantidade!');
+            alert('Por favor, informe a quantidade em kg!');
             return;
         }
         let valorTratado = rawInput.replace(',', '.');
@@ -866,8 +866,6 @@ function adicionarItemPerdaTemp() {
         document.getElementById('perda-qtd').value = '1,200';
     }
 }
-
-
     
     function removerItemPerdaTemp(index) {
         listaPerdasTemp.splice(index, 1);
