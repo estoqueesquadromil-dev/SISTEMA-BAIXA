@@ -861,32 +861,44 @@ def listar_ordens_criadas():
 def alternar_status_ordem():
     try:
         dados = request.get_json()
-        id_ordem = dados.get('id', '')
-        feito_val = dados.get('feito', False) # True ou False
-        
-        if '|' not in id_ordem:
-            return jsonify({'sucesso': False, 'mensagem': 'ID inválido.'}), 400
-            
-        nome_aba, linha_str = id_ordem.split('|')
-        linha_alvo = int(linha_str)
+        id_ordem = str(dados.get('id', '')).strip()
+        feito_val = dados.get('feito', False)
         
         gc = conectar_google_sheets()
         planilha = gc.open(PLANILHA_CRIAR_ORDENS)
-        aba = planilha.worksheet(nome_aba)
         
-        # Procura qual é a coluna correspondente a "Status" ou "Feito", se não existir adiciona
-        cabecalhos = aba.row_values(1)
-        if "Status" not in cabecalhos:
-            # Adiciona a coluna Status na frente (ex: coluna D)
-            aba.update_cell(1, 4, "Status")
-            cabecalhos = aba.row_values(1)
+        # Como o ID é único, precisamos de varrer as abas do dia ou procurar na aba correta. 
+        # Se o id_ordem contiver a data ou se procurarmos em todas as abas de data:
+        for aba in planilha.worksheets():
+            if aba.title.upper() in ["LIXEIRA", "DADOS"]:
+                continue
+            linhas = aba.get_all_values()
+            if not linhas or len(linhas) < 2:
+                continue
+            cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+            if "ID" not in cabecalhos:
+                continue
             
-        col_idx = cabecalhos.index("Status") + 1
-        aba.update_cell(linha_alvo, col_idx, "Sim" if feito_val else "Não")
-        
-        return jsonify({'sucesso': True, 'mensagem': 'Status atualizado com sucesso na planilha!'})
+            col_id_idx = cabecalhos.index("ID") + 1
+            for idx, row in enumerate(linhas[1:], start=2):
+                val_id = str(row[col_id_idx - 1]).strip() if len(row) >= col_id_idx else ""
+                if val_id == id_ordem:
+                    # Encontrou a linha exata! Atualiza o status
+                    if "STATUS" not in cabecalhos and "FEITO" not in cabecalhos:
+                        col_status_idx = len(cabecalhos) + 1
+                        aba.update_cell(1, col_status_idx, "Status")
+                    else:
+                        col_status_idx = cabecalhos.index("STATUS") + 1 if "STATUS" in cabecalhos else cabecalhos.index("FEITO") + 1
+                    
+                    aba.update_cell(idx, col_status_idx, "Sim" if feito_val else "Não")
+                    return jsonify({'sucesso': True, 'mensagem': 'Status atualizado com sucesso!'})
+                    
+        return jsonify({'sucesso': False, 'mensagem': 'ID da ordem não encontrado na planilha.'}), 404
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
 
 @app.route('/excluir_ordem_criada', methods=['POST'])
 def excluir_ordem_criada():
@@ -1167,33 +1179,40 @@ def excluir_perda():
 def mover_para_lixeira():
     try:
         dados = request.get_json()
-        id_ordem = str(dados.get('id', ''))
-        
-        if '|' not in id_ordem:
-            return jsonify({'sucesso': False, 'mensagem': 'ID de ordem inválido.'}), 400
-            
-        nome_aba, linha_str = id_ordem.split('|')
-        linha_alvo = int(linha_str)
+        id_ordem = str(dados.get('id', '')).strip()
         
         gc = conectar_google_sheets()
         planilha = gc.open(PLANILHA_CRIAR_ORDENS)
-        aba_origem = planilha.worksheet(nome_aba)
-        linhas = aba_origem.get_all_values()
         
-        dados_linha = linhas[linha_alvo - 1]
-        
-        try:
-            aba_lixeira = planilha.worksheet("LIXEIRA")
-        except:
-            aba_lixeira = planilha.add_worksheet(title="LIXEIRA", rows="1000", cols="5")
-            aba_lixeira.append_row(["Data", "Código Principal", "Quantidade Ordem", "Status"])
+        for aba in planilha.worksheets():
+            if aba.title.upper() in ["LIXEIRA", "DADOS"]:
+                continue
+            linhas = aba.get_all_values()
+            if not linhas or len(linhas) < 2:
+                continue
+            cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+            if "ID" not in cabecalhos:
+                continue
             
-        aba_lixeira.append_row(dados_linha)
-        aba_origem.delete_rows(linha_alvo)
-        
-        return jsonify({'sucesso': True, 'mensagem': 'Ordem movida para a lixeira com sucesso!'})
+            col_id_idx = cabecalhos.index("ID") + 1
+            for idx, row in enumerate(linhas[1:], start=2):
+                val_id = str(row[col_id_idx - 1]).strip() if len(row) >= col_id_idx else ""
+                if val_id == id_ordem:
+                    dados_linha = row
+                    try:
+                        aba_lixeira = planilha.worksheet("LIXEIRA")
+                    except:
+                        aba_lixeira = planilha.add_worksheet(title="LIXEIRA", rows="1000", cols="5")
+                        aba_lixeira.append_row(["ID", "Data", "Código Principal", "Quantidade Ordem", "Status"])
+                        
+                    aba_lixeira.append_row(dados_linha)
+                    aba.delete_rows(idx)
+                    return jsonify({'sucesso': True, 'mensagem': 'Ordem movida para a lixeira com sucesso!'})
+                    
+        return jsonify({'sucesso': False, 'mensagem': 'ID da ordem não encontrado para mover.'}), 404
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
 
 
 
