@@ -1900,11 +1900,11 @@ def listar_lixeira():
         for idx, row in enumerate(linhas[1:], start=2):
             if not any(row):
                 continue
-            # Procura os valores com base no nome do cabeçalho de forma segura
+            # Leitura exata baseada nos cabeçalhos da aba LIXEIRA
             val_id = row[cabecalhos.index("ID")] if "ID" in cabecalhos and len(row) > cabecalhos.index("ID") else str(idx)
-            val_data = row[cabecalhos.index("DATA")] if "DATA" in cabecalhos and len(row) > cabecalhos.index("DATA") else (row[1] if len(row) > 1 else "")
-            val_codigo = row[cabecalhos.index("CÓDIGO PRINCIPAL")] if "CÓDIGO PRINCIPAL" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO PRINCIPAL") else (row[2] if len(row) > 2 else "")
-            val_qtd = row[cabecalhos.index("QUANTIDADE ORDEM")] if "QUANTIDADE ORDEM" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE ORDEM") else (row[3] if len(row) > 3 else "")
+            val_data = row[cabecalhos.index("DATA")] if "DATA" in cabecalhos and len(row) > cabecalhos.index("DATA") else ""
+            val_codigo = row[cabecalhos.index("CÓDIGO PRINCIPAL")] if "CÓDIGO PRINCIPAL" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO PRINCIPAL") else ""
+            val_qtd = row[cabecalhos.index("QUANTIDADE ORDEM")] if "QUANTIDADE ORDEM" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE ORDEM") else ""
             
             itens.append({
                 "linha": idx,
@@ -1914,5 +1914,29 @@ def listar_lixeira():
                 "quantidadeOrdem": val_qtd
             })
         return jsonify({'sucesso': True, 'itens': itens})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+@app.route('/remover_definitivo_lixeira', methods=['POST'])
+def remover_definitivo_lixeira():
+    try:
+        dados = request.get_json()
+        id_item = str(dados.get('id', '')).strip()
+        
+        gc = conectar_google_sheets()
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+        aba_lixeira = planilha.worksheet("LIXEIRA")
+        
+        linhas = aba_lixeira.get_all_values()
+        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+        col_id_idx = cabecalhos.index("ID") if "ID" in cabecalhos else 0
+        
+        for idx, row in enumerate(linhas[1:], start=2):
+            val_id = str(row[col_id_idx]).strip() if len(row) > col_id_idx else ""
+            if val_id == id_item:
+                aba_lixeira.delete_rows(idx)
+                return jsonify({'sucesso': True, 'mensagem': 'Item excluído definitivamente!'})
+                
+        return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado na lixeira.'}), 404
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
