@@ -731,7 +731,8 @@
     
 <script>
 
-
+let dadosOrdensCache = [];
+let produtoSelecionadoCache = null;
 let saldosErpMap = {};
 let listaPerdasTemp = [];
 let listaItensConsultaAtual = [];
@@ -1891,8 +1892,6 @@ function exportarExcelInventario() {
 }
 
 
-let dadosOrdensCache = [];
-let produtoSelecionadoCache = null;
 
 function carregarDadosOrdens() {
     fetch('/buscar_dados_ordens')
