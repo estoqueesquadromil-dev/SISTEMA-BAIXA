@@ -635,15 +635,16 @@ def exportar_excel_inventario():
                         inv_val = row[6] or 'Não'
 
                     # Aplica a mesma regra de negócio da tela do inventário:
-                    tipo_lower = tipo_val.trim().lower() if hasattr(tipo_val, 'trim') else str(tipo_val).strip().lower()
+                    tipo_lower = str(tipo_val).strip().lower()
                     is_sucata = 'sucata' in tipo_lower or 'aproveitamento' in tipo_lower
-                    is_outros = 'corte' in tipo_lower or 'perfil' in tipo_lower or 'outros' in tipo_lower
+                    is_ajuste_entrada = 'ajuste entrada' in tipo_lower
+                    is_outros = 'corte' in tipo_lower or 'perfil' in tipo_lower or 'outros' in tipo_lower or 'baixa' in tipo_lower
 
-                    # Se não for sucata nem outros válidos, ignora
-                    if not is_sucata and not is_outros:
+                    # Se não for sucata, ajuste de entrada nem outros válidos, ignora
+                    if not is_sucata and not is_ajuste_entrada and not is_outros:
                         continue
                     
-                    # Sucata exige status de ERP 'sim' (conforme regra da tela)
+                    # Sucata exige status de ERP 'sim', mas Ajuste Entrada entra livremente
                     status_erp = 'não'
                     for h_nome in ['STATUS']:
                         if h_nome in cabecalhos and len(row) > cabecalhos.index(h_nome):
@@ -653,7 +654,8 @@ def exportar_excel_inventario():
                     if is_sucata and status_erp != 'sim':
                         continue
 
-                    classificacao_item = 'Entrada' if is_sucata else 'Baixa'
+                    # Define a classificação: Sucata e Ajuste Entrada são Entrada; os demais são Baixa
+                    classificacao_item = 'Entrada' if (is_sucata or is_ajuste_entrada) else 'Baixa'
 
                     # Aplica os filtros escolhidos pelo utilizador nos selects da tela
                     if filtro_classificacao != 'TODOS' and classificacao_item.upper() != filtro_classificacao.upper():
@@ -676,8 +678,6 @@ def exportar_excel_inventario():
 
     except Exception as e:
         return f"Erro ao exportar Excel: {str(e)}", 500
-
-
 
 
 
