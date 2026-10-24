@@ -964,9 +964,10 @@ async function consultarPerdasServidor() {
         if (dados.itens.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777; padding: 15px;">Nenhum registo encontrado com os filtros selecionados.</td></tr>';
         } else {
+            // Localize isto dentro da função consultarPerdasServidor()
             dados.itens.forEach(item => {
                 let qtdNum = parseFloat(String(item.Quantidade).replace(',', '.')) || 0;
-
+            
                 let tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td style="padding: 10px; border: 1px solid #ddd;">${item.Data}</td>
@@ -974,7 +975,7 @@ async function consultarPerdasServidor() {
                     <td style="padding: 10px; border: 1px solid #ddd;">${qtdNum.toFixed(3)}</td>
                     <td style="padding: 10px; border: 1px solid #ddd;">${item.Perfil}</td>
                     <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
-                        <button onclick="excluirPerdaServidor('${item.Data}', '${item.Tipo}', '${qtdNum.toFixed(3)}', '${item.Perfil}')" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">Excluir</button>
+                        <button onclick="excluirPerdaServidor('${item.Data}', '${item.ID}')" class="btn-acao btn-excluir">Excluir</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -2296,37 +2297,25 @@ function baixarExcelOrdensCriadas() {
 
 
 
-async function excluirPerdaServidor(data, tipo, quantidade, perfil) {
-    if (!confirm(`Tem a certeza que deseja excluir o registo de "${tipo}" (${quantidade}) do dia ${data}?`)) {
-        return;
-    }
+async function excluirPerdaServidor(data, idPerda) {
+    if (!confirm('Tem a certeza que deseja excluir este registo exato?')) return;
 
     try {
         let resposta = await fetch('/excluir_perda', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                data: data, 
-                tipo: tipo, 
-                quantidade: quantidade, 
-                perfil: perfil 
-            })
+            body: JSON.stringify({ data: data, id: idPerda })
         });
         
         let resultado = await resposta.json();
-
+        alert(resultado.mensagem);
         if (resultado.sucesso) {
-            alert(resultado.mensagem);
-            consultarPerdasServidor(); // Atualiza a tabela e os totais
-        } else {
-            alert('Erro: ' + resultado.mensagem);
+            consultarPerdasServidor(); // Atualiza a tabela
         }
     } catch (err) {
-        console.error(err);
-        alert('Erro de comunicação com o servidor ao tentar excluir.');
+        alert('Erro de comunicação ao tentar excluir.');
     }
-}    
-
+}
 
 async function moverParaLixeira(id, dataOrdem, codigoOrdem) {
     if (!confirm('Tem a certeza que deseja mover esta ordem para a lixeira?')) return;
