@@ -1188,7 +1188,7 @@ def excluir_perda():
 def mover_para_lixeira():
     try:
         dados = request.get_json()
-        id_ordem = dados.get('id', '') # Formato recebido: "YYYY-MM-DD|linha"
+        id_ordem = str(dados.get('id', ''))
         
         if '|' not in id_ordem:
             return jsonify({'sucesso': False, 'mensagem': 'ID de ordem inválido.'}), 400
@@ -1197,34 +1197,26 @@ def mover_para_lixeira():
         linha_alvo = int(linha_str)
         
         gc = conectar_google_sheets()
-        if not gc:
-            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
-            
         planilha = gc.open(PLANILHA_CRIAR_ORDENS)
-        
-        # 1. Obtém os dados da linha na aba original do dia
         aba_origem = planilha.worksheet(nome_aba)
         linhas = aba_origem.get_all_values()
         
-        if linha_alvo > len(linhas):
-            return jsonify({'sucesso': False, 'mensagem': 'Linha não encontrada na aba.'}), 404
-            
-        dados_linha = linhas[linha_alvo - 1] # Index base 0
+        dados_linha = linhas[linha_alvo - 1]
         
-        # 2. Verifica se a aba "LIXEIRA" existe, senão cria-a automaticamente
         try:
             aba_lixeira = planilha.worksheet("LIXEIRA")
-        except gspread.exceptions.WorksheetNotFound:
+        except:
             aba_lixeira = planilha.add_worksheet(title="LIXEIRA", rows="1000", cols="5")
-            aba_lixeira.append_row(["Data Original", "Código Principal", "Quantidade Ordem"])
+            aba_lixeira.append_row(["Data", "Código Principal", "Quantidade Ordem", "Status"])
             
-        # 3. Adiciona na lixeira e remove da aba original
         aba_lixeira.append_row(dados_linha)
         aba_origem.delete_rows(linha_alvo)
         
         return jsonify({'sucesso': True, 'mensagem': 'Ordem movida para a lixeira com sucesso!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
 
 
 @app.route('/listar_lixeira', methods=['GET'])
