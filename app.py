@@ -1896,14 +1896,22 @@ def listar_lixeira():
             
         cabecalhos = [str(c).strip().upper() for c in linhas[0]]
         itens = []
-        for row in linhas[1:]:
+        
+        for idx, row in enumerate(linhas[1:], start=2):
             if not any(row):
                 continue
+            # Procura os valores com base no nome do cabeçalho de forma segura
+            val_id = row[cabecalhos.index("ID")] if "ID" in cabecalhos and len(row) > cabecalhos.index("ID") else str(idx)
+            val_data = row[cabecalhos.index("DATA")] if "DATA" in cabecalhos and len(row) > cabecalhos.index("DATA") else (row[1] if len(row) > 1 else "")
+            val_codigo = row[cabecalhos.index("CÓDIGO PRINCIPAL")] if "CÓDIGO PRINCIPAL" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO PRINCIPAL") else (row[2] if len(row) > 2 else "")
+            val_qtd = row[cabecalhos.index("QUANTIDADE ORDEM")] if "QUANTIDADE ORDEM" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE ORDEM") else (row[3] if len(row) > 3 else "")
+            
             itens.append({
-                "id": row[cabecalhos.index("ID")] if "ID" in cabecalhos and len(row) > cabecalhos.index("ID") else "",
-                "data": row[cabecalhos.index("DATA")] if "DATA" in cabecalhos and len(row) > cabecalhos.index("DATA") else "",
-                "codigoPrincipal": row[cabecalhos.index("CÓDIGO PRINCIPAL")] if "CÓDIGO PRINCIPAL" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO PRINCIPAL") else "",
-                "quantidadeOrdem": row[cabecalhos.index("QUANTIDADE ORDEM")] if "QUANTIDADE ORDEM" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE ORDEM") else ""
+                "linha": idx,
+                "id": val_id,
+                "data": val_data,
+                "codigoPrincipal": val_codigo,
+                "quantidadeOrdem": val_qtd
             })
         return jsonify({'sucesso': True, 'itens': itens})
     except Exception as e:
