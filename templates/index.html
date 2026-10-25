@@ -2397,7 +2397,7 @@ async function carregarLixeira() {
     }
 }
 
-
+    
 
     
 async function excluirDefinitivo(id) {
@@ -2728,7 +2728,7 @@ async function removerDefinitivoLixeira(idItem) {
         });
         let data = await resp.json();
         if (data.sucesso) {
-            carregarLixeira(); // Atualiza a tabela da lixeira
+            carregarLixeira();
         } else {
             alert('Erro: ' + data.mensagem);
         }
@@ -2736,8 +2736,7 @@ async function removerDefinitivoLixeira(idItem) {
         alert('Erro de comunicação com o servidor.');
     }
 }
-
-
+    
 
     
 </script>
