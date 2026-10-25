@@ -1141,9 +1141,18 @@ def excluir_perda():
             return jsonify({'sucesso': False, 'mensagem': 'ID não fornecido.'}), 400
             
         gc = conectar_google_sheets()
-        planilha = gc.open(PLANILHA_PERDAS) # Ajuste para o nome da planilha de perdas se necessário
-        aba = planilha.worksheet("PERDAS") # Nome da aba de perdas
         
+        # Usa a mesma variável de planilha do seu sistema ou o nome exato da planilha de perdas
+        nome_planilha = globals().get('PLANILHA_PERDAS', globals().get('PLANILHA_PERDA', 'Perdas'))
+        planilha = gc.open(nome_planilha)
+        
+        # Pega a aba ativa (ex: '2026-10' como mostra na sua imagem, ou procure por worksheets)
+        # Se as perdas ficam em abas mensais ou numa aba fixa "PERDAS", ajuste abaixo:
+        try:
+            aba = planilha.worksheet("PERDAS")
+        except:
+            aba = planilha.sheet1 # Se usa a primeira aba ou aba do mês atual
+            
         linhas = aba.get_all_values()
         if not linhas or len(linhas) < 2:
             return jsonify({'sucesso': False, 'mensagem': 'Nenhum registo encontrado.'}), 404
@@ -1160,7 +1169,6 @@ def excluir_perda():
         return jsonify({'sucesso': False, 'mensagem': 'Registo não encontrado pelo ID.'}), 404
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
 
 # ==========================================
 # ROTAS DO SISTEMA DE LIXEIRA E ORDENS CRIADAS
