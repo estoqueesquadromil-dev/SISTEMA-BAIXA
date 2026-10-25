@@ -2273,14 +2273,14 @@ function baixarExcelOrdensCriadas() {
 
 
 
-async function excluirPerdaServidor(data, idPerda) {
+async function excluirPerdaServidor(idPerda) {
     if (!confirm('Tem a certeza que deseja excluir este registo exato?')) return;
 
     try {
         let resposta = await fetch('/excluir_perda', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: data, id: idPerda })
+            body: JSON.stringify({ id: idPerda })
         });
         
         let resultado = await resposta.json();
@@ -2292,7 +2292,6 @@ async function excluirPerdaServidor(data, idPerda) {
         alert('Erro de comunicação ao tentar excluir.');
     }
 }
-
     
 async function moverParaLixeira(id, dataOrdem, codigoOrdem) {
     if (!confirm('Tem a certeza que deseja mover esta ordem para a lixeira?')) return;
