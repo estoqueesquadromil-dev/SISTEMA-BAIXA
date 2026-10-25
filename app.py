@@ -1106,12 +1106,12 @@ def consultar_perdas():
                     continue
 
                 todos_registos.append({
+                    "ID": str(r.get('ID') or r.get('id') or '').strip(), # <-- ADICIONE ESTA LINHA
                     "Data": d,
                     "Tipo": t,
                     "Quantidade": q,
                     "Perfil": p
                 })
-
         totais_por_tipo = {}
         for item in todos_registos:
             tp = item["Tipo"]
@@ -1141,46 +1141,44 @@ def excluir_perda():
             return jsonify({'sucesso': False, 'mensagem': 'ID não fornecido.'}), 400
             
         gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+
+        planilha = gc.open(NOME_PLANILHA_PERDAS)
         
-        # Identifica a planilha correta de perdas
-        nome_planilha = globals().get('PLANILHA_PERDAS', globals().get('PLANILHA_PERDA', 'Perdas'))
-        try:
-            planilha = gc.open(nome_planilha)
-        except:
-            planilha = gc.open("Perdas")
-            
-        # Procura a aba correta (ex: aba PERDAS ou aba do mês atual)
-        aba = None
-        for w in planilha.worksheets():
-            if w.title.upper() == "PERDAS" or w.title.startswith("2026-"):
-                aba = w
-                break
-        if not aba:
-            aba = planilha.sheet1
-            
-        linhas = aba.get_all_values()
-        if not linhas or len(linhas) < 2:
-            return jsonify({'sucesso': False, 'mensagem': 'Nenhum registo encontrado.'}), 404
-            
-        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
-        col_id_idx = cabecalhos.index("ID") if "ID" in cabecalhos else 0
-        
-        encontrou_indice = None
-        for idx in range(2, len(linhas) + 1):
-            row = linhas[idx - 1]
-            val_id = str(row[col_id_idx]).strip() if len(row) > col_id_idx else ""
-            if val_id == id_item:
-                encontrou_indice = idx
-                break
+        encontrou = False
+        for aba in planilha.worksheets():
+            try:
+                linhas = aba.get_all_values()
+                if not linhas or len(linhas) < 2:
+                    continue
+                cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+                if "ID" not in cabecalhos:
+                    continue
+                col_id_idx = cabecalhos.index("ID") + 1
                 
-        if encontrou_indice:
-            aba.delete_rows(encontrou_indice)
+                for idx in range(2, len(linhas) + 1):
+                    row = linhas[idx - 1]
+                    val_id = str(row[col_id_idx - 1]).strip() if len(row) >= col_id_idx else ""
+                    if val_id == id_item:
+                        aba.delete_rows(idx)
+                        encontrou = True
+                        break
+                if encontrou:
+                    break
+            except Exception:
+                continue
+                
+        if encontrou:
             return jsonify({'sucesso': True, 'mensagem': 'Registo excluído com sucesso!'})
         else:
             return jsonify({'sucesso': False, 'mensagem': 'Registo não encontrado pelo ID.'}), 404
             
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
 
 
 
