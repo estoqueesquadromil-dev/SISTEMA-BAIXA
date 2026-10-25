@@ -1894,12 +1894,32 @@ def listar_lixeira():
         for idx, row in enumerate(linhas[1:], start=2):
             if not any(row):
                 continue
-            # Leitura exata baseada nos cabeçalhos da aba LIXEIRA
-            val_id = row[cabecalhos.index("ID")] if "ID" in cabecalhos and len(row) > cabecalhos.index("ID") else str(idx)
-            val_data = row[cabecalhos.index("DATA")] if "DATA" in cabecalhos and len(row) > cabecalhos.index("DATA") else ""
-            val_codigo = row[cabecalhos.index("CÓDIGO PRINCIPAL")] if "CÓDIGO PRINCIPAL" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO PRINCIPAL") else ""
-            val_qtd = row[cabecalhos.index("QUANTIDADE ORDEM")] if "QUANTIDADE ORDEM" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE ORDEM") else ""
             
+            # Procura os índices dinamicamente pelos nomes reais dos cabeçalhos da imagem
+            try:
+                id_idx = cabecalhos.index("ID")
+                val_id = row[id_idx] if len(row) > id_idx else str(idx)
+            except:
+                val_id = row[0] if len(row) > 0 else str(idx)
+                
+            try:
+                data_idx = cabecalhos.index("DATA")
+                val_data = row[data_idx] if len(row) > data_idx else ""
+            except:
+                val_data = row[1] if len(row) > 1 else ""
+                
+            try:
+                cod_idx = cabecalhos.index("CÓDIGO PRINCIPAL")
+                val_codigo = row[cod_idx] if len(row) > cod_idx else ""
+            except:
+                val_codigo = row[2] if len(row) > 2 else ""
+                
+            try:
+                qtd_idx = cabecalhos.index("QUANTIDADE ORDEM")
+                val_qtd = row[qtd_idx] if len(row) > qtd_idx else ""
+            except:
+                val_qtd = row[3] if len(row) > 3 else ""
+
             itens.append({
                 "linha": idx,
                 "id": val_id,
@@ -1907,9 +1927,13 @@ def listar_lixeira():
                 "codigoPrincipal": val_codigo,
                 "quantidadeOrdem": val_qtd
             })
+            
         return jsonify({'sucesso': True, 'itens': itens})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
 
 @app.route('/remover_definitivo_lixeira', methods=['POST'])
 def remover_definitivo_lixeira():
