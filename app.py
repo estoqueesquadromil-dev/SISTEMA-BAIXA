@@ -1133,42 +1133,33 @@ def consultar_perdas():
 
 @app.route('/excluir_perda', methods=['POST'])
 def excluir_perda():
-    dados = request.get_json()
-    data_reg = dados.get('data')
-    row_id = str(dados.get('id', '')).strip()
-
-    if not data_reg or not row_id:
-        return jsonify({'sucesso': False, 'mensagem': 'Dados insuficientes para exclusão.'}), 400
-
     try:
-        data_obj = datetime.strptime(data_reg, '%Y-%m-%d')
-        nome_aba_mes = data_obj.strftime('%Y-%m')
-
-        gc = conectar_google_sheets()
-        sheet_mes = gc.open(NOME_PLANILHA_PERDAS).worksheet(nome_aba_mes)
-        registos = sheet_mes.get_all_values()
+        dados = request.get_json()
+        id_item = str(dados.get('id', '')).strip()
         
-        if not registos or len(registos) < 2:
-            return jsonify({'sucesso': False, 'mensagem': 'Aba vazia.'}), 404
-
-        cabecalhos = [str(c).strip().upper() for c in registos[0]]
-        col_id_idx = cabecalhos.index("ID") + 1 if "ID" in cabecalhos else 1
-
-        linha_para_apagar = None
-        for i in range(1, len(registos)):
-            val_id = str(registos[i][col_id_idx - 1]).strip() if len(registos[i]) >= col_id_idx else ""
-            if val_id == row_id:
-                linha_para_apagar = i + 1
-                break
-
-        if linha_para_apagar:
-            sheet_mes.delete_rows(linha_para_apagar)
-            return jsonify({'sucesso': True, 'mensagem': 'Perda excluída com sucesso!'})
-        else:
-            return jsonify({'sucesso': False, 'mensagem': 'Registo não encontrado pelo ID.'}), 404
-
+        if not id_item:
+            return jsonify({'sucesso': False, 'mensagem': 'ID não fornecido.'}), 400
+            
+        gc = conectar_google_sheets()
+        planilha = gc.open(PLANILHA_PERDAS) # Ajuste para o nome da planilha de perdas se necessário
+        aba = planilha.worksheet("PERDAS") # Nome da aba de perdas
+        
+        linhas = aba.get_all_values()
+        if not linhas or len(linhas) < 2:
+            return jsonify({'sucesso': False, 'mensagem': 'Nenhum registo encontrado.'}), 404
+            
+        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+        col_id_idx = cabecalhos.index("ID") if "ID" in cabecalhos else 0
+        
+        for idx, row in enumerate(linhas[1:], start=2):
+            val_id = str(row[col_id_idx]).strip() if len(row) > col_id_idx else ""
+            if val_id == id_item:
+                aba.delete_rows(idx)
+                return jsonify({'sucesso': True, 'mensagem': 'Registo excluído com sucesso!'})
+                
+        return jsonify({'sucesso': False, 'mensagem': 'Registo não encontrado pelo ID.'}), 404
     except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': f'Erro ao excluir: {str(e)}'}), 500
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
 
 
 # ==========================================
