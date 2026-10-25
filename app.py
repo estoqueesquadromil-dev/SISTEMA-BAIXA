@@ -1237,62 +1237,68 @@ def excluir_definitivo():
 
 
 
-@app.route('/atualizar_status_lote', methods=['POST'])
-def atualizar_status_lote():
+@app.route('/atualizar_status_lote_por_indice', methods=['POST'])
+def atualizar_status_lote_por_indice():
     try:
         dados = request.get_json()
-        ids = dados.get('ids', [])
-        feito_val = dados.get('feito', False)
+        if not dados:
+            return jsonify({'sucesso': False, 'mensagem': 'Dados inválidos enviados.'}), 400
+            
+        data_consulta = str(dados.get('data', '')).strip()
+        itens_selecionados = dados.get('itens', [])
+        novo_status = str(dados.get('status', 'Não')).strip()
         
-        if not ids:
-            return jsonify({'sucesso': False, 'mensagem': 'Nenhum ID fornecido.'}), 400
+        if not data_consulta or not itens_selecionados:
+            return jsonify({'sucesso': False, 'mensagem': 'Nenhum item selecionado.'}), 400
             
         gc = conectar_google_sheets()
-        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
-        
-        ids_set = set(str(i).strip() for i in ids)
-        novo_status = "Sim" if feito_val else "Não"
-        
-        atualizou_algo = False
-        
-        for aba in planilha.worksheets():
-            if not ids_set:
-                break
-            if aba.title.upper() in ["LIXEIRA", "DADOS"]:
-                continue
-                
-            linhas = aba.get_all_values()
-            if not linhas or len(linhas) < 2:
-                continue
-                
-            cabecalhos = [str(c).strip().upper() for c in linhas[0]]
-            if "ID" not in cabecalhos:
-                continue
-                
-            col_id_idx = cabecalhos.index("ID") + 1
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
             
-            # Descobre ou cria a coluna de Status/Feito
-            col_status_idx = None
-            for h in ["STATUS", "FEITO"]:
-                if h in cabecalhos:
-                    col_status_idx = cabecalhos.index(h) + 1
-                    break
-            if not col_status_idx:
-                col_status_idx = len(cabecalhos) + 1
-                aba.update_cell(1, col_status_idx, "Status")
-                
-            # Procura as linhas correspondentes e atualiza
-            for idx, row in enumerate(linhas[1:], start=2):
-                val_id = str(row[col_id_idx - 1]).strip() if len(row) >= col_id_idx else ""
-                if val_id in ids_set:
-                    aba.update_cell(idx, col_status_idx, novo_status)
-                    ids_set.remove(val_id)
-                    atualizou_algo = True
-                    
-        return jsonify({'sucesso': True, 'mensagem': 'Lote atualizado com sucesso!'})
-    except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+        planilha = gc.open(PLANILHA_BAIXAS) if 'PLANILHA_BAIXAS' in globals() else gc.open("BAIXAS")
         
+        try:
+            aba = planilha.worksheet(data_consulta)
+        except Exception:
+            return jsonify({'sucesso': False, 'mensagem': f'Aba da data {data_consulta} não encontrada.'}), 400
+            
+        linhas_planilha = aba.get_all_values()
+        if not linhas_planilha or len(linhas_planilha) < 2:
+            return jsonify({'sucesso': False, 'mensagem': 'A planilha está vazia.'}), 400
+            
+        cabecalhos = [str(c).strip().upper() for c in linhas_planilha[0]]
+        
+        col_status_idx = None
+        for i, h in enumerate(cabecalhos):
+            if "STATUS" in h:
+                col_status_idx = i + 1
+                break
+        if not col_status_idx:
+            col_status_idx = 7 
+            
+        contador = 0
+        
+        for idx_l, linha in enumerate(linhas_planilha):
+            if idx_l == 0:
+                continue
+                
+            codigo_celula = str(linha[2]).strip() if len(linha) > 2 else ""
+            tipo_celula = str(linha[4]).strip() if len(linha) > 4 else ""
+            
+            for item in itens_selecionados:
+                item_codigo = str(item.get('codigo', '')).strip()
+                item_tipo = str(item.get('tipo', '')).strip()
+                
+                if codigo_celula == item_codigo and tipo_celula == item_tipo:
+                    aba.update_cell(idx_l + 1, col_status_idx, novo_status)
+                    contador += 1
+                    break
+                
+        return jsonify({'sucesso': True, 'mensagem': f'Status atualizado com sucesso em {contador} item(ns)!'})
+        
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': f'Erro interno no servidor: {str(e)}'}), 500
+
 
 
 
@@ -1894,32 +1900,12 @@ def listar_lixeira():
         for idx, row in enumerate(linhas[1:], start=2):
             if not any(row):
                 continue
+            # Leitura exata baseada nos cabeçalhos da aba LIXEIRA
+            val_id = row[cabecalhos.index("ID")] if "ID" in cabecalhos and len(row) > cabecalhos.index("ID") else str(idx)
+            val_data = row[cabecalhos.index("DATA")] if "DATA" in cabecalhos and len(row) > cabecalhos.index("DATA") else ""
+            val_codigo = row[cabecalhos.index("CÓDIGO PRINCIPAL")] if "CÓDIGO PRINCIPAL" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO PRINCIPAL") else ""
+            val_qtd = row[cabecalhos.index("QUANTIDADE ORDEM")] if "QUANTIDADE ORDEM" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE ORDEM") else ""
             
-            # Procura os índices dinamicamente pelos nomes reais dos cabeçalhos da imagem
-            try:
-                id_idx = cabecalhos.index("ID")
-                val_id = row[id_idx] if len(row) > id_idx else str(idx)
-            except:
-                val_id = row[0] if len(row) > 0 else str(idx)
-                
-            try:
-                data_idx = cabecalhos.index("DATA")
-                val_data = row[data_idx] if len(row) > data_idx else ""
-            except:
-                val_data = row[1] if len(row) > 1 else ""
-                
-            try:
-                cod_idx = cabecalhos.index("CÓDIGO PRINCIPAL")
-                val_codigo = row[cod_idx] if len(row) > cod_idx else ""
-            except:
-                val_codigo = row[2] if len(row) > 2 else ""
-                
-            try:
-                qtd_idx = cabecalhos.index("QUANTIDADE ORDEM")
-                val_qtd = row[qtd_idx] if len(row) > qtd_idx else ""
-            except:
-                val_qtd = row[3] if len(row) > 3 else ""
-
             itens.append({
                 "linha": idx,
                 "id": val_id,
@@ -1927,13 +1913,9 @@ def listar_lixeira():
                 "codigoPrincipal": val_codigo,
                 "quantidadeOrdem": val_qtd
             })
-            
         return jsonify({'sucesso': True, 'itens': itens})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
-
-
 
 @app.route('/remover_definitivo_lixeira', methods=['POST'])
 def remover_definitivo_lixeira():
@@ -1946,9 +1928,6 @@ def remover_definitivo_lixeira():
         aba_lixeira = planilha.worksheet("LIXEIRA")
         
         linhas = aba_lixeira.get_all_values()
-        if not linhas or len(linhas) < 2:
-            return jsonify({'sucesso': False, 'mensagem': 'Lixeira vazia.'}), 404
-            
         cabecalhos = [str(c).strip().upper() for c in linhas[0]]
         col_id_idx = cabecalhos.index("ID") if "ID" in cabecalhos else 0
         
