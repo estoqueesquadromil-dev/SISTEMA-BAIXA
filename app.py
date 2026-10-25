@@ -1180,7 +1180,7 @@ def excluir_perda():
             return jsonify({'sucesso': False, 'mensagem': 'Registo não encontrado pelo ID.'}), 404
             
     except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500s
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
 
 
 
