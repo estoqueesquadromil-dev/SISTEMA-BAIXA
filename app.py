@@ -1237,68 +1237,62 @@ def excluir_definitivo():
 
 
 
-@app.route('/atualizar_status_lote_por_indice', methods=['POST'])
-def atualizar_status_lote_por_indice():
+@app.route('/atualizar_status_lote', methods=['POST'])
+def atualizar_status_lote():
     try:
         dados = request.get_json()
-        if not dados:
-            return jsonify({'sucesso': False, 'mensagem': 'Dados inválidos enviados.'}), 400
-            
-        data_consulta = str(dados.get('data', '')).strip()
-        itens_selecionados = dados.get('itens', [])
-        novo_status = str(dados.get('status', 'Não')).strip()
+        ids = dados.get('ids', [])
+        feito_val = dados.get('feito', False)
         
-        if not data_consulta or not itens_selecionados:
-            return jsonify({'sucesso': False, 'mensagem': 'Nenhum item selecionado.'}), 400
+        if not ids:
+            return jsonify({'sucesso': False, 'mensagem': 'Nenhum ID fornecido.'}), 400
             
         gc = conectar_google_sheets()
-        if not gc:
-            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
-            
-        planilha = gc.open(PLANILHA_BAIXAS) if 'PLANILHA_BAIXAS' in globals() else gc.open("BAIXAS")
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
         
-        try:
-            aba = planilha.worksheet(data_consulta)
-        except Exception:
-            return jsonify({'sucesso': False, 'mensagem': f'Aba da data {data_consulta} não encontrada.'}), 400
-            
-        linhas_planilha = aba.get_all_values()
-        if not linhas_planilha or len(linhas_planilha) < 2:
-            return jsonify({'sucesso': False, 'mensagem': 'A planilha está vazia.'}), 400
-            
-        cabecalhos = [str(c).strip().upper() for c in linhas_planilha[0]]
+        ids_set = set(str(i).strip() for i in ids)
+        novo_status = "Sim" if feito_val else "Não"
         
-        col_status_idx = None
-        for i, h in enumerate(cabecalhos):
-            if "STATUS" in h:
-                col_status_idx = i + 1
+        atualizou_algo = False
+        
+        for aba in planilha.worksheets():
+            if not ids_set:
                 break
-        if not col_status_idx:
-            col_status_idx = 7 
-            
-        contador = 0
-        
-        for idx_l, linha in enumerate(linhas_planilha):
-            if idx_l == 0:
+            if aba.title.upper() in ["LIXEIRA", "DADOS"]:
                 continue
                 
-            codigo_celula = str(linha[2]).strip() if len(linha) > 2 else ""
-            tipo_celula = str(linha[4]).strip() if len(linha) > 4 else ""
+            linhas = aba.get_all_values()
+            if not linhas or len(linhas) < 2:
+                continue
+                
+            cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+            if "ID" not in cabecalhos:
+                continue
+                
+            col_id_idx = cabecalhos.index("ID") + 1
             
-            for item in itens_selecionados:
-                item_codigo = str(item.get('codigo', '')).strip()
-                item_tipo = str(item.get('tipo', '')).strip()
-                
-                if codigo_celula == item_codigo and tipo_celula == item_tipo:
-                    aba.update_cell(idx_l + 1, col_status_idx, novo_status)
-                    contador += 1
+            # Descobre ou cria a coluna de Status/Feito
+            col_status_idx = None
+            for h in ["STATUS", "FEITO"]:
+                if h in cabecalhos:
+                    col_status_idx = cabecalhos.index(h) + 1
                     break
+            if not col_status_idx:
+                col_status_idx = len(cabecalhos) + 1
+                aba.update_cell(1, col_status_idx, "Status")
                 
-        return jsonify({'sucesso': True, 'mensagem': f'Status atualizado com sucesso em {contador} item(ns)!'})
-        
+            # Procura as linhas correspondentes e atualiza
+            for idx, row in enumerate(linhas[1:], start=2):
+                val_id = str(row[col_id_idx - 1]).strip() if len(row) >= col_id_idx else ""
+                if val_id in ids_set:
+                    aba.update_cell(idx, col_status_idx, novo_status)
+                    ids_set.remove(val_id)
+                    atualizou_algo = True
+                    
+        return jsonify({'sucesso': True, 'mensagem': 'Lote atualizado com sucesso!'})
     except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': f'Erro interno no servidor: {str(e)}'}), 500
-
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+        
 
 
 
@@ -1928,6 +1922,9 @@ def remover_definitivo_lixeira():
         aba_lixeira = planilha.worksheet("LIXEIRA")
         
         linhas = aba_lixeira.get_all_values()
+        if not linhas or len(linhas) < 2:
+            return jsonify({'sucesso': False, 'mensagem': 'Lixeira vazia.'}), 404
+            
         cabecalhos = [str(c).strip().upper() for c in linhas[0]]
         col_id_idx = cabecalhos.index("ID") if "ID" in cabecalhos else 0
         
