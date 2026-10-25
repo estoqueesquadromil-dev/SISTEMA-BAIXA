@@ -1901,11 +1901,15 @@ def listar_lixeira():
             if not any(row):
                 continue
             
-            # Mapeamento seguro baseado na estrutura exata da planilha
+            # Ajuste exato dos índices para corresponder à sua planilha:
+            # Coluna A (0): ID
+            # Coluna B (1): Data
+            # Coluna C (2): Código Principal
+            # Coluna D (3): Quantidade Ordem
             val_id = row[cabecalhos.index("ID")] if "ID" in cabecalhos and len(row) > cabecalhos.index("ID") else (row[0] if len(row) > 0 else str(idx))
-            val_data = row[cabecalhos.index("DATA")] if "DATA" in cabecalhos and len(row) > cabecalhos.index("DATA") else (row[1] if len(row) > 1 else "")
-            val_codigo = row[cabecalhos.index("CÓDIGO PRINCIPAL")] if "CÓDIGO PRINCIPAL" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO PRINCIPAL") else (row[2] if len(row) > 2 else "")
-            val_qtd = row[cabecalhos.index("QUANTIDADE ORDEM")] if "QUANTIDADE ORDEM" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE ORDEM") else (row[3] if len(row) > 3 else "")
+            val_data = row[1] if len(row) > 1 else ""                  # Coluna B
+            val_codigo = row[2] if len(row) > 2 else ""              # Coluna C
+            val_qtd = row[3] if len(row) > 3 else ""                     # Coluna D
 
             itens.append({
                 "linha": idx,
@@ -1918,7 +1922,6 @@ def listar_lixeira():
         return jsonify({'sucesso': True, 'itens': itens})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
 
 
 
