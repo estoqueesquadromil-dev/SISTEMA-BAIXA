@@ -1900,22 +1900,28 @@ def listar_lixeira():
         for idx, row in enumerate(linhas[1:], start=2):
             if not any(row):
                 continue
-            # Leitura exata baseada nos cabeçalhos da aba LIXEIRA
-            val_id = row[cabecalhos.index("ID")] if "ID" in cabecalhos and len(row) > cabecalhos.index("ID") else str(idx)
-            val_data = row[cabecalhos.index("DATA")] if "DATA" in cabecalhos and len(row) > cabecalhos.index("DATA") else ""
-            val_codigo = row[cabecalhos.index("CÓDIGO PRINCIPAL")] if "CÓDIGO PRINCIPAL" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO PRINCIPAL") else ""
-            val_qtd = row[cabecalhos.index("QUANTIDADE ORDEM")] if "QUANTIDADE ORDEM" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE ORDEM") else ""
             
+            # Mapeamento seguro baseado na estrutura exata da planilha
+            val_id = row[cabecalhos.index("ID")] if "ID" in cabecalhos and len(row) > cabecalhos.index("ID") else (row[0] if len(row) > 0 else str(idx))
+            val_data = row[cabecalhos.index("DATA")] if "DATA" in cabecalhos and len(row) > cabecalhos.index("DATA") else (row[1] if len(row) > 1 else "")
+            val_codigo = row[cabecalhos.index("CÓDIGO PRINCIPAL")] if "CÓDIGO PRINCIPAL" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO PRINCIPAL") else (row[2] if len(row) > 2 else "")
+            val_qtd = row[cabecalhos.index("QUANTIDADE ORDEM")] if "QUANTIDADE ORDEM" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE ORDEM") else (row[3] if len(row) > 3 else "")
+
             itens.append({
                 "linha": idx,
-                "id": val_id,
+                "id": str(val_id).strip(),
                 "data": val_data,
                 "codigoPrincipal": val_codigo,
                 "quantidadeOrdem": val_qtd
             })
+            
         return jsonify({'sucesso': True, 'itens': itens})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
+
 
 @app.route('/remover_definitivo_lixeira', methods=['POST'])
 def remover_definitivo_lixeira():
@@ -1928,6 +1934,9 @@ def remover_definitivo_lixeira():
         aba_lixeira = planilha.worksheet("LIXEIRA")
         
         linhas = aba_lixeira.get_all_values()
+        if not linhas or len(linhas) < 2:
+            return jsonify({'sucesso': False, 'mensagem': 'Lixeira vazia.'}), 404
+            
         cabecalhos = [str(c).strip().upper() for c in linhas[0]]
         col_id_idx = cabecalhos.index("ID") if "ID" in cabecalhos else 0
         
