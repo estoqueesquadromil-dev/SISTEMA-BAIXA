@@ -1555,7 +1555,6 @@ async function excluirConsulta(data, rowId, codigo) {
 
 
     
-    // --- LÓGICA DA ABA INVENTÁRIO ---
 async function carregarInventario() {
         let dataInicio = document.getElementById('data-inicio-inv').value;
         let dataFim = document.getElementById('data-fim-inv').value;
@@ -1578,29 +1577,27 @@ async function carregarInventario() {
                 return;
             }
 
-            // Filtro corrigido: Bloqueia apenas campos vazios ou números soltos. 
-            // Para a Sucata, restringe apenas se o status da consulta de baixas for 'sim'.
             dadosInventarioCache = resultado.itens.filter(item => {
                 let tipo = (item.Tipo || '').trim().toLowerCase();
-                let status = (item.Status || '').trim().toLowerCase();
+                let statusBaixa = (item.Status || '').trim().toLowerCase(); // Status na aba Consultar Baixas
 
-                // 1. Bloqueia apenas campos totalmente vazios ou números soltos
+                // 1. Bloqueia apenas campos vazios ou números soltos
                 if (tipo === '' || !isNaN(tipo)) {
                     return false;
                 }
 
-                // 2. Se for exclusivamente "Baixa Diaria", bloqueia (mantendo os restantes tipos livres)
+                // 2. Bloqueia apenas "Baixa Diaria" pura
                 if (tipo === 'baixa diaria' || tipo === 'baixa diária') {
                     return false;
                 }
 
-                // 3. Aproveitamento de Sucata SÓ APARECE se o status da consulta de baixas NÃO for 'sim'
+                // 3. Aproveitamento de Sucata: SÓ ENTRA se o status da BAIXA (na Consulta de Baixas) NÃO for 'sim'
                 let isSucata = tipo.includes('sucata') || tipo.includes('aproveitamento');
-                if (isSucata) {
-                    return status !== 'sim'; 
+                if (isSucata && statusBaixa === 'sim') {
+                    return false; 
                 }
 
-                // 4. Todos os outros tipos entram normalmente (com Inventário Feito 'Sim' ou 'Não')
+                // 4. Todos os outros tipos (e sucatas com status de baixa 'não') entram normalmente
                 return true;
             });
             filtrarTabelaInventario();
@@ -1609,6 +1606,9 @@ async function carregarInventario() {
             tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">Erro ao carregar dados do inventário.</td></tr>';
         }
     }
+
+
+
     
 
 function filtrarTabelaInventario() {
@@ -1624,7 +1624,6 @@ function filtrarTabelaInventario() {
 
     let itensFiltrados = dadosInventarioCache.filter(item => {
         let statusFeito = (item.InventarioFeito || 'não').trim().toLowerCase();
-        let statusBaixa = (item.Status || '').trim().toLowerCase();
         
         let valIve = item.IVE !== undefined ? item.IVE : item.ive;
         let ivestatus = (valIve === true || valIve === 'Sim' || valIve === 'sim' || valIve === 'SIM' || valIve === 'TRUE');
@@ -1633,26 +1632,24 @@ function filtrarTabelaInventario() {
         let isSucata = tipoBaixaLower.includes('sucata') || tipoBaixaLower.includes('aproveitamento');
         let isAjusteEntrada = tipoBaixaLower.includes('ajuste entrada');
 
-        // Regra para Sucata: Só aparece no inventário se na aba de Consultar Baixas o status for 'não' (ou vazio)
-        if (isSucata && statusBaixa === 'sim') {
-            return false; 
-        }
-
         let classificacaoItem = (item.Classificacao || ((isSucata || isAjusteEntrada) ? 'Entrada' : 'Baixa')).trim().toLowerCase();
 
+        // Filtro por Classificação (Todas / Entrada / Baixa)
         if (classificacaoFiltro !== 'todos' && classificacaoFiltro !== 'todas' && classificacaoFiltro !== '') {
             if (classificacaoItem !== classificacaoFiltro) {
                 return false;
             }
         }
 
-        // Filtro de Inventário Feito (só filtra se o utilizador selecionar explicitamente 'sim' ou 'não' no dropdown)
-        if (inventarioFeitoFiltro !== 'todos' && inventarioFeitoFiltro !== 'todos os status') {
-            if (statusFeito !== inventarioFeitoFiltro) {
-                return false;
-            }
+        // Filtro por Inventário Feito (Dropdown superior)
+        if (inventarioFeitoFiltro === 'sim' && statusFeito !== 'sim') {
+            return false;
+        }
+        if (inventarioFeitoFiltro === 'não' && statusFeito === 'sim') {
+            return false;
         }
 
+        // Filtro IVE
         if (apenasIveMarcado && !ivestatus) {
             return false;
         }
@@ -1660,13 +1657,7 @@ function filtrarTabelaInventario() {
         return true;
     });
 
-    let totalFaltam = dadosInventarioCache.filter(item => {
-        let tipoB = (item.Tipo || '').toLowerCase();
-        let isS = tipoB.includes('sucata') || tipoB.includes('aproveitamento');
-        let sBaixa = (item.Status || '').trim().toLowerCase();
-        if (isS && sBaixa === 'sim') return false;
-        return (item.InventarioFeito || 'Não').trim().toLowerCase() !== 'sim';
-    }).length;
+    let totalFaltam = dadosInventarioCache.filter(item => (item.InventarioFeito || 'Não').trim().toLowerCase() !== 'sim').length;
 
     let badgeFaltam = document.getElementById('contador-inventario-faltam');
     if (badgeFaltam) {
@@ -1678,7 +1669,7 @@ function filtrarTabelaInventario() {
         return;
     }
 
-    // Conta quantas vezes cada código aparece nos itens filtrados para destacar repetidos
+    // Contagem de códigos duplicados na listagem
     let contagemCodigos = {};
     itensFiltrados.forEach(item => {
         let cod = String(item.Codigo || '').trim().toUpperCase();
@@ -1712,7 +1703,7 @@ function filtrarTabelaInventario() {
         let codigoItem = item.Codigo || '';
         let codChave = String(codigoItem).trim().toUpperCase();
         let eRepetido = contagemCodigos[codChave] > 1;
-        let estiloCodigo = eRepetido ? 'color: #dc3545; font-weight: bold;' : 'font-weight: bold;';
+        let estiloCodigo = eRepetido ? 'color: #dc3545; font-weight: bold; background-color: #f8d7da;' : 'font-weight: bold;';
 
         tr.innerHTML = `
             <td>${item.Data || ''}</td>
@@ -1736,7 +1727,6 @@ function filtrarTabelaInventario() {
         tbody.appendChild(tr);
     });
 }
-
 
     
     
