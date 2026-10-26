@@ -2473,7 +2473,21 @@ async function validarSaldoERP() {
     
     let linhasTabela = tbody.querySelectorAll('tr');
     
-    // 2. Agrupa e soma as quantidades apenas das linhas onde o Inventário Feito é "Não"
+    // 2. Conta quantas vezes cada código aparece na tabela para saber se é repetido
+    let contagemCodigos = {};
+    linhasTabela.forEach(tr => {
+        let tds = tr.querySelectorAll('td');
+        if (tds.length < 7) return;
+        let codigoItem = tds[1].innerText.trim().toUpperCase();
+        let selectInventario = tr.querySelector('.status-inventario');
+        let statusInventarioVal = selectInventario ? selectInventario.value.trim().toLowerCase() : 'não';
+        
+        if (statusInventarioVal !== 'sim') {
+            contagemCodigos[codigoItem] = (contagemCodigos[codigoItem] || 0) + 1;
+        }
+    });
+
+    // 3. Agrupa e soma as quantidades apenas das linhas onde o Inventário Feito é "Não"
     let somaQtdPorCodigo = {};
     let linhasPorCodigo = {};
 
@@ -2487,7 +2501,6 @@ async function validarSaldoERP() {
         let selectInventario = tr.querySelector('.status-inventario');
         let statusInventarioVal = selectInventario ? selectInventario.value.trim().toLowerCase() : 'não';
 
-        // REGRA RIGOROSA: Ignora se o inventário já estiver feito como "Sim"
         if (statusInventarioVal === 'sim') {
             return;
         }
@@ -2503,34 +2516,34 @@ async function validarSaldoERP() {
     let validadas = 0;
     let itensParaSalvar = [];
 
-    // 3. Valida o total somado dos itens pendentes contra o saldo do ERP
+    // 4. Validação e atribuição visual
     for (let [codigoItem, qtdTotalNecessaria] of Object.entries(somaQtdPorCodigo)) {
         let saldoErp = saldosDict.hasOwnProperty(codigoItem) ? saldosDict[codigoItem] : 0;
         let resultadoCalculo = saldoErp + qtdTotalNecessaria;
+        let isSuficiente = resultadoCalculo >= 0;
 
         let statusTexto = "";
         let corEstilo = "";
-        let isSuficiente = resultadoCalculo >= 0;
 
-        // VERIFICA SE O PRODUTO É REPETIDO NA TABELA PENDENTE
-        let qtdOcorrencias = linhasPorCodigo[codigoItem].length;
-        let eRepetido = qtdOcorrencias > 1;
+        // Verifica se é repetido na tabela pendente
+        let eRepetido = (contagemCodigos[codigoItem] || 0) > 1;
 
         if (saldosDict.hasOwnProperty(codigoItem)) {
-            if (isSuficiente) {
-                // Se for repetido, mostra o saldo puro do ERP. Se NÃO for repetido, mantém o formato original "Suficiente (X)".
-                statusTexto = eRepetido ? `${saldoErp}` : `Suficiente (${resultadoCalculo})`;
+            if (eRepetido) {
+                // Se for repetido, mostra obrigatoriamente o saldo exato do ERP (ex: 100)
+                statusTexto = `${saldoErp}`;
                 corEstilo = "color: #28a745; font-weight: bold;";
             } else {
-                statusTexto = eRepetido ? `${saldoErp}` : `Insuficiente (${resultadoCalculo})`;
-                corEstilo = "color: #dc3545; font-weight: bold;";
+                // Se NÃO for repetido, mantém o formato original "Suficiente (X)"
+                statusTexto = isSuficiente ? `Suficiente (${resultadoCalculo})` : `Insuficiente (${resultadoCalculo})`;
+                corEstilo = isSuficiente ? "color: #28a745; font-weight: bold;" : "color: #dc3545; font-weight: bold;";
             }
         } else {
             statusTexto = eRepetido ? `0` : `Insuficiente (0)`;
             corEstilo = "color: #dc3545; font-weight: bold;";
         }
 
-        // Aplica o resultado visual apenas às linhas pendentes daquele código
+        // Aplica o resultado visual às linhas correspondentes
         linhasPorCodigo[codigoItem].forEach(({ tr }) => {
             let tds = tr.querySelectorAll('td');
             let saldoErpTd = tds[5];
@@ -2543,11 +2556,11 @@ async function validarSaldoERP() {
             let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
             if (itemCache) itemCache.Status_ERP = statusTexto;
 
-            if (linhaPlanilha && aba && isSuficiente) {
+            if (linhaPlanilha && aba && (isSuficiente || eRepetido)) {
                 itensParaSalvar.push({
                     aba: aba,
                     linha: parseInt(linhaPlanilha),
-                    valor: resultadoCalculo
+                    valor: eRepetido ? saldoErp : resultadoCalculo
                 });
             }
             validadas++;
@@ -2564,7 +2577,7 @@ async function validarSaldoERP() {
                 });
                 let resultado = await resposta.json();
                 if (resultado.sucesso) {
-                    alert('Validação efetuada apenas para os itens pendentes e valores guardados com sucesso!');
+                    alert('Validação efetuada e valores guardados com sucesso!');
                 } else {
                     alert('Erro ao gravar na planilha: ' + resultado.mensagem);
                 }
@@ -2573,13 +2586,19 @@ async function validarSaldoERP() {
                 alert('Erro de comunicação ao tentar salvar na planilha.');
             }
         } else {
-            alert('Validação efetuada, mas os totais dos códigos pendentes resultaram em saldo insuficiente.');
+            alert('Validação efetuada, mas os totais resultaram em saldo insuficiente.');
         }
     } else {
-        alert('Nenhum item pendente (Inventário Feito = "Não") encontrado na tabela para validar.');
+        alert('Nenhum item pendente (Inventário Feito = "Não") encontrado para validar.');
     }
 }
 
+
+
+
+
+
+    
 
 async function carregarDadosBaguetes() {
     let inicio = document.getElementById('data-inicio-b').value;
