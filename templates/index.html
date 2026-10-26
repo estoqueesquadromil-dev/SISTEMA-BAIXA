@@ -1580,7 +1580,7 @@ async function carregarInventario() {
             }
 
             // Filtro rigoroso: Oculta Baixa Diária, números soltos, e restringe Sucata ao status 'Sim'
-// Filtro: Aceita os tipos normais e classifica corretamente
+// Filtro: Oculta Baixa Diária e restringe Aproveitamento de Sucata apenas aos que têm status 'não' (ou vazio)
             dadosInventarioCache = resultado.itens.filter(item => {
                 let tipo = (item.Tipo || '').trim().toLowerCase();
                 let status = (item.Status || '').trim().toLowerCase();
@@ -1590,13 +1590,13 @@ async function carregarInventario() {
                     return false;
                 }
 
-                // 2. Aproveitamento de Sucata SÓ APARECE se o status for 'sim'
+                // 2. Aproveitamento de Sucata SÓ APARECE se o status NÃO for 'sim' (ou seja, for 'não' ou vazio)
                 let isSucata = tipo.includes('sucata') || tipo.includes('aproveitamento');
                 if (isSucata) {
-                    return status === 'sim';
+                    return status !== 'sim'; 
                 }
 
-                // 3. Ajuste de Entrada e outros tipos entram sempre independentemente do status
+                // 3. Outros tipos entram normalmente
                 return true;
             });
             filtrarTabelaInventario();
@@ -1622,6 +1622,7 @@ function filtrarTabelaInventario() {
 
     let itensFiltrados = dadosInventarioCache.filter(item => {
         let statusFeito = (item.InventarioFeito || 'não').trim().toLowerCase();
+        let statusBaixa = (item.Status || '').trim().toLowerCase();
         
         let valIve = item.IVE !== undefined ? item.IVE : item.ive;
         let ivestatus = (valIve === true || valIve === 'Sim' || valIve === 'sim' || valIve === 'SIM' || valIve === 'TRUE');
@@ -1630,10 +1631,10 @@ function filtrarTabelaInventario() {
         let isSucata = tipoBaixaLower.includes('sucata') || tipoBaixaLower.includes('aproveitamento');
         let isAjusteEntrada = tipoBaixaLower.includes('ajuste entrada');
 
-        // Se for sucata ou ajuste de entrada, entra na regra de exibição contínua
+        // Regra para Sucata e Ajuste de Entrada
         if (isSucata || isAjusteEntrada) {
-            // Mantém a regra existente para sucata (exige status 'sim') ou permite ajuste de entrada livremente
-            if (isSucata && statusFeito !== 'sim') {
+            // Se for sucata, SÓ APARECE se o status da baixa NÃO for 'sim' (ou seja, for 'não' ou vazio)
+            if (isSucata && statusBaixa === 'sim') {
                 return false;
             }
         }
@@ -1657,7 +1658,15 @@ function filtrarTabelaInventario() {
         return true;
     });
 
-    let totalFaltam = dadosInventarioCache.filter(item => (item.InventarioFeito || 'Não').trim() === 'Não').length;
+    let totalFaltam = dadosInventarioCache.filter(item => {
+        let tipoB = (item.Tipo || '').toLowerCase();
+        let isS = tipoB.includes('sucata') || tipoB.includes('aproveitamento');
+        let sBaixa = (item.Status || '').trim().toLowerCase();
+        // Conta apenas os válidos para inventário
+        if (isS && sBaixa === 'sim') return false;
+        return (item.InventarioFeito || 'Não').trim() === 'Não';
+    }).length;
+
     let badgeFaltam = document.getElementById('contador-inventario-faltam');
     if (badgeFaltam) {
         badgeFaltam.textContent = `Faltam fazer: ${totalFaltam} inventários`;
