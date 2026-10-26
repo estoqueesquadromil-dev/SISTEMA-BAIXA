@@ -2455,7 +2455,7 @@ async function validarSaldoERP() {
     let saldosDict = {};
     let linhasTexto = textoSaldos.trim().split('\n');
     
-    // 1. Mapeia os saldos colados do ERP
+    // 1. Mapeia os saldos colados do ERP (Código -> Quantidade em estoque)
     for (let linha of linhasTexto) {
         let partes = linha.trim().split(/\s+/);
         if (partes.length >= 2) {
@@ -2487,7 +2487,7 @@ async function validarSaldoERP() {
         let selectInventario = tr.querySelector('.status-inventario');
         let statusInventarioVal = selectInventario ? selectInventario.value.trim().toLowerCase() : 'não';
 
-        // REGRA RIGOROSA: Ignora se o inventário já estiver feito como "Sim"
+        // REGRA: Ignora se o inventário já estiver feito como "Sim"
         if (statusInventarioVal === 'sim') {
             return;
         }
@@ -2503,21 +2503,22 @@ async function validarSaldoERP() {
     let validadas = 0;
     let itensParaSalvar = [];
 
-    // 3. Valida o total somado dos itens pendentes contra o saldo do ERP
+    // 3. Valida: Se o Estoque do ERP for MAIOR ou IGUAL à Quantidade Total Necessária (soma das linhas), é Suficiente!
     for (let [codigoItem, qtdTotalNecessaria] of Object.entries(somaQtdPorCodigo)) {
-        let saldoErp = saldosDict.hasOwnProperty(codigoItem) ? saldosDict[codigoItem] : 0;
-        let resultadoCalculo = saldoErp + qtdTotalNecessaria;
+        let estoqueErp = saldosDict.hasOwnProperty(codigoItem) ? saldosDict[codigoItem] : 0;
+        
+        // Critério correto: estoque do ERP cobre a quantidade total necessária?
+        let isSuficiente = estoqueErp >= qtdTotalNecessaria;
 
         let statusTexto = "";
         let corEstilo = "";
-        let isSuficiente = resultadoCalculo >= 0;
 
         if (saldosDict.hasOwnProperty(codigoItem)) {
             if (isSuficiente) {
-                statusTexto = `Suficiente (${resultadoCalculo})`;
+                statusTexto = `Suficiente (${estoqueErp})`;
                 corEstilo = "color: #28a745; font-weight: bold;";
             } else {
-                statusTexto = `Insuficiente (${resultadoCalculo})`;
+                statusTexto = `Insuficiente (${estoqueErp})`;
                 corEstilo = "color: #dc3545; font-weight: bold;";
             }
         } else {
@@ -2525,7 +2526,7 @@ async function validarSaldoERP() {
             corEstilo = "color: #dc3545; font-weight: bold;";
         }
 
-        // Aplica o resultado visual apenas às linhas pendentes daquele código
+        // Aplica o resultado visual nas linhas correspondentes daquele código
         linhasPorCodigo[codigoItem].forEach(({ tr }) => {
             let tds = tr.querySelectorAll('td');
             let saldoErpTd = tds[5];
@@ -2542,7 +2543,7 @@ async function validarSaldoERP() {
                 itensParaSalvar.push({
                     aba: aba,
                     linha: parseInt(linhaPlanilha),
-                    valor: resultadoCalculo
+                    valor: estoqueErp
                 });
             }
             validadas++;
@@ -2559,7 +2560,7 @@ async function validarSaldoERP() {
                 });
                 let resultado = await resposta.json();
                 if (resultado.sucesso) {
-                    alert('Validação efetuada apenas para os itens pendentes e valores guardados com sucesso!');
+                    alert('Validação em lote efetuada e valores guardados com sucesso!');
                 } else {
                     alert('Erro ao gravar na planilha: ' + resultado.mensagem);
                 }
@@ -2568,13 +2569,18 @@ async function validarSaldoERP() {
                 alert('Erro de comunicação ao tentar salvar na planilha.');
             }
         } else {
-            alert('Validação efetuada, mas os totais dos códigos pendentes resultaram em saldo insuficiente.');
+            alert('Validação efetuada, mas o total dos códigos pendentes ultrapassou o saldo do ERP (Insuficiente).');
         }
     } else {
         alert('Nenhum item pendente (Inventário Feito = "Não") encontrado na tabela para validar.');
     }
 }
 
+
+
+
+
+    
 function exportarExcelConsultarBaixas() {
     let dataConsulta = document.getElementById('data-consulta').value;
     let filtroTipo = document.getElementById('filtro-tipo').value;
