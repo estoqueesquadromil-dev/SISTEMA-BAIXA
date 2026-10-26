@@ -2455,7 +2455,6 @@ async function validarSaldoERP() {
     let saldosDict = {};
     let linhasTexto = textoSaldos.trim().split('\n');
     
-    // 1. Mapeia os saldos colados do ERP (Código -> Quantidade em estoque)
     for (let linha of linhasTexto) {
         let partes = linha.trim().split(/\s+/);
         if (partes.length >= 2) {
@@ -2472,10 +2471,8 @@ async function validarSaldoERP() {
     if (!tbody) return;
     
     let linhasTabela = tbody.querySelectorAll('tr');
-    
-    // 2. Agrupa e soma as quantidades apenas das linhas onde o Inventário Feito é "Não"
-    let somaQtdPorCodigo = {};
-    let linhasPorCodigo = {};
+    let validadas = 0;
+    let itensParaSalvar = [];
 
     linhasTabela.forEach(tr => {
         let tds = tr.querySelectorAll('td');
@@ -2483,72 +2480,41 @@ async function validarSaldoERP() {
 
         let codigoItem = tds[1].innerText.trim().toUpperCase();
         let qtdTabela = parseFloat(tds[2].innerText.trim().replace(',', '.')) || 0;
+        let saldoErpTd = tds[5]; // Coluna Saldo ERP
 
         let selectInventario = tr.querySelector('.status-inventario');
-        let statusInventarioVal = selectInventario ? selectInventario.value.trim().toLowerCase() : 'não';
+        let statusInventarioVal = selectInventario ? selectInventario.value.trim() : 'Não';
 
-        // REGRA: Ignora se o inventário já estiver feito como "Sim"
-        if (statusInventarioVal === 'sim') {
+        if (statusInventarioVal.toLowerCase() === 'sim') {
             return;
         }
 
-        if (!somaQtdPorCodigo[codigoItem]) {
-            somaQtdPorCodigo[codigoItem] = 0;
-            linhasPorCodigo[codigoItem] = [];
-        }
-        somaQtdPorCodigo[codigoItem] += qtdTabela;
-        linhasPorCodigo[codigoItem].push({ tr, qtdTabela });
-    });
+        let aba = selectInventario ? selectInventario.getAttribute('data-aba') : '';
+        let linhaPlanilha = selectInventario ? selectInventario.getAttribute('data-linha') : '';
 
-    let validadas = 0;
-    let itensParaSalvar = [];
+        let saldoErp = saldosDict.hasOwnProperty(codigoItem) ? saldosDict[codigoItem] : 0;
+        let resultadoCalculo = saldoErp + qtdTabela;
 
-    // 3. Valida: Se o Estoque do ERP for MAIOR ou IGUAL à Quantidade Total Necessária (soma das linhas), é Suficiente!
-    for (let [codigoItem, qtdTotalNecessaria] of Object.entries(somaQtdPorCodigo)) {
-        let estoqueErp = saldosDict.hasOwnProperty(codigoItem) ? saldosDict[codigoItem] : 0;
-        
-        // Critério correto: estoque do ERP cobre a quantidade total necessária?
-        let isSuficiente = estoqueErp >= qtdTotalNecessaria;
+        let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
 
-        let statusTexto = "";
-        let corEstilo = "";
+        if (resultadoCalculo >= 0) {
+            saldoErpTd.innerHTML = `<span style="color: #28a745; font-weight: bold;">Suficiente (${resultadoCalculo})</span>`;
+            
+            if (itemCache) itemCache.Status_ERP = `Suficiente (${resultadoCalculo})`;
 
-        if (saldosDict.hasOwnProperty(codigoItem)) {
-            if (isSuficiente) {
-                statusTexto = `Suficiente (${estoqueErp})`;
-                corEstilo = "color: #28a745; font-weight: bold;";
-            } else {
-                statusTexto = `Insuficiente (${estoqueErp})`;
-                corEstilo = "color: #dc3545; font-weight: bold;";
-            }
-        } else {
-            statusTexto = `Insuficiente (0)`;
-            corEstilo = "color: #dc3545; font-weight: bold;";
-        }
-
-        // Aplica o resultado visual nas linhas correspondentes daquele código
-        linhasPorCodigo[codigoItem].forEach(({ tr }) => {
-            let tds = tr.querySelectorAll('td');
-            let saldoErpTd = tds[5];
-            saldoErpTd.innerHTML = `<span style="${corEstilo}">${statusTexto}</span>`;
-
-            let selectInventario = tr.querySelector('.status-inventario');
-            let aba = selectInventario ? selectInventario.getAttribute('data-aba') : '';
-            let linhaPlanilha = selectInventario ? selectInventario.getAttribute('data-linha') : '';
-
-            let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
-            if (itemCache) itemCache.Status_ERP = statusTexto;
-
-            if (linhaPlanilha && aba && isSuficiente) {
+            if (linhaPlanilha && aba) {
                 itensParaSalvar.push({
                     aba: aba,
                     linha: parseInt(linhaPlanilha),
-                    valor: estoqueErp
+                    valor: resultadoCalculo
                 });
             }
-            validadas++;
-        });
-    }
+        } else {
+            saldoErpTd.innerHTML = `<span style="color: #dc3545; font-weight: bold;">Insuficiente (0)</span>`;
+            if (itemCache) itemCache.Status_ERP = `Insuficiente (0)`;
+        }
+        validadas++;
+    });
 
     if (validadas > 0) {
         if (itensParaSalvar.length > 0) {
@@ -2560,7 +2526,7 @@ async function validarSaldoERP() {
                 });
                 let resultado = await resposta.json();
                 if (resultado.sucesso) {
-                    alert('Validação em lote efetuada e valores guardados com sucesso!');
+                    alert('Validação efetuada e valores suficientes guardados na Coluna I em lote!');
                 } else {
                     alert('Erro ao gravar na planilha: ' + resultado.mensagem);
                 }
@@ -2569,13 +2535,12 @@ async function validarSaldoERP() {
                 alert('Erro de comunicação ao tentar salvar na planilha.');
             }
         } else {
-            alert('Validação efetuada, mas o total dos códigos pendentes ultrapassou o saldo do ERP (Insuficiente).');
+            alert('Validação efetuada, mas nenhum item pendente atingiu saldo suficiente.');
         }
     } else {
-        alert('Nenhum item pendente (Inventário Feito = "Não") encontrado na tabela para validar.');
+        alert('Nenhum item elegível (Inventário Feito = "Não") encontrado na tabela para validar.');
     }
 }
-
 
 
 
