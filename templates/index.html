@@ -296,9 +296,25 @@
             <button class="btn-excel" onclick="exportarExcelInventario()">Baixar Excel (CSV)</button>
         </div>
 
-        <!-- Contador de Faltantes -->
-        <div id="contador-inventario-faltam" class="contador-badge" style="background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; margin-bottom: 15px; display: inline-block; padding: 6px 12px; border-radius: 4px;">
-            Faltam fazer: 0 inventários
+        <!-- CONTADOR E PAINEL DE AÇÕES EM LOTE PARA O INVENTÁRIO -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+            <div id="contador-inventario-faltam" class="contador-badge" style="background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 6px 12px; border-radius: 4px; margin: 0; display: inline-block;">
+                Faltam fazer: 0 inventários
+            </div>
+
+            <!-- PAINEL DE ALTERAÇÃO EM LOTE -->
+            <div id="painel-lote-inventario" style="display: flex; gap: 8px; align-items: center; background: #f8f9fa; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px;">
+                <select id="status-lote-inv" style="padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                    <option value="Sim">Marcar Sim</option>
+                    <option value="Não">Marcar Não</option>
+                </select>
+                <button type="button" onclick="aplicarInventarioFeitoEmMassa()" style="background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">
+                    Aplicar Inv. Feito
+                </button>
+                <button type="button" onclick="aplicarIveEmMassa()" style="background-color: #6c757d; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">
+                    Aplicar IVE
+                </button>
+            </div>
         </div>
 
         <h3>Controlo de Inventário</h3>
@@ -311,9 +327,11 @@
                         <th>Quantidade</th>
                         <th>Tipo</th>
                         <th>Classificação</th>
-                        <th>Saldo ERP</th> <!-- Fica apenas esta, onde mostramos o número ou o status -->
+                        <th>Saldo ERP</th>
                         <th style="text-align: center;">Inventário Feito?</th>
-                        <th style="text-align: center;">IVE</th>
+                        <th style="text-align: center; width: 90px;">
+                            <input type="checkbox" id="check-todos-ive" onclick="alternarTodosIve(this)" title="Marcar/Desmarcar todos IVE" style="width: 18px; height: 18px; cursor: pointer; vertical-align: middle;"> IVE
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -324,7 +342,6 @@
             </table>
         </div>
     </div>
-    
 
 
     
@@ -2742,7 +2759,93 @@ async function removerDefinitivoLixeira(idItem) {
     }
 }
     
+// Seleciona ou desmarca todos os checkboxes de IVE visíveis na tabela
+function alternarTodosIve(master) {
+    let checkboxes = document.querySelectorAll('.check-linha-ive');
+    checkboxes.forEach(cb => {
+        // Apenas altera os visíveis (caso haja filtros aplicados)
+        let tr = cb.closest('tr');
+        if (tr && tr.style.display !== 'none') {
+            cb.checked = master.checked;
+        }
+    });
+}
 
+// Aplica o status de Inventário Feito em massa para todos os itens visíveis
+async function aplicarInventarioFeitoEmMassa() {
+    let novoStatus = document.getElementById('status-lote-inv').value;
+    let selects = document.querySelectorAll('#tabela-inventario tbody tr:not([style*="display: none"]) .status-inventario');
+    
+    if (selects.length === 0) {
+        alert('Não há itens visíveis na tabela para atualizar.');
+        return;
+    }
+
+    if (!confirm(`Tem a certeza que deseja alterar o Inventário Feito para "${novoStatus}" em ${selects.length} item(ns) visíveis?`)) return;
+
+    let atualizacoes = [];
+    selects.forEach(select => {
+        let aba = select.getAttribute('data-aba');
+        let linha = select.getAttribute('data-linha');
+        if (aba && linha) {
+            atualizacoes.push({ aba: aba, linha: parseInt(linha), inventarioFeito: novoStatus });
+            select.value = novoStatus;
+            select.style.color = novoStatus === 'Sim' ? 'green' : 'red';
+        }
+    });
+
+    // Envia em lote para o servidor
+    try {
+        for (let item of atualizacoes) {
+            await fetch('/atualizar_inventario', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+            });
+        }
+        alert('Inventário Feito atualizado em massa com sucesso!');
+        carregarInventario(); // Recarrega os dados atualizados
+    } catch (err) {
+        console.error(err);
+        alert('Erro ao comunicar com o servidor durante a atualização em lote.');
+    }
+}
+
+// Aplica o status do IVE em massa (Sim para os marcados, Não para os desmarcados visíveis)
+async function aplicarIveEmMassa() {
+    let checkboxes = document.querySelectorAll('#tabela-inventario tbody tr:not([style*="display: none"]) .check-linha-ive');
+    
+    if (checkboxes.length === 0) {
+        alert('Não há itens visíveis na tabela para atualizar.');
+        return;
+    }
+
+    if (!confirm(`Tem a certeza que deseja atualizar o IVE para os itens selecionados?`)) return;
+
+    try {
+        for (let cb of checkboxes) {
+            let aba = cb.getAttribute('data-aba');
+            let linha = cb.getAttribute('data-linha');
+            let novoValor = cb.checked ? 'Sim' : 'Não';
+
+            if (aba && linha) {
+                await fetch('/atualizar_ive', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ aba: aba, linha: parseInt(linha), ive_status: novoValor })
+                });
+            }
+        }
+        alert('IVE atualizado em massa com sucesso!');
+        carregarInventario();
+    } catch (err) {
+        console.error(err);
+        alert('Erro ao comunicar com o servidor ao atualizar o IVE.');
+    }
+}
+
+
+    
     
 </script>
 
