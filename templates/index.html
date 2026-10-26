@@ -1556,57 +1556,60 @@ async function excluirConsulta(data, rowId, codigo) {
 
     
 async function carregarInventario() {
-        let dataInicio = document.getElementById('data-inicio-inv').value;
-        let dataFim = document.getElementById('data-fim-inv').value;
-        let tbody = document.querySelector('#tabela-inventario tbody');
+    let dataInicio = document.getElementById('data-inicio-inv').value;
+    let dataFim = document.getElementById('data-fim-inv').value;
+    let tbody = document.querySelector('#tabela-inventario tbody');
 
-        if (!dataInicio || !dataFim) {
-            alert('Selecione a data de início e fim.');
+    if (!dataInicio || !dataFim) {
+        alert('Selecione a data de início e fim.');
+        return;
+    }
+
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">A carregar inventário...</td></tr>';
+
+    try {
+        let resposta = await fetch(`/consultar_inventario_periodo?inicio=${dataInicio}&fim=${dataFim}`);
+        let resultado = await resposta.json();
+
+        if (!resultado.sucesso || !resultado.itens || resultado.itens.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item encontrado neste período.</td></tr>';
+            dadosInventarioCache = [];
             return;
         }
 
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">A carregar inventário...</td></tr>';
+        // Regra exata corrigida:
+        // - Aproveitamento de Sucata SÓ APARECE se o status da baixa for EXATAMENTE 'sim'.
+        // - Todos os outros tipos entram normalmente.
+        dadosInventarioCache = resultado.itens.filter(item => {
+            let tipo = (item.Tipo || '').trim().toLowerCase();
+            let statusBaixa = (item.Status || '').trim().toLowerCase(); // Status vindo da aba Consultar Baixas
 
-        try {
-            let resposta = await fetch(`/consultar_inventario_periodo?inicio=${dataInicio}&fim=${dataFim}`);
-            let resultado = await resposta.json();
-
-            if (!resultado.sucesso || !resultado.itens || resultado.itens.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item encontrado neste período.</td></tr>';
-                dadosInventarioCache = [];
-                return;
+            // Bloqueia campos vazios ou números soltos
+            if (tipo === '' || !isNaN(tipo)) {
+                return false;
             }
 
-            dadosInventarioCache = resultado.itens.filter(item => {
-                let tipo = (item.Tipo || '').trim().toLowerCase();
-                let statusBaixa = (item.Status || '').trim().toLowerCase(); // Status na aba Consultar Baixas
-
-                // 1. Bloqueia apenas campos vazios ou números soltos
-                if (tipo === '' || !isNaN(tipo)) {
-                    return false;
-                }
-
-                // 2. Bloqueia apenas "Baixa Diaria" pura
-                if (tipo === 'baixa diaria' || tipo === 'baixa diária') {
-                    return false;
-                }
-
-                // 3. Aproveitamento de Sucata: SÓ ENTRA se o status da BAIXA (na Consulta de Baixas) NÃO for 'sim'
-                let isSucata = tipo.includes('sucata') || tipo.includes('aproveitamento');
-                if (isSucata && statusBaixa === 'sim') {
+            // Verifica se é Aproveitamento de Sucata
+            let isSucata = tipo.includes('sucata') || tipo.includes('aproveitamento');
+            
+            if (isSucata) {
+                // Se for sucata, SÓ ENTRA no inventario se o status da baixa for 'sim'
+                if (statusBaixa !== 'sim') {
                     return false; 
                 }
+            }
 
-                // 4. Todos os outros tipos (e sucatas com status de baixa 'não') entram normalmente
-                return true;
-            });
-            filtrarTabelaInventario();
+            // Todos os outros tipos entram livremente
+            return true;
+        });
 
-        } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">Erro ao carregar dados do inventário.</td></tr>';
-        }
+        filtrarTabelaInventario();
+
+    } catch (err) {
+        console.error(err);
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">Erro ao carregar dados do inventário.</td></tr>';
     }
-
+}
 
 
     
