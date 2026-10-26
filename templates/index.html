@@ -2512,16 +2512,21 @@ async function validarSaldoERP() {
         let corEstilo = "";
         let isSuficiente = resultadoCalculo >= 0;
 
+        // VERIFICA SE O PRODUTO É REPETIDO NA TABELA PENDENTE
+        let qtdOcorrencias = linhasPorCodigo[codigoItem].length;
+        let eRepetido = qtdOcorrencias > 1;
+
         if (saldosDict.hasOwnProperty(codigoItem)) {
             if (isSuficiente) {
-                statusTexto = `Suficiente (${resultadoCalculo})`;
+                // Se for repetido, mostra apenas o saldo do ERP. Se não for, mantém o formato anterior.
+                statusTexto = eRepetido ? `${saldoErp}` : `Suficiente (${resultadoCalculo})`;
                 corEstilo = "color: #28a745; font-weight: bold;";
             } else {
-                statusTexto = `Insuficiente (${resultadoCalculo})`;
+                statusTexto = eRepetido ? `${saldoErp}` : `Insuficiente (${resultadoCalculo})`;
                 corEstilo = "color: #dc3545; font-weight: bold;";
             }
         } else {
-            statusTexto = `Insuficiente (0)`;
+            statusTexto = eRepetido ? `0` : `Insuficiente (0)`;
             corEstilo = "color: #dc3545; font-weight: bold;";
         }
 
@@ -2574,8 +2579,6 @@ async function validarSaldoERP() {
         alert('Nenhum item pendente (Inventário Feito = "Não") encontrado na tabela para validar.');
     }
 }
-
-
 
 
 
