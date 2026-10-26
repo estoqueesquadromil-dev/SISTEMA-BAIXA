@@ -1631,11 +1631,10 @@ function filtrarTabelaInventario() {
         let isSucata = tipoBaixaLower.includes('sucata') || tipoBaixaLower.includes('aproveitamento');
         let isAjusteEntrada = tipoBaixaLower.includes('ajuste entrada');
 
-        // Regra para Sucata e Ajuste de Entrada
-        if (isSucata || isAjusteEntrada) {
-            // Se for sucata, SÓ APARECE se o status da baixa NÃO for 'sim' (ou seja, for 'não' ou vazio)
-            if (isSucata && statusBaixa === 'sim') {
-                return false;
+        // Regra para Sucata: Só aparece no inventário se na aba de Consultar Baixas o status for 'não' (ou vazio)
+        if (isSucata) {
+            if (statusBaixa === 'sim') {
+                return false; // Se já foi dado como 'Sim' na consulta de baixas, oculta do inventário
             }
         }
 
@@ -1647,6 +1646,7 @@ function filtrarTabelaInventario() {
             }
         }
 
+        // Aplica o filtro local da coluna "Inventário Feito?" sem ocultar os "Sim" do ecrã
         if (inventarioFeitoFiltro !== 'todos' && statusFeito !== inventarioFeitoFiltro) {
             return false;
         }
@@ -1662,7 +1662,6 @@ function filtrarTabelaInventario() {
         let tipoB = (item.Tipo || '').toLowerCase();
         let isS = tipoB.includes('sucata') || tipoB.includes('aproveitamento');
         let sBaixa = (item.Status || '').trim().toLowerCase();
-        // Conta apenas os válidos para inventário
         if (isS && sBaixa === 'sim') return false;
         return (item.InventarioFeito || 'Não').trim() === 'Não';
     }).length;
@@ -1677,7 +1676,7 @@ function filtrarTabelaInventario() {
         return;
     }
 
-    // 1. Conta quantas vezes cada código aparece nos itens filtrados
+    // Conta quantas vezes cada código aparece nos itens filtrados para destacar repetidos
     let contagemCodigos = {};
     itensFiltrados.forEach(item => {
         let cod = String(item.Codigo || '').trim().toUpperCase();
@@ -1708,7 +1707,6 @@ function filtrarTabelaInventario() {
         let isAjusteEntrada = tipoBaixaLower.includes('ajuste entrada');
         let classificacaoItem = item.Classificacao || ((isSucata || isAjusteEntrada) ? 'Entrada' : 'Baixa');
 
-        // 2. Verifica se o código é repetido na listagem para aplicar a cor vermelha
         let codigoItem = item.Codigo || '';
         let codChave = String(codigoItem).trim().toUpperCase();
         let eRepetido = contagemCodigos[codChave] > 1;
@@ -1736,6 +1734,10 @@ function filtrarTabelaInventario() {
         tbody.appendChild(tr);
     });
 }
+
+
+
+    
     
 
 function renderizarTabelaInventario(dados) {
