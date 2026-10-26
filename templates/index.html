@@ -1577,29 +1577,30 @@ async function carregarInventario() {
             return;
         }
 
-        // Regra exata corrigida:
-        // - Aproveitamento de Sucata SÓ APARECE se o status da baixa for EXATAMENTE 'sim'.
-        // - Todos os outros tipos entram normalmente.
+        // Regra definitiva e exata:
         dadosInventarioCache = resultado.itens.filter(item => {
             let tipo = (item.Tipo || '').trim().toLowerCase();
-            let statusBaixa = (item.Status || '').trim().toLowerCase(); // Status vindo da aba Consultar Baixas
+            let statusBaixa = (item.Status || '').trim().toLowerCase(); // Status vindo de Consultar Baixas
 
-            // Bloqueia campos vazios ou números soltos
+            // 1. Bloqueia campos vazios ou números soltos
             if (tipo === '' || !isNaN(tipo)) {
                 return false;
             }
 
-            // Verifica se é Aproveitamento de Sucata
+            // 2. "Baixa Diaria" NUNCA deve aparecer de forma alguma no inventário
+            if (tipo === 'baixa diaria' || tipo === 'baixa diária' || tipo.includes('baixa diária') || tipo.includes('baixa diaria')) {
+                return false;
+            }
+
+            // 3. "Aproveitamento de Sucata" SÓ APARECE se o status da baixa for EXATAMENTE 'sim'
             let isSucata = tipo.includes('sucata') || tipo.includes('aproveitamento');
-            
             if (isSucata) {
-                // Se for sucata, SÓ ENTRA no inventario se o status da baixa for 'sim'
                 if (statusBaixa !== 'sim') {
                     return false; 
                 }
             }
 
-            // Todos os outros tipos entram livremente
+            // 4. Todos os outros tipos entram obrigatoriamente, independentemente de status
             return true;
         });
 
