@@ -2518,7 +2518,7 @@ async function validarSaldoERP() {
 
         if (saldosDict.hasOwnProperty(codigoItem)) {
             if (isSuficiente) {
-                // Se for repetido, mostra apenas o saldo do ERP. Se não for, mantém o formato anterior.
+                // Se for repetido, mostra o saldo puro do ERP. Se NÃO for repetido, mantém o formato original "Suficiente (X)".
                 statusTexto = eRepetido ? `${saldoErp}` : `Suficiente (${resultadoCalculo})`;
                 corEstilo = "color: #28a745; font-weight: bold;";
             } else {
@@ -2579,7 +2579,6 @@ async function validarSaldoERP() {
         alert('Nenhum item pendente (Inventário Feito = "Não") encontrado na tabela para validar.');
     }
 }
-
 
 
 async function carregarDadosBaguetes() {
