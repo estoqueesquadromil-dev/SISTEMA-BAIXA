@@ -2455,6 +2455,7 @@ async function validarSaldoERP() {
     let saldosDict = {};
     let linhasTexto = textoSaldos.trim().split('\n');
     
+    // 1. Mapeia os saldos colados do ERP
     for (let linha of linhasTexto) {
         let partes = linha.trim().split(/\s+/);
         if (partes.length >= 2) {
@@ -2490,6 +2491,7 @@ async function validarSaldoERP() {
             return;
         }
 
+        // PRESERVAÇÃO CRUCIAL: Resgata a aba e a linha exata da planilha
         let aba = selectInventario ? selectInventario.getAttribute('data-aba') : '';
         let linhaPlanilha = selectInventario ? selectInventario.getAttribute('data-linha') : '';
 
@@ -2542,8 +2544,6 @@ async function validarSaldoERP() {
         alert('Nenhum item elegível (Inventário Feito = "Não") encontrado na tabela para validar.');
     }
 }
-
-
 
     
 
