@@ -2455,7 +2455,7 @@ async function validarSaldoERP() {
     let saldosDict = {};
     let linhasTexto = textoSaldos.trim().split('\n');
     
-    // 1. Lê e mapeia os saldos informados no ERP
+    // 1. Mapeia os saldos colados do ERP
     for (let linha of linhasTexto) {
         let partes = linha.trim().split(/\s+/);
         if (partes.length >= 2) {
@@ -2472,8 +2472,10 @@ async function validarSaldoERP() {
     if (!tbody) return;
     
     let linhasTabela = tbody.querySelectorAll('tr');
-    let validadas = 0;
-    let itensParaSalvar = [];
+    
+    // 2. Agrupa e soma as quantidades apenas das linhas onde o Inventário Feito é "Não"
+    let somaQtdPorCodigo = {};
+    let linhasPorCodigo = {};
 
     linhasTabela.forEach(tr => {
         let tds = tr.querySelectorAll('td');
@@ -2481,50 +2483,71 @@ async function validarSaldoERP() {
 
         let codigoItem = tds[1].innerText.trim().toUpperCase();
         let qtdTabela = parseFloat(tds[2].innerText.trim().replace(',', '.')) || 0;
-        let saldoErpTd = tds[5]; // Coluna Saldo ERP
 
         let selectInventario = tr.querySelector('.status-inventario');
-        let statusInventarioVal = selectInventario ? selectInventario.value.trim() : 'Não';
+        let statusInventarioVal = selectInventario ? selectInventario.value.trim().toLowerCase() : 'não';
 
-        // Se o inventário já estiver feito como "Sim", ignora a validação desta linha
-        if (statusInventarioVal.toLowerCase() === 'sim') {
+        // REGRA RIGOROSA: Ignora se o inventário já estiver feito como "Sim"
+        if (statusInventarioVal === 'sim') {
             return;
         }
 
-        let aba = selectInventario ? selectInventario.getAttribute('data-aba') : '';
-        let linhaPlanilha = selectInventario ? selectInventario.getAttribute('data-linha') : '';
+        if (!somaQtdPorCodigo[codigoItem]) {
+            somaQtdPorCodigo[codigoItem] = 0;
+            linhasPorCodigo[codigoItem] = [];
+        }
+        somaQtdPorCodigo[codigoItem] += qtdTabela;
+        linhasPorCodigo[codigoItem].push({ tr, qtdTabela });
+    });
 
-        // Se o código existe no dicionário do ERP
+    let validadas = 0;
+    let itensParaSalvar = [];
+
+    // 3. Valida o total somado dos itens pendentes contra o saldo do ERP
+    for (let [codigoItem, qtdTotalNecessaria] of Object.entries(somaQtdPorCodigo)) {
+        let saldoErp = saldosDict.hasOwnProperty(codigoItem) ? saldosDict[codigoItem] : 0;
+        let resultadoCalculo = saldoErp + qtdTotalNecessaria;
+
+        let statusTexto = "";
+        let corEstilo = "";
+        let isSuficiente = resultadoCalculo >= 0;
+
         if (saldosDict.hasOwnProperty(codigoItem)) {
-            let saldoErp = saldosDict[codigoItem];
-            let resultadoCalculo = saldoErp + qtdTabela;
-
-            if (resultadoCalculo >= 0) {
-                saldoErpTd.innerHTML = `<span style="color: #28a745; font-weight: bold;">Suficiente (${resultadoCalculo})</span>`;
-                
-                let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
-                if (itemCache) itemCache.Status_ERP = `Suficiente (${resultadoCalculo})`;
-
-                if (linhaPlanilha && aba) {
-                    itensParaSalvar.push({
-                        aba: aba,
-                        linha: parseInt(linhaPlanilha),
-                        valor: resultadoCalculo
-                    });
-                }
+            if (isSuficiente) {
+                statusTexto = `Suficiente (${resultadoCalculo})`;
+                corEstilo = "color: #28a745; font-weight: bold;";
             } else {
-                saldoErpTd.innerHTML = `<span style="color: #dc3545; font-weight: bold;">Insuficiente (${resultadoCalculo})</span>`;
-                let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
-                if (itemCache) itemCache.Status_ERP = `Insuficiente (${resultadoCalculo})`;
+                statusTexto = `Insuficiente (${resultadoCalculo})`;
+                corEstilo = "color: #dc3545; font-weight: bold;";
             }
         } else {
-            // Se o código não foi colado na caixa do ERP
-            saldoErpTd.innerHTML = `<span style="color: #dc3545; font-weight: bold;">Insuficiente (0)</span>`;
-            let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
-            if (itemCache) itemCache.Status_ERP = `Insuficiente (0)`;
+            statusTexto = `Insuficiente (0)`;
+            corEstilo = "color: #dc3545; font-weight: bold;";
         }
-        validadas++;
-    });
+
+        // Aplica o resultado visual apenas às linhas pendentes daquele código
+        linhasPorCodigo[codigoItem].forEach(({ tr }) => {
+            let tds = tr.querySelectorAll('td');
+            let saldoErpTd = tds[5];
+            saldoErpTd.innerHTML = `<span style="${corEstilo}">${statusTexto}</span>`;
+
+            let selectInventario = tr.querySelector('.status-inventario');
+            let aba = selectInventario ? selectInventario.getAttribute('data-aba') : '';
+            let linhaPlanilha = selectInventario ? selectInventario.getAttribute('data-linha') : '';
+
+            let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
+            if (itemCache) itemCache.Status_ERP = statusTexto;
+
+            if (linhaPlanilha && aba && isSuficiente) {
+                itensParaSalvar.push({
+                    aba: aba,
+                    linha: parseInt(linhaPlanilha),
+                    valor: resultadoCalculo
+                });
+            }
+            validadas++;
+        });
+    }
 
     if (validadas > 0) {
         if (itensParaSalvar.length > 0) {
@@ -2536,7 +2559,7 @@ async function validarSaldoERP() {
                 });
                 let resultado = await resposta.json();
                 if (resultado.sucesso) {
-                    alert('Validação efetuada e valores guardados com sucesso!');
+                    alert('Validação efetuada apenas para os itens pendentes e valores guardados com sucesso!');
                 } else {
                     alert('Erro ao gravar na planilha: ' + resultado.mensagem);
                 }
@@ -2545,13 +2568,12 @@ async function validarSaldoERP() {
                 alert('Erro de comunicação ao tentar salvar na planilha.');
             }
         } else {
-            alert('Validação efetuada, mas nenhum item atingiu saldo suficiente.');
+            alert('Validação efetuada, mas os totais dos códigos pendentes resultaram em saldo insuficiente.');
         }
     } else {
-        alert('Nenhum item elegível encontrado na tabela para validar.');
+        alert('Nenhum item pendente (Inventário Feito = "Não") encontrado na tabela para validar.');
     }
 }
-
 
 function exportarExcelConsultarBaixas() {
     let dataConsulta = document.getElementById('data-consulta').value;
