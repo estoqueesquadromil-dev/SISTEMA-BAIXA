@@ -1632,10 +1632,8 @@ function filtrarTabelaInventario() {
         let isAjusteEntrada = tipoBaixaLower.includes('ajuste entrada');
 
         // Regra para Sucata: Só aparece no inventário se na aba de Consultar Baixas o status for 'não' (ou vazio)
-        if (isSucata) {
-            if (statusBaixa === 'sim') {
-                return false; // Se já foi dado como 'Sim' na consulta de baixas, oculta do inventário
-            }
+        if (isSucata && statusBaixa === 'sim') {
+            return false; 
         }
 
         let classificacaoItem = (item.Classificacao || ((isSucata || isAjusteEntrada) ? 'Entrada' : 'Baixa')).trim().toLowerCase();
@@ -1646,9 +1644,11 @@ function filtrarTabelaInventario() {
             }
         }
 
-        // Aplica o filtro local da coluna "Inventário Feito?" sem ocultar os "Sim" do ecrã
-        if (inventarioFeitoFiltro !== 'todos' && statusFeito !== inventarioFeitoFiltro) {
-            return false;
+        // Filtro de Inventário Feito (só filtra se o utilizador selecionar explicitamente 'sim' ou 'não' no dropdown)
+        if (inventarioFeitoFiltro !== 'todos' && inventarioFeitoFiltro !== 'todos os status') {
+            if (statusFeito !== inventarioFeitoFiltro) {
+                return false;
+            }
         }
 
         if (apenasIveMarcado && !ivestatus) {
@@ -1663,7 +1663,7 @@ function filtrarTabelaInventario() {
         let isS = tipoB.includes('sucata') || tipoB.includes('aproveitamento');
         let sBaixa = (item.Status || '').trim().toLowerCase();
         if (isS && sBaixa === 'sim') return false;
-        return (item.InventarioFeito || 'Não').trim() === 'Não';
+        return (item.InventarioFeito || 'Não').trim().toLowerCase() !== 'sim';
     }).length;
 
     let badgeFaltam = document.getElementById('contador-inventario-faltam');
@@ -1722,9 +1722,9 @@ function filtrarTabelaInventario() {
             <td>${classificacaoItem}</td>
             <td>${conteudoSaldoErp}</td>
             <td style="text-align: center;">
-                <select class="form-control form-control-sm status-inventario" data-aba="${item.Aba || ''}" data-linha="${item.Linha || ''}" onchange="atualizarStatusInventario(this, '${item.Aba || ''}', ${item.Linha || ''})" style="color: ${(item.InventarioFeito || 'Não') === 'Sim' ? 'green' : 'red'}; font-weight: bold;">
-                    <option value="Não" ${(item.InventarioFeito || 'Não') !== 'Sim' ? 'selected' : ''} style="color: red;">Não</option>
-                    <option value="Sim" ${(item.InventarioFeito || 'Não') === 'Sim' ? 'selected' : ''} style="color: green;">Sim</option>
+                <select class="form-control form-control-sm status-inventario" data-aba="${item.Aba || ''}" data-linha="${item.Linha || ''}" onchange="atualizarStatusInventario(this, '${item.Aba || ''}', ${item.Linha || ''})" style="color: ${(item.InventarioFeito || 'Não').trim().toLowerCase() === 'sim' ? 'green' : 'red'}; font-weight: bold;">
+                    <option value="Não" ${(item.InventarioFeito || 'Não').trim().toLowerCase() !== 'sim' ? 'selected' : ''} style="color: red;">Não</option>
+                    <option value="Sim" ${(item.InventarioFeito || 'Não').trim().toLowerCase() === 'sim' ? 'selected' : ''} style="color: green;">Sim</option>
                 </select>
             </td>
             <td style="text-align: center;">
@@ -1734,7 +1734,6 @@ function filtrarTabelaInventario() {
         tbody.appendChild(tr);
     });
 }
-
 
 
     
