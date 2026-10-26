@@ -1556,7 +1556,6 @@ async function excluirConsulta(data, rowId, codigo) {
 
     
     // --- LÓGICA DA ABA INVENTÁRIO ---
-// --- LÓGICA DA ABA INVENTÁRIO ---
 async function carregarInventario() {
         let dataInicio = document.getElementById('data-inicio-inv').value;
         let dataFim = document.getElementById('data-fim-inv').value;
@@ -1579,24 +1578,29 @@ async function carregarInventario() {
                 return;
             }
 
-            // Filtro rigoroso: Oculta Baixa Diária, números soltos, e restringe Sucata ao status 'Sim'
-// Filtro: Oculta Baixa Diária e restringe Aproveitamento de Sucata apenas aos que têm status 'não' (ou vazio)
+            // Filtro corrigido: Bloqueia apenas campos vazios ou números soltos. 
+            // Para a Sucata, restringe apenas se o status da consulta de baixas for 'sim'.
             dadosInventarioCache = resultado.itens.filter(item => {
                 let tipo = (item.Tipo || '').trim().toLowerCase();
                 let status = (item.Status || '').trim().toLowerCase();
 
-                // 1. Bloqueia Baixa Diária, campos vazios ou números soltos
-                if (tipo === '' || !isNaN(tipo) || tipo.includes('baixa') || tipo.includes('diaria') || tipo.includes('diária')) {
+                // 1. Bloqueia apenas campos totalmente vazios ou números soltos
+                if (tipo === '' || !isNaN(tipo)) {
                     return false;
                 }
 
-                // 2. Aproveitamento de Sucata SÓ APARECE se o status NÃO for 'sim' (ou seja, for 'não' ou vazio)
+                // 2. Se for exclusivamente "Baixa Diaria", bloqueia (mantendo os restantes tipos livres)
+                if (tipo === 'baixa diaria' || tipo === 'baixa diária') {
+                    return false;
+                }
+
+                // 3. Aproveitamento de Sucata SÓ APARECE se o status da consulta de baixas NÃO for 'sim'
                 let isSucata = tipo.includes('sucata') || tipo.includes('aproveitamento');
                 if (isSucata) {
                     return status !== 'sim'; 
                 }
 
-                // 3. Outros tipos entram normalmente
+                // 4. Todos os outros tipos entram normalmente (com Inventário Feito 'Sim' ou 'Não')
                 return true;
             });
             filtrarTabelaInventario();
@@ -1605,8 +1609,6 @@ async function carregarInventario() {
             tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">Erro ao carregar dados do inventário.</td></tr>';
         }
     }
-
-
     
 
 function filtrarTabelaInventario() {
