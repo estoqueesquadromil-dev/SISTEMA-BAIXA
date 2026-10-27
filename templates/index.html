@@ -2792,7 +2792,35 @@ async function aplicarIveEmMassa() {
     }
 }
 
+async function atualizarStatusInventario(selectEl, aba, linha) {
+    let novoValor = selectEl.value;
+    selectEl.style.color = novoValor === 'Sim' ? 'green' : 'red';
 
+    // Atualiza o cache local para manter a consistência
+    let itemCache = dadosInventarioCache.find(i => String(i.Aba) === String(aba) && String(i.Linha) === String(linha));
+    if (itemCache) {
+        itemCache.InventarioFeito = novoValor;
+    }
+
+    try {
+        let resposta = await fetch('/atualizar_inventario', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                aba: aba,
+                linha: parseInt(linha),
+                inventarioFeito: novoValor
+            })
+        });
+        let resultado = await resposta.json();
+        if (!resultado.sucesso) {
+            alert('Erro ao atualizar na planilha: ' + resultado.mensagem);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Erro de comunicação com o servidor ao atualizar o inventário.');
+    }
+}
     
     
 </script>
