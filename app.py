@@ -1585,6 +1585,13 @@ def salvar_suficiente_erp():
                 worksheet.add_cols(9 - worksheet.col_count)
                 
             cell_updates = []
+
+            # Inclui o cabeçalho 'Saldo ERP' na célula I1 no mesmo lote de atualização
+            cell_updates.append({
+                'range': 'I1',
+                'values': [['Saldo ERP']]
+            })
+
             for linha_idx, valor in lista_valores:
                 try:
                     # Extrai apenas os dígitos do valor recebido para evitar qualquer sujeira de texto ou notação
@@ -1607,10 +1614,9 @@ def salvar_suficiente_erp():
             if cell_updates:
                 worksheet.batch_update(cell_updates, value_input_option='USER_ENTERED')
             
-        return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes salvos na coluna I com sucesso!'})
+        return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes e cabeçalho Saldo ERP salvos na coluna I com sucesso!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
 
 
 
