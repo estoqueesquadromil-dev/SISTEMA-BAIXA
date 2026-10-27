@@ -2455,7 +2455,6 @@ async function validarSaldoERP() {
     let saldosDict = {};
     let linhasTexto = textoSaldos.trim().split('\n');
     
-    // 1. Mapeia os saldos colados do ERP
     for (let linha of linhasTexto) {
         let partes = linha.trim().split(/\s+/);
         if (partes.length >= 2) {
@@ -2472,6 +2471,20 @@ async function validarSaldoERP() {
     if (!tbody) return;
     
     let linhasTabela = tbody.querySelectorAll('tr');
+
+    // Conta a ocorrência dos códigos visíveis para identificar quais são repetidos
+    let contagemCodigos = {};
+    linhasTabela.forEach(tr => {
+        let tds = tr.querySelectorAll('td');
+        if (tds.length < 7) return;
+        let codigoItem = tds[1].innerText.trim().toUpperCase();
+        let selectInventario = tr.querySelector('.status-inventario');
+        let statusVal = selectInventario ? selectInventario.value.trim().toLowerCase() : 'não';
+        if (statusVal !== 'sim') {
+            contagemCodigos[codigoItem] = (contagemCodigos[codigoItem] || 0) + 1;
+        }
+    });
+
     let validadas = 0;
     let itensParaSalvar = [];
 
@@ -2481,17 +2494,15 @@ async function validarSaldoERP() {
 
         let codigoItem = tds[1].innerText.trim().toUpperCase();
         let qtdTabela = parseFloat(tds[2].innerText.trim().replace(',', '.')) || 0;
-        let saldoErpTd = tds[5]; // Coluna Saldo ERP
+        let saldoErpTd = tds[5];
 
         let selectInventario = tr.querySelector('.status-inventario');
         let statusInventarioVal = selectInventario ? selectInventario.value.trim() : 'Não';
 
-        // Ignora se o inventário já estiver feito como "Sim"
         if (statusInventarioVal.toLowerCase() === 'sim') {
             return;
         }
 
-        // PRESERVAÇÃO CRUCIAL: Resgata a aba e a linha exata da planilha
         let aba = selectInventario ? selectInventario.getAttribute('data-aba') : '';
         let linhaPlanilha = selectInventario ? selectInventario.getAttribute('data-linha') : '';
 
@@ -2500,11 +2511,15 @@ async function validarSaldoERP() {
 
         let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
 
-        if (resultadoCalculo >= 0) {
-            saldoErpTd.innerHTML = `<span style="color: #28a745; font-weight: bold;">Suficiente (${resultadoCalculo})</span>`;
-            
-            if (itemCache) itemCache.Status_ERP = `Suficiente (${resultadoCalculo})`;
+        // SE O CÓDIGO FOR REPETIDO NA TABELA, MOSTRA EXATAMENTE 0 (COMO ESTAVA ANTES)
+        let eRepetido = (contagemCodigos[codigoItem] || 0) > 1;
 
+        if (eRepetido) {
+            saldoErpTd.innerHTML = `<span style="color: #dc3545; font-weight: bold;">Insuficiente (0)</span>`;
+            if (itemCache) itemCache.Status_ERP = `Insuficiente (0)`;
+        } else if (resultadoCalculo >= 0) {
+            saldoErpTd.innerHTML = `<span style="color: #28a745; font-weight: bold;">Suficiente (${resultadoCalculo})</span>`;
+            if (itemCache) itemCache.Status_ERP = `Suficiente (${resultadoCalculo})`;
             if (linhaPlanilha && aba) {
                 itensParaSalvar.push({
                     aba: aba,
@@ -2529,7 +2544,7 @@ async function validarSaldoERP() {
                 });
                 let resultado = await resposta.json();
                 if (resultado.sucesso) {
-                    alert('Validação efetuada e valores suficientes guardados na Coluna I em lote!');
+                    alert('Validação efetuada com sucesso!');
                 } else {
                     alert('Erro ao gravar na planilha: ' + resultado.mensagem);
                 }
@@ -2537,14 +2552,17 @@ async function validarSaldoERP() {
                 console.error(err);
                 alert('Erro de comunicação ao tentar salvar na planilha.');
             }
-        } else {
-            alert('Validação efetuada, mas nenhum item pendente atingiu saldo suficiente.');
         }
     } else {
-        alert('Nenhum item elegível (Inventário Feito = "Não") encontrado na tabela para validar.');
+        alert('Nenhum item elegível encontrado para validar.');
     }
 }
 
+
+
+
+
+    
     
 
 async function carregarDadosBaguetes() {
