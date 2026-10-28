@@ -3009,12 +3009,17 @@ function gerarPdfEtiquetas() {
         }
     });
 
-    htmlEtiquetas += "</div><script>window.onload = function() { window.print(); }</script></body></html>";
+    htmlEtiquetas += "</div></body></html>";
 
     janelaPrint.document.write(htmlEtiquetas);
     janelaPrint.document.close();
+    
+    // Dispara a impressão com segurança após carregar a janela
+    setTimeout(function() {
+        janelaPrint.focus();
+        janelaPrint.print();
+    }, 500);
 }
-
 
 
 </script>
