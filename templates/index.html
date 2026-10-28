@@ -3017,9 +3017,9 @@ function gerarPdfEtiquetas() {
     let htmlEtiquetas = "<html><head><title>Imprimir Etiquetas</title><style>" +
         "body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #fff; }" +
         ".grid-etiquetas { display: flex; flex-wrap: wrap; gap: 10px; }" +
-        ".etiqueta-box { width: 48%; border: 2px dashed #333; padding: 12px; box-sizing: border-box; text-align: center; margin-bottom: 10px; page-break-inside: avoid; background: #fff; }" +
-        ".codigo-txt { font-size: 22px; font-weight: bold; background: #fff3cd; padding: 3px 6px; display: inline-block; margin-bottom: 8px; border: 1px solid #ffeeba; }" +
-        ".desc-txt { font-size: 13px; font-weight: bold; color: #222; text-transform: uppercase; line-height: 1.3; }" +
+        ".etiqueta-box { width: 48%; border: 1px solid #000; padding: 12px; box-sizing: border-box; text-align: center; margin-bottom: 10px; page-break-inside: avoid; background: #fff; }" +
+        ".codigo-txt { font-size: 24px; font-weight: bold; color: #000; margin-bottom: 6px; }" +
+        ".desc-txt { font-size: 13px; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.3; }" +
         "@media print { body { padding: 0; } .etiqueta-box { border: 1px solid #000; } }" +
         "</style></head><body><div class='grid-etiquetas'>";
 
@@ -3034,13 +3034,11 @@ function gerarPdfEtiquetas() {
     janelaPrint.document.write(htmlEtiquetas);
     janelaPrint.document.close();
     
-    // Dispara a impressão com segurança após carregar a janela
     setTimeout(function() {
         janelaPrint.focus();
         janelaPrint.print();
     }, 500);
 }
-
 
 </script>
 
