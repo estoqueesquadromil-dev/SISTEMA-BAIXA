@@ -3003,7 +3003,7 @@ function gerarPdfEtiquetas() {
         "@media print { body { padding: 0; } .etiqueta-box { border: 1px solid #000; } }" +
         "</style></head><body><div class='grid-etiquetas'>";
 
-    listaEtiquetasCache.forEach(item => {
+    listaEtiquetasCache.forEach(function(item) {
         for (let i = 0; i < item.quantidade; i++) {
             htmlEtiquetas += "<div class='etiqueta-box'><div class='codigo-txt'>" + item.codigo + "</div><div class='desc-txt'>" + item.descricao + "</div></div>";
         }
@@ -3014,8 +3014,6 @@ function gerarPdfEtiquetas() {
     janelaPrint.document.write(htmlEtiquetas);
     janelaPrint.document.close();
 }
-
-
 
 
 
