@@ -1096,50 +1096,52 @@ function mudarAba(aba, btn) {
     if (btn) btn.classList.add('ativo');
 }
 
+// Configuração segura do input de código após o carregamento da página
+document.addEventListener("DOMContentLoaded", function() {
+    const inputCodigo = document.getElementById('input-codigo');
+    const divResultados = document.getElementById('resultados-busca');
 
-    
-    
-    
-    inputCodigo.addEventListener('input', async function() {
-        let termo = this.value.trim();
-        produtoSelecionadoTemp = null;
-        if (termo.length < 1) {
-            divResultados.innerHTML = '';
-            return;
-        }
-        try {
-            let resposta = await fetch(`/buscar_produtos?termo=${encodeURIComponent(termo)}`);
-            let produtos = await resposta.json();
-            
-            divResultados.innerHTML = '';
-            if (produtos.length === 0) {
-                divResultados.innerHTML = '<div class="item-resultado" style="color: #999;">Nenhum produto encontrado</div>';
+    if (inputCodigo && divResultados) {
+        inputCodigo.addEventListener('input', async function() {
+            let termo = this.value.trim();
+            produtoSelecionadoTemp = null;
+            if (termo.length < 1) {
+                divResultados.innerHTML = '';
                 return;
             }
+            try {
+                let resposta = await fetch(`/buscar_produtos?termo=${encodeURIComponent(termo)}`);
+                let produtos = await resposta.json();
+                
+                divResultados.innerHTML = '';
+                if (produtos.length === 0) {
+                    divResultados.innerHTML = '<div class="item-resultado" style="color: #999;">Nenhum produto encontrado</div>';
+                    return;
+                }
 
-            produtos.forEach(p => {
-                let div = document.createElement('div');
-                div.className = 'item-resultado';
-                div.textContent = `${p.codigo} - ${p.descricao}`;
-                div.onclick = () => {
-                    inputCodigo.value = p.codigo;
-                    produtoSelecionadoTemp = p;
-                    divResultados.innerHTML = '';
-                };
-                divResultados.appendChild(div);
-            });
-        } catch (err) {
-            console.error("Erro na busca:", err);
-        }
-    });
+                produtos.forEach(p => {
+                    let div = document.createElement('div');
+                    div.className = 'item-resultado';
+                    div.textContent = `${p.codigo} - ${p.descricao}`;
+                    div.onclick = () => {
+                        inputCodigo.value = p.codigo;
+                        produtoSelecionadoTemp = p;
+                        divResultados.innerHTML = '';
+                    };
+                    divResultados.appendChild(div);
+                });
+            } catch (err) {
+                console.error("Erro na busca:", err);
+            }
+        });
 
-    document.addEventListener('click', function(e) {
-        if (!inputCodigo.contains(e.target) && !divResultados.contains(e.target)) {
-            divResultados.innerHTML = '';
-        }
-    });
-
-
+        document.addEventListener('click', function(e) {
+            if (!inputCodigo.contains(e.target) && !divResultados.contains(e.target)) {
+                divResultados.innerHTML = '';
+            }
+        });
+    }
+});
 
 
 
