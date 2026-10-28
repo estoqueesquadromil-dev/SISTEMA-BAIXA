@@ -1078,13 +1078,12 @@ function mudarAba(aba, btn) {
         if (typeof consultarPerdasServidor === 'function') {
             consultarPerdasServidor();
         }
-    } else if (aba === 'aba-b') {
+    } else if (aba === 'aba-b' || aba === 'baguete') {
         let painelB = document.getElementById('painel-b');
         if (painelB) { 
             painelB.style.display = 'block'; 
             painelB.classList.add('ativo');
         }
-        // Carrega automaticamente os dados do mês atual ao clicar na aba
         if (typeof carregarDadosBaguetes === 'function') {
             carregarDadosBaguetes();
         }
@@ -1097,6 +1096,8 @@ function mudarAba(aba, btn) {
     if (btn) btn.classList.add('ativo');
 }
 
+
+    
     
     
     inputCodigo.addEventListener('input', async function() {
