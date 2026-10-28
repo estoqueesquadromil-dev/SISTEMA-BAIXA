@@ -23,11 +23,33 @@
         .container { max-width: 100%; width: 100%; margin: 0 auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); box-sizing: border-box; }
         h1 { color: #0056b3; font-size: 22px; margin-top: 0; }
         
-        .abas { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
-        .btn-aba { background: #e0e0e0; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; font-weight: bold; color: #555; }
+        .abas { 
+            display: flex; 
+            gap: 8px; 
+            margin-bottom: 20px; 
+            border-bottom: 2px solid #ddd; 
+            padding-bottom: 10px; 
+            overflow-x: auto; 
+            white-space: nowrap; 
+            -webkit-overflow-scrolling: touch; 
+        }
+        .btn-aba { 
+            background: #e0e0e0; 
+            border: none; 
+            padding: 10px 14px; 
+            font-size: 14px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            color: #555; 
+            flex-shrink: 0; 
+        }
         .btn-aba.ativo { background: #0056b3; color: white; }
         .painel { display: none; }
         .painel.ativo { display: block; }
+
+
+        
 
         .form-row { display: flex; gap: 10px; margin-bottom: 15px; align-items: flex-end; flex-wrap: wrap; }
         
