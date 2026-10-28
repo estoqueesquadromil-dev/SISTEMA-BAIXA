@@ -89,7 +89,8 @@
         <button class="btn-aba" onclick="mudarAba('inventario', this)">Inventário</button>
         <button class="btn-aba" onclick="mudarAba('ordens', this)">Ordens</button>
         <button class="btn-aba" onclick="mudarAba('kg-m', this)">kg-m</button>
-        <button class="btn-aba" onclick="mudarAba('aba-b', this)">B</button>
+        <button class="btn-aba" onclick="mudarAba('aba-b', this)">Baguete</button>
+        <button class="btn-aba" onclick="mudarAba('etiqueta', this)">Etiqueta</button>
     </div>
 
     <!-- PAINEL 1: REALIZAR BAIXA -->
@@ -648,7 +649,43 @@
     </div>
 </div>
 
+<!-- PAINEL 4: ETIQUETA -->
+    <div id="painel-etiqueta" class="painel">
+        <h2>Gerador de Etiquetas de Peças</h2>
+        <div class="form-row" style="margin-top: 15px;">
+            <div class="form-group-codigo">
+                <label for="input-codigo-etiqueta">Código ou Descrição da Peça:</label>
+                <input type="text" id="input-codigo-etiqueta" placeholder="Comece a digitar o código para buscar..." autocomplete="off">
+                <div id="resultados-busca-etiqueta" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #0056b3; max-height: 200px; overflow-y: auto; z-index: 9999; border-radius: 0 0 4px 4px; box-shadow: 0 6px 12px rgba(0,0,0,0.15);"></div>
+            </div>
+            <div class="form-group" style="max-width: 120px;">
+                <label for="input-qtd-etiqueta">Quantidade:</label>
+                <input type="number" id="input-qtd-etiqueta" value="1" min="1">
+            </div>
+            <button class="btn-adicionar" onclick="adicionarEtiquetaLista()">Adicionar</button>
+        </div>
 
+        <h3>Lista de Etiquetas para Impressão</h3>
+        <div class="table-responsive">
+            <table id="tabela-itens-etiqueta">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Descrição Oficial</th>
+                        <th>Quantidade</th>
+                        <th style="width: 130px;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #777;">Nenhum código adicionado para etiqueta.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <button class="btn-salvar" style="background-color: #007bff;" onclick="gerarPdfEtiquetas()">🖨️ Gerar PDF de Etiquetas</button>
+    </div>
 
 
 
@@ -1051,6 +1088,9 @@ function mudarAba(aba, btn) {
         if (typeof carregarDadosBaguetes === 'function') {
             carregarDadosBaguetes();
         }
+    } else if (aba === 'etiqueta') {
+        let painel = document.getElementById('painel-etiqueta');
+        if (painel) { painel.style.display = 'block'; painel.classList.add('ativo'); }
     }
 
     // 3. Marca o botão clicado como ativo
@@ -1098,6 +1138,11 @@ function mudarAba(aba, btn) {
         }
     });
 
+
+
+
+
+    
 function processarValidacaoSucata() {
     let textoErp = document.getElementById('input-saldo-erp').value.trim();
     if (!textoErp) {
@@ -2840,6 +2885,167 @@ async function atualizarStatusInventario(selectEl, aba, linha) {
     }
 }
     
+
+
+let listaEtiquetasCache = [];
+let produtoTempEtiqueta = null;
+
+const inputCodEtiqueta = document.getElementById('input-codigo-etiqueta');
+const divResEtiqueta = document.getElementById('resultados-busca-etiqueta');
+
+if (inputCodEtiqueta) {
+    inputCodEtiqueta.addEventListener('input', async function() {
+        let termo = this.value.trim();
+        produtoTempEtiqueta = null;
+        if (termo.length < 1) {
+            divResEtiqueta.innerHTML = '';
+            return;
+        }
+        try {
+            let resposta = await fetch(`/buscar_produtos?termo=${encodeURIComponent(termo)}`);
+            let produtos = await resposta.json();
+            
+            divResEtiqueta.innerHTML = '';
+            if (produtos.length === 0) {
+                divResEtiqueta.innerHTML = '<div class="item-resultado" style="color: #999;">Nenhum produto encontrado</div>';
+                return;
+            }
+
+            produtos.forEach(p => {
+                let div = document.createElement('div');
+                div.className = 'item-resultado';
+                div.textContent = `${p.codigo} - ${p.descricao}`;
+                div.onclick = () => {
+                    inputCodEtiqueta.value = p.codigo;
+                    produtoTempEtiqueta = p;
+                    divResEtiqueta.innerHTML = '';
+                };
+                divResEtiqueta.appendChild(div);
+            });
+        } catch (err) {
+            console.error("Erro na busca de etiquetas:", err);
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!inputCodEtiqueta.contains(e.target) && !divResEtiqueta.contains(e.target)) {
+            divResEtiqueta.innerHTML = '';
+        }
+    });
+}
+
+function adicionarEtiquetaLista() {
+    let codigo = inputCodEtiqueta.value.trim();
+    let qtd = parseInt(document.getElementById('input-qtd-etiqueta').value) || 1;
+    let descricao = produtoTempEtiqueta ? produtoTempEtiqueta.descricao : "PEÇA / COMPONENTE TÉCNICO";
+
+    if (!codigo) {
+        alert('Informe ou selecione o código.');
+        return;
+    }
+
+    let existente = listaEtiquetasCache.find(i => i.codigo.toLowerCase() === codigo.toLowerCase());
+    if (existente) {
+        existente.quantidade += qtd;
+    } else {
+        listaEtiquetasCache.push({ codigo: codigo, descricao: descricao, quantidade: qtd });
+    }
+
+    inputCodEtiqueta.value = '';
+    document.getElementById('input-qtd-etiqueta').value = '1';
+    produtoTempEtiqueta = null;
+    divResEtiqueta.innerHTML = '';
+    atualizarTabelaEtiquetas();
+}
+
+function removerEtiquetaItem(codigo) {
+    listaEtiquetasCache = listaEtiquetasCache.filter(i => i.codigo !== codigo);
+    atualizarTabelaEtiquetas();
+}
+
+function atualizarTabelaEtiquetas() {
+    let tbody = document.querySelector('#tabela-itens-etiqueta tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (listaEtiquetasCache.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777;">Nenhum código adicionado para etiqueta.</td></tr>';
+        return;
+    }
+
+    listaEtiquetasCache.forEach(item => {
+        let tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${item.codigo}</strong></td>
+            <td>${item.descricao}</td>
+            <td>${item.quantidade}</td>
+            <td>
+                <button class="btn-acao btn-excluir" onclick="removerEtiquetaItem('${item.codigo}')">Excluir</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function gerarPdfEtiquetas() {
+    if (listaEtiquetasCache.length === 0) {
+        alert('Adicione pelo menos um item à lista para gerar o PDF.');
+        return;
+    }
+
+    // Cria uma nova janela formatada como folha de etiquetas para impressão direta na Zebra
+    let janelaPrint = window.open('', '_blank');
+    let htmlEtiquetas = `
+        <html>
+        <head>
+            <title>Imprimir Etiquetas</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #fff; }
+                .grid-etiquetas { display: flex; flex-wrap: wrap; gap: 10px; }
+                .etiqueta-box { 
+                    width: 48%; border: 2px dashed #333; padding: 12px; box-sizing: border-box; 
+                    text-align: center; margin-bottom: 10px; page-break-inside: avoid; background: #fff;
+                }
+                .codigo-txt { font-size: 22px; font-weight: bold; background: #fff3cd; padding: 3px 6px; display: inline-block; margin-bottom: 8px; border: 1px solid #ffeeba; }
+                .desc-txt { font-size: 13px; font-weight: bold; color: #222; text-transform: uppercase; line-height: 1.3; }
+                @media print {
+                    body { padding: 0; }
+                    .etiqueta-box { border: 1px solid #000; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="grid-etiquetas">
+    `;
+
+    listaEtiquetasCache.forEach(item => {
+        // Repete o bloco da etiqueta conforme a quantidade informada
+        for (let i = 0; i < item.quantidade; i++) {
+            htmlEtiquetas += `
+                <div class="etiqueta-box">
+                    <div class="codigo-txt">${item.codigo}</div>
+                    <div class="desc-txt">${item.descricao}</div>
+                </div>
+            `;
+        }
+    });
+
+    htmlEtiquetas += `
+            </div>
+            <script>
+                window.onload = function() {
+                    window.print();
+                }
+            </script>
+        </body>
+        </html>
+    `;
+
+    janelaPrint.document.write(htmlEtiquetas);
+    janelaPrint.document.close();
+}
+
+
     
 </script>
 
