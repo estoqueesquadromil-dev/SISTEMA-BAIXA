@@ -25,29 +25,27 @@
         
         .abas { 
             display: flex; 
+            flex-wrap: wrap; 
             gap: 8px; 
             margin-bottom: 20px; 
             border-bottom: 2px solid #ddd; 
             padding-bottom: 10px; 
-            overflow-x: auto; 
-            white-space: nowrap; 
-            -webkit-overflow-scrolling: touch; 
         }
         .btn-aba { 
+            flex: 1 1 auto; 
+            text-align: center;
             background: #e0e0e0; 
             border: none; 
-            padding: 10px 14px; 
+            padding: 10px 12px; 
             font-size: 14px; 
             border-radius: 4px; 
             cursor: pointer; 
             font-weight: bold; 
             color: #555; 
-            flex-shrink: 0; 
         }
         .btn-aba.ativo { background: #0056b3; color: white; }
         .painel { display: none; }
         .painel.ativo { display: block; }
-
 
         
 
