@@ -2888,6 +2888,7 @@ async function atualizarStatusInventario(selectEl, aba, linha) {
     
 
 
+// --- MÓDULO DE ETIQUETAS ---
 let listaEtiquetasCache = [];
 let produtoTempEtiqueta = null;
 
@@ -2903,7 +2904,7 @@ if (inputCodEtiqueta) {
             return;
         }
         try {
-            let resposta = await fetch(`/buscar_produtos?termo=${encodeURIComponent(termo)}`);
+            let resposta = await fetch('/buscar_produtos?termo=' + encodeURIComponent(termo));
             let produtos = await resposta.json();
             
             divResEtiqueta.innerHTML = '';
@@ -2915,7 +2916,7 @@ if (inputCodEtiqueta) {
             produtos.forEach(p => {
                 let div = document.createElement('div');
                 div.className = 'item-resultado';
-                div.textContent = `${p.codigo} - ${p.descricao}`;
+                div.textContent = p.codigo + ' - ' + p.descricao;
                 div.onclick = () => {
                     inputCodEtiqueta.value = p.codigo;
                     produtoTempEtiqueta = p;
@@ -2976,14 +2977,10 @@ function atualizarTabelaEtiquetas() {
 
     listaEtiquetasCache.forEach(item => {
         let tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><strong>${item.codigo}</strong></td>
-            <td>${item.descricao}</td>
-            <td>${item.quantidade}</td>
-            <td>
-                <button class="btn-acao btn-excluir" onclick="removerEtiquetaItem('${item.codigo}')">Excluir</button>
-            </td>
-        `;
+        tr.innerHTML = '<td><strong>' + item.codigo + '</strong></td>' +
+                       '<td>' + item.descricao + '</td>' +
+                       '<td>' + item.quantidade + '</td>' +
+                       '<td><button class="btn-acao btn-excluir" onclick="removerEtiquetaItem(\'' + item.codigo + '\')">Excluir</button></td>';
         tbody.appendChild(tr);
     });
 }
@@ -2994,53 +2991,23 @@ function gerarPdfEtiquetas() {
         return;
     }
 
-    // Cria uma nova janela formatada como folha de etiquetas para impressão direta na Zebra
     let janelaPrint = window.open('', '_blank');
-    let htmlEtiquetas = `
-        <html>
-        <head>
-            <title>Imprimir Etiquetas</title>
-            <style>
-                body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #fff; }
-                .grid-etiquetas { display: flex; flex-wrap: wrap; gap: 10px; }
-                .etiqueta-box { 
-                    width: 48%; border: 2px dashed #333; padding: 12px; box-sizing: border-box; 
-                    text-align: center; margin-bottom: 10px; page-break-inside: avoid; background: #fff;
-                }
-                .codigo-txt { font-size: 22px; font-weight: bold; background: #fff3cd; padding: 3px 6px; display: inline-block; margin-bottom: 8px; border: 1px solid #ffeeba; }
-                .desc-txt { font-size: 13px; font-weight: bold; color: #222; text-transform: uppercase; line-height: 1.3; }
-                @media print {
-                    body { padding: 0; }
-                    .etiqueta-box { border: 1px solid #000; }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="grid-etiquetas">
-    `;
+    let htmlEtiquetas = "<html><head><title>Imprimir Etiquetas</title><style>" +
+        "body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #fff; }" +
+        ".grid-etiquetas { display: flex; flex-wrap: wrap; gap: 10px; }" +
+        ".etiqueta-box { width: 48%; border: 2px dashed #333; padding: 12px; box-sizing: border-box; text-align: center; margin-bottom: 10px; page-break-inside: avoid; background: #fff; }" +
+        ".codigo-txt { font-size: 22px; font-weight: bold; background: #fff3cd; padding: 3px 6px; display: inline-block; margin-bottom: 8px; border: 1px solid #ffeeba; }" +
+        ".desc-txt { font-size: 13px; font-weight: bold; color: #222; text-transform: uppercase; line-height: 1.3; }" +
+        "@media print { body { padding: 0; } .etiqueta-box { border: 1px solid #000; } }" +
+        "</style></head><body><div class='grid-etiquetas'>";
 
     listaEtiquetasCache.forEach(item => {
-        // Repete o bloco da etiqueta conforme a quantidade informada
         for (let i = 0; i < item.quantidade; i++) {
-            htmlEtiquetas += `
-                <div class="etiqueta-box">
-                    <div class="codigo-txt">${item.codigo}</div>
-                    <div class="desc-txt">${item.descricao}</div>
-                </div>
-            `;
+            htmlEtiquetas += "<div class='etiqueta-box'><div class='codigo-txt'>" + item.codigo + "</div><div class='desc-txt'>" + item.descricao + "</div></div>";
         }
     });
 
-    htmlEtiquetas += `
-            </div>
-            <script>
-                window.onload = function() {
-                    window.print();
-                }
-            </script>
-        </body>
-        </html>
-    `;
+    htmlEtiquetas += "</div><script>window.onload = function() { window.print(); }</script></body></html>";
 
     janelaPrint.document.write(htmlEtiquetas);
     janelaPrint.document.close();
