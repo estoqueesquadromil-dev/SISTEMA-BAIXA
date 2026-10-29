@@ -1979,7 +1979,11 @@ def remover_definitivo_lixeira():
 @app.route('/consultar_etiquetas', methods=['GET'])
 def consultar_etiquetas():
     try:
-        sheet = gc.open(NOME_PLANILHA).worksheet('etiqueta') # Use 'gc' em vez de 'client'
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        sheet = gc.open(NOME_PLANILHA_PRODUTOS).worksheet(NOME_PLANILHA_ETIQUETA)
         dados = sheet.get_all_records()
         
         itens = []
@@ -2006,7 +2010,11 @@ def salvar_etiquetas():
         data = request.json
         novos_itens = data.get('itens', [])
         
-        sheet = gc.open(NOME_PLANILHA).worksheet('etiqueta') # Use 'gc' aqui também
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        sheet = gc.open(NOME_PLANILHA_PRODUTOS).worksheet(NOME_PLANILHA_ETIQUETA)
         
         linhas_para_adicionar = []
         for item in novos_itens:
@@ -2029,7 +2037,11 @@ def excluir_etiqueta():
         data = request.json
         id_alvo = str(data.get('id'))
         
-        sheet = gc.open(NOME_PLANILHA).worksheet('etiqueta') # Use 'gc' aqui também
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        sheet = gc.open(NOME_PLANILHA_PRODUTOS).worksheet(NOME_PLANILHA_ETIQUETA)
         dados = sheet.get_all_records()
         
         linha_encontrada = None
@@ -2050,7 +2062,11 @@ def excluir_etiqueta():
 @app.route('/limpar_etiquetas', methods=['POST'])
 def limpar_etiquetas():
     try:
-        sheet = gc.open(NOME_PLANILHA).worksheet('etiqueta') # Use 'gc' aqui também
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        sheet = gc.open(NOME_PLANILHA_PRODUTOS).worksheet(NOME_PLANILHA_ETIQUETA)
         sheet.clear()
         sheet.append_row(['ID', 'CODIGO', 'DESCRICAO', 'QUANTIDADE'])
         return jsonify({'sucesso': True, 'mensagem': 'Todas as etiquetas foram limpas.'})
