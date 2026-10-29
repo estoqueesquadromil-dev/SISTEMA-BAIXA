@@ -846,7 +846,7 @@
             <tbody></tbody>
         </table>
     </div>
-    <button class="btn-salvar" onclick="salvarLoteAcessorios()">💾 Salvar Lote na Planilha</button>
+    <button id="btn-salvar-acessorios" class="btn-salvar" onclick="salvarLoteAcessorios()">💾 Salvar Lote na Planilha</button>
 
     <!-- Consulta com Filtros de Código, Tipo e Status -->
     <h3 style="margin-top: 30px;">Consultar Acessórios Lançados</h3>
@@ -3391,9 +3391,20 @@ function editarItemTemp(idx) {
 
 async function salvarLoteAcessorios() {
     let data = document.getElementById('data-acessorios').value;
+    let btnSalvar = document.getElementById('btn-salvar-acessorios');
+
     if (!data || listaAcessoriosTemp.length === 0) {
-        alert('Informe a data e adicione itens.');
+        alert('Informe a data e adicione pelo menos um item.');
         return;
+    }
+
+    // Bloqueia o botão e altera o estilo enquanto salva
+    if (btnSalvar) {
+        btnSalvar.disabled = true;
+        btnSalvar.dataset.textoOriginal = btnSalvar.innerHTML;
+        btnSalvar.innerHTML = '⏳ Salvando na planilha...';
+        btnSalvar.style.opacity = '0.6';
+        btnSalvar.style.cursor = 'not-allowed';
     }
 
     try {
@@ -3403,16 +3414,29 @@ async function salvarLoteAcessorios() {
             body: JSON.stringify({ data: data, itens: listaAcessoriosTemp })
         });
         let r = await res.json();
+
         if (r.sucesso) {
             alert(r.mensagem);
             listaAcessoriosTemp = [];
             atualizarTabelaTempAcessorios();
             carregarDadosAcessorios();
         } else {
-            alert('Erro: ' + r.mensagem);
+            alert('Atenção: ' + r.mensagem);
         }
-    } catch (e) { alert('Erro de comunicação.'); }
+    } catch (e) { 
+        alert('Erro de comunicação com o servidor.'); 
+    } finally {
+        // Restaura o botão após concluir ou ocorrer erro
+        if (btnSalvar) {
+            btnSalvar.disabled = false;
+            btnSalvar.innerHTML = btnSalvar.dataset.textoOriginal || '💾 Salvar Lote na Planilha';
+            btnSalvar.style.opacity = '1';
+            btnSalvar.style.cursor = 'pointer';
+        }
+    }
 }
+
+    
 
 async function carregarDadosAcessorios() {
     let inicio = document.getElementById('filtro-inicio-acessorios').value;
