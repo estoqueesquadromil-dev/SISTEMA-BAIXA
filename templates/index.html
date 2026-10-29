@@ -3119,7 +3119,6 @@ async function limparTodasEtiquetasPlanilha() {
     }
 }
 
-// Imprime apenas o que está guardado na planilha[cite: 16]
 async function gerarPdfEtiquetas() {
     try {
         let resposta = await fetch('/consultar_etiquetas');
@@ -3131,15 +3130,14 @@ async function gerarPdfEtiquetas() {
         }
 
         let janelaPrint = window.open('', '_blank');
-        let htmlEtiquetas = "<html><head><title>Imprimir Etiquetas</title><style>" +
-            "@page { size: 10cm 9.95cm; margin: 0; }" +
-            "body { font-family: Arial, sans-serif; margin: 0; padding: 5px; background: #fff; width: 10cm; box-sizing: border-box; }" +
-            ".grid-etiquetas { display: flex; flex-direction: column; gap: 10px; }" +
-            ".etiqueta-box { width: 100%; border: 2px solid #000; padding: 12px; box-sizing: border-box; text-align: center; page-break-after: always; background: #fff; display: flex; flex-direction: column; justifyContent: center; min-height: 4.5cm; }" +
-            ".codigo-txt { font-size: 30px; font-weight: bold; color: #000; margin-bottom: 6px; }" +
-            ".desc-txt { font-size: 15px; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.3; }" +
+        let htmlEtiquetas = "<html><head><title></title><style>" +
+            "@page { size: 10cm 10cm; margin: 0; }" +
+            "body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #fff; width: 10cm; height: 10cm; box-sizing: border-box; }" +
+            ".etiqueta-box { width: 100%; height: 100%; border: 2px solid #000; padding: 15px; box-sizing: border-box; text-align: center; page-break-after: always; background: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; }" +
+            ".codigo-txt { font-size: 36px; font-weight: bold; color: #000; margin-bottom: 10px; }" +
+            ".desc-txt { font-size: 16px; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.4; }" +
             "@media print { body { padding: 0; margin: 0; } }" +
-            "</style></head><body><div class='grid-etiquetas'>";
+            "</style></head><body>";
 
         resultado.itens.forEach(function(item) {
             for (let i = 0; i < Number(item.quantidade); i++) {
@@ -3147,7 +3145,7 @@ async function gerarPdfEtiquetas() {
             }
         });
 
-        htmlEtiquetas += "</div></body></html>";
+        htmlEtiquetas += "</body></html>";
 
         janelaPrint.document.write(htmlEtiquetas);
         janelaPrint.document.close();
@@ -3162,9 +3160,6 @@ async function gerarPdfEtiquetas() {
         alert('Erro ao carregar dados para impressão.');
     }
 }
-
-// Carrega as etiquetas da planilha automaticamente ao abrir a aba de etiquetas
-// (Adicione esta chamada dentro da função mudarAba se a aba for 'etiqueta')
 
 </script>
 
