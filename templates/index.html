@@ -111,6 +111,7 @@
         <button class="btn-aba" onclick="mudarAba('kg-m', this)">kg-m</button>
         <button class="btn-aba" onclick="mudarAba('aba-b', this)">Baguete</button>
         <button class="btn-aba" onclick="mudarAba('etiqueta', this)">Etiqueta</button>
+        <button class="btn-aba" onclick="mudarAba('acessorios', this)">Acessórios</button>
     </div>
 
     <!-- PAINEL 1: REALIZAR BAIXA -->
@@ -803,7 +804,73 @@
     </div>
 </div>
 
+<!-- PAINEL: ACESSÓRIOS -->
+<div id="painel-acessorios" class="painel">
+    <h2>Gestão de Acessórios</h2>
+    <div class="form-row" style="margin-top: 15px;">
+        <div class="form-group" style="max-width: 160px;">
+            <label for="data-acessorios">Data:</label>
+            <input type="date" id="data-acessorios">
+        </div>
+        <div class="form-group-codigo" style="position: relative;">
+            <label for="input-codigo-acessorios">Código do Acessório:</label>
+            <input type="text" id="input-codigo-acessorios" placeholder="Digite para buscar..." autocomplete="off">
+            <div id="resultados-busca-acessorios" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #0056b3; max-height: 200px; overflow-y: auto; z-index: 9999;"></div>
+        </div>
+        <div class="form-group" style="max-width: 140px;">
+            <label for="select-tipo-acessorios">Tipo:</label>
+            <select id="select-tipo-acessorios">
+                <option value="Baixa Acessórios">Baixa Acessórios</option>
+                <option value="Movimentação Acessorios">Movimentação Acessorios</option>
+            </select>
+        </div>
+        <div class="form-group" style="max-width: 100px;">
+            <label for="input-qtd-acessorios">Qtd:</label>
+            <input type="number" id="input-qtd-acessorios" value="1" min="1">
+        </div>
+        <button class="btn-adicionar" onclick="adicionarAcessorioLista()">Adicionar</button>
+    </div>
 
+    <!-- Tabela Temporária -->
+    <h3>Itens para Lançamento</h3>
+    <div class="table-responsive">
+        <table id="tabela-temp-acessorios">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Tipo</th>
+                    <th>Quantidade</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <button class="btn-salvar" onclick="salvarLoteAcessorios()">💾 Salvar Lote na Planilha</button>
+
+    <!-- Consulta -->
+    <h3 style="margin-top: 30px;">Consultar Acessórios Lançados</h3>
+    <div class="form-row">
+        <div class="form-group"><label>Início:</label><input type="date" id="filtro-inicio-acessorios"></div>
+        <div class="form-group"><label>Fim:</label><input type="date" id="filtro-fim-acessorios"></div>
+        <button class="btn-pesquisar" onclick="carregarDadosAcessorios()">🔍 Consultar</button>
+    </div>
+    <div class="table-responsive">
+        <table id="tabela-consulta-acessorios">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Código</th>
+                    <th>Quantidade</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
 
 
 
@@ -1119,11 +1186,20 @@ function mudarAba(aba, btn) {
         if (typeof carregarEtiquetasPlanilha === 'function') {
             carregarEtiquetasPlanilha();
         }
+    } else if (aba === 'acessorios') {
+        let painel = document.getElementById('painel-acessorios');
+        if (painel) { painel.style.display = 'block'; painel.classList.add('ativo'); }
+        if (typeof carregarDadosAcessorios === 'function') {
+            carregarDadosAcessorios();
+        }
     }
 
     // 3. Marca o botão clicado como ativo
     if (btn) btn.classList.add('ativo');
 }
+
+
+    
 
 // Configuração segura do input de código após o carregamento da página
 document.addEventListener("DOMContentLoaded", function() {
@@ -3192,6 +3268,134 @@ async function gerarPdfEtiquetas() {
         alert('Erro ao carregar dados para impressão.');
     }
 }
+
+
+
+let listaAcessoriosTemp = [];
+let produtoTempAcessorio = null;
+
+const inputCodAcessorio = document.getElementById('input-codigo-acessorios');
+const divResAcessorio = document.getElementById('resultados-busca-acessorios');
+
+if (inputCodAcessorio) {
+    document.getElementById('data-acessorios').valueAsDate = new Date();
+    document.getElementById('filtro-inicio-acessorios').valueAsDate = new Date();
+    document.getElementById('filtro-fim-acessorios').valueAsDate = new Date();
+
+    inputCodAcessorio.addEventListener('input', async function() {
+        let termo = this.value.trim();
+        produtoTempAcessorio = null;
+        if (termo.length < 1) {
+            divResAcessorio.innerHTML = '';
+            return;
+        }
+        try {
+            let res = await fetch('/buscar_produtos_acessorios?termo=' + encodeURIComponent(termo));
+            let prods = await res.json();
+            divResAcessorio.innerHTML = '';
+            prods.forEach(p => {
+                let div = document.createElement('div');
+                div.className = 'item-resultado';
+                div.textContent = p.codigo + ' - ' + p.descricao;
+                div.onclick = () => {
+                    inputCodAcessorio.value = p.codigo;
+                    produtoTempAcessorio = p;
+                    divResAcessorio.innerHTML = '';
+                };
+                divResAcessorio.appendChild(div);
+            });
+        } catch (e) { console.error(e); }
+    });
+}
+
+function adicionarAcessorioLista() {
+    let codigo = inputCodAcessorio.value.trim();
+    let qtd = parseInt(document.getElementById('input-qtd-acessorios').value) || 1;
+    let tipo = document.getElementById('select-tipo-acessorios').value;
+
+    if (!codigo) {
+        alert('Informe o código.');
+        return;
+    }
+
+    listaAcessoriosTemp.push({ CODIGO: codigo, QUANTIDADE: qtd, TIPO: tipo });
+    inputCodAcessorio.value = '';
+    document.getElementById('input-qtd-acessorios').value = '1';
+    atualizarTabelaTempAcessorios();
+}
+
+function atualizarTabelaTempAcessorios() {
+    let tbody = document.querySelector('#tabela-temp-acessorios tbody');
+    tbody.innerHTML = '';
+    listaAcessoriosTemp.forEach((item, idx) => {
+        let tr = document.createElement('tr');
+        tr.innerHTML = `<td>${item.CODIGO}</td><td>${item.TIPO}</td><td>${item.QUANTIDADE}</td><td><button class="btn-acao btn-excluir" onclick="listaAcessoriosTemp.splice(${idx},1);atualizarTabelaTempAcessorios()">Remover</button></td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+async function salvarLoteAcessorios() {
+    let data = document.getElementById('data-acessorios').value;
+    if (!data || listaAcessoriosTemp.length === 0) {
+        alert('Informe a data e adicione itens.');
+        return;
+    }
+
+    try {
+        let res = await fetch('/salvar_lote_acessorios', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: data, itens: listaAcessoriosTemp })
+        });
+        let r = await res.json();
+        if (r.sucesso) {
+            alert(r.mensagem);
+            listaAcessoriosTemp = [];
+            atualizarTabelaTempAcessorios();
+            carregarDadosAcessorios();
+        } else {
+            alert('Erro: ' + r.mensagem);
+        }
+    } catch (e) { alert('Erro de comunicação.'); }
+}
+
+async function carregarDadosAcessorios() {
+    let inicio = document.getElementById('filtro-inicio-acessorios').value;
+    let fim = document.getElementById('filtro-fim-acessorios').value;
+    let tbody = document.querySelector('#tabela-consulta-acessorios tbody');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Carregando...</td></tr>';
+
+    try {
+        let res = await fetch(`/consultar_acessorios?inicio=${inicio}&fim=${fim}`);
+        let r = await res.json();
+        tbody.innerHTML = '';
+        if (!r.sucesso || r.itens.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Nenhum registo encontrado.</td></tr>';
+            return;
+        }
+
+        r.itens.forEach(item => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `<td>${item.data}</td><td><strong>${item.codigo}</strong></td><td>${item.quantidade}</td><td>${item.tipo}</td><td>${item.status}</td><td><button class="btn-acao btn-excluir" onclick="excluirAcessorio('${item.data}', '${item.id}')">Excluir</button></td>`;
+            tbody.appendChild(tr);
+        });
+    } catch (e) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Erro ao carregar.</td></tr>'; }
+}
+
+async function excluirAcessorio(data, id) {
+    if (!confirm('Deseja excluir este acessório?')) return;
+    try {
+        let res = await fetch('/excluir_acessorio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: data, id: id })
+        });
+        let r = await res.json();
+        if (r.sucesso) { carregarDadosAcessorios(); } else { alert(r.mensagem); }
+    } catch (e) { alert('Erro ao excluir.'); }
+}
+
+    
 
 </script>
 
