@@ -831,7 +831,7 @@
         <button class="btn-adicionar" onclick="adicionarAcessorioLista()">Adicionar</button>
     </div>
 
-    <!-- Tabela Temporária -->
+    <!-- Tabela Temporária com Opção de Editar -->
     <h3>Itens para Lançamento</h3>
     <div class="table-responsive">
         <table id="tabela-temp-acessorios">
@@ -848,12 +848,28 @@
     </div>
     <button class="btn-salvar" onclick="salvarLoteAcessorios()">💾 Salvar Lote na Planilha</button>
 
-    <!-- Consulta com Filtro por Código -->
+    <!-- Consulta com Filtros de Código, Tipo e Status -->
     <h3 style="margin-top: 30px;">Consultar Acessórios Lançados</h3>
     <div class="form-row">
         <div class="form-group"><label>Início:</label><input type="date" id="filtro-inicio-acessorios"></div>
         <div class="form-group"><label>Fim:</label><input type="date" id="filtro-fim-acessorios"></div>
         <div class="form-group"><label>Filtrar Código:</label><input type="text" id="filtro-codigo-acessorios" placeholder="Ex: A4012" oninput="carregarDadosAcessorios()"></div>
+        <div class="form-group" style="max-width: 160px;">
+            <label>Filtrar Tipo:</label>
+            <select id="filtro-tipo-acessorios" onchange="carregarDadosAcessorios()">
+                <option value="TODOS">TODOS</option>
+                <option value="Baixa Acessórios">Baixa Acessórios</option>
+                <option value="Movimentação Acessorios">Movimentação Acessorios</option>
+            </select>
+        </div>
+        <div class="form-group" style="max-width: 130px;">
+            <label>Filtrar Status:</label>
+            <select id="filtro-status-acessorios" onchange="carregarDadosAcessorios()">
+                <option value="TODOS">TODOS</option>
+                <option value="Sim">Sim</option>
+                <option value="Não">Não</option>
+            </select>
+        </div>
         <button class="btn-pesquisar" onclick="carregarDadosAcessorios()">🔍 Consultar</button>
     </div>
     <div class="table-responsive">
@@ -872,7 +888,6 @@
         </table>
     </div>
 </div>
-
 
     
     
@@ -3302,7 +3317,6 @@ if (inputCodAcessorio) {
             prods.forEach(p => {
                 let div = document.createElement('div');
                 div.className = 'item-resultado';
-                // Mostra o código e a descrição lado a lado nas sugestões
                 div.textContent = `${p.codigo} - ${p.descricao}`;
                 div.onclick = () => {
                     inputCodAcessorio.value = p.codigo;
@@ -3331,6 +3345,13 @@ function adicionarAcessorioLista() {
         return;
     }
 
+    // Regra: Não deixa adicionar o mesmo código duas vezes na lista temporária
+    let duplicado = listaAcessoriosTemp.some(item => item.CODIGO.toUpperCase() === codigo.toUpperCase() && item.TIPO === tipo);
+    if (duplicado) {
+        alert(`O código "${codigo}" com o tipo "${tipo}" já está na lista para lançamento.`);
+        return;
+    }
+
     listaAcessoriosTemp.push({ CODIGO: codigo, QUANTIDADE: qtd, TIPO: tipo });
     inputCodAcessorio.value = '';
     document.getElementById('input-qtd-acessorios').value = '1';
@@ -3342,9 +3363,30 @@ function atualizarTabelaTempAcessorios() {
     tbody.innerHTML = '';
     listaAcessoriosTemp.forEach((item, idx) => {
         let tr = document.createElement('tr');
-        tr.innerHTML = `<td>${item.CODIGO}</td><td>${item.TIPO}</td><td>${item.QUANTIDADE}</td><td><button class="btn-acao btn-excluir" onclick="listaAcessoriosTemp.splice(${idx},1);atualizarTabelaTempAcessorios()">Remover</button></td>`;
+        tr.innerHTML = `
+            <td>${item.CODIGO}</td>
+            <td>${item.TIPO}</td>
+            <td>${item.QUANTIDADE}</td>
+            <td>
+                <button class="btn-acao" style="background:#f0ad4e; color:white; border:none; padding:4px 8px; border-radius:4px; margin-right:4px;" onclick="editarItemTemp(${idx})">Editar</button>
+                <button class="btn-acao btn-excluir" onclick="listaAcessoriosTemp.splice(${idx},1);atualizarTabelaTempAcessorios()">Remover</button>
+            </td>`;
         tbody.appendChild(tr);
     });
+}
+
+function editarItemTemp(idx) {
+    let item = listaAcessoriosTemp[idx];
+    let novaQtd = prompt("Editar Quantidade:", item.QUANTIDADE);
+    if (novaQtd !== null) {
+        let qtdInt = parseInt(novaQtd);
+        if (!isNaN(qtdInt) && qtdInt > 0) {
+            listaAcessoriosTemp[idx].QUANTIDADE = qtdInt;
+            atualizarTabelaTempAcessorios();
+        } else {
+            alert("Quantidade inválida.");
+        }
+    }
 }
 
 async function salvarLoteAcessorios() {
@@ -3376,6 +3418,8 @@ async function carregarDadosAcessorios() {
     let inicio = document.getElementById('filtro-inicio-acessorios').value;
     let fim = document.getElementById('filtro-fim-acessorios').value;
     let filtroCodigo = document.getElementById('filtro-codigo-acessorios').value.trim().toLowerCase();
+    let filtroTipo = document.getElementById('filtro-tipo-acessorios').value;
+    let filtroStatus = document.getElementById('filtro-status-acessorios').value;
     
     let tbody = document.querySelector('#tabela-consulta-acessorios tbody');
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Carregando...</td></tr>';
@@ -3390,23 +3434,56 @@ async function carregarDadosAcessorios() {
         }
 
         let itensFiltrados = r.itens.filter(item => {
-            if (filtroCodigo && !item.codigo.toLowerCase().includes(filtroCodigo)) {
-                return false;
-            }
+            if (filtroCodigo && !item.codigo.toLowerCase().includes(filtroCodigo)) return false;
+            if (filtroTipo !== 'TODOS' && item.tipo !== filtroTipo) return false;
+            if (filtroStatus !== 'TODOS' && item.status !== filtroStatus) return false;
             return true;
         });
 
         if (itensFiltrados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Nenhum item corresponde ao filtro de código.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Nenhum item corresponde aos filtros selecionados.</td></tr>';
             return;
         }
 
         itensFiltrados.forEach(item => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${item.data}</td><td><strong>${item.codigo}</strong></td><td>${item.quantidade}</td><td>${item.tipo}</td><td>${item.status}</td><td><button class="btn-acao btn-excluir" onclick="excluirAcessorio('${item.data}', '${item.id}')">Excluir</button></td>`;
+            tr.innerHTML = `
+                <td>${item.data}</td>
+                <td><strong>${item.codigo}</strong></td>
+                <td>${item.quantidade}</td>
+                <td>${item.tipo}</td>
+                <td>${item.status}</td>
+                <td>
+                    <button class="btn-acao" style="background:#0275d8; color:white; border:none; padding:4px 8px; border-radius:4px; margin-right:4px;" onclick="editarAcessorioPlanilha('${item.data}', '${item.id}', ${item.quantidade})">Editar</button>
+                    <button class="btn-acao btn-excluir" onclick="excluirAcessorio('${item.data}', '${item.id}')">Excluir</button>
+                </td>`;
             tbody.appendChild(tr);
         });
     } catch (e) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Erro ao carregar.</td></tr>'; }
+}
+
+async function editarAcessorioPlanilha(data, id, qtdAtual) {
+    let novaQtd = prompt("Editar Quantidade do Acessório:", qtdAtual);
+    if (novaQtd === null) return;
+    let qtdInt = parseInt(novaQtd);
+    if (isNaN(qtdInt) || qtdInt <= 0) {
+        alert("Quantidade inválida.");
+        return;
+    }
+
+    try {
+        let res = await fetch('/editar_acessorio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: data, id: id, quantidade: qtdInt })
+        });
+        let r = await res.json();
+        if (r.sucesso) {
+            carregarDadosAcessorios();
+        } else {
+            alert(r.mensagem);
+        }
+    } catch (e) { alert('Erro ao editar.'); }
 }
 
 async function excluirAcessorio(data, id) {
@@ -3421,6 +3498,8 @@ async function excluirAcessorio(data, id) {
         if (r.sucesso) { carregarDadosAcessorios(); } else { alert(r.mensagem); }
     } catch (e) { alert('Erro ao excluir.'); }
 }
+
+
     
 
 </script>
