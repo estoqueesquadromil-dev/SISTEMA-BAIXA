@@ -5,11 +5,13 @@ import gspread
 from datetime import datetime, timedelta
 import uuid
 
+
 app = Flask(__name__)
 
 NOME_PLANILHA_PRODUTOS = 'produtos_oficiais'
 NOME_PLANILHA_MOVIMENTACAO = 'MOVIMENTACAO_NOMUS'
 NOME_PLANILHA_ETIQUETA_PROPRIA = 'etiqueta'
+NOME_PLANILHA_ACESSORIOS = 'acessorios_movimentacao'
 
 produtos_cache = []
 codigos_validos_set = set()
@@ -2092,3 +2094,177 @@ def limpar_etiquetas():
         return jsonify({'sucesso': True, 'mensagem': 'Todas as etiquetas foram limpas.'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)})
+
+
+
+
+
+produtos_acessorios_cache = []
+codigos_acessorios_validos_set = set()
+
+def carregar_base_acessorios():
+    global produtos_acessorios_cache, codigos_acessorios_validos_set
+    try:
+        gc = conectar_google_sheets()
+        if not gc:
+            return
+        
+        planilha = gc.open(NOME_PLANILHA_ACESSORIOS)
+        sheet = planilha.worksheet('PRODUTOS')
+        dados = sheet.get_all_records()
+        df = pd.DataFrame(dados)
+        
+        produtos_acessorios_cache = []
+        codigos_acessorios_validos_set = set()
+        for _, row in df.iterrows():
+            # Procura pela coluna B ou com o nome 'CODIGO' / 'Código' / 'A'
+            codigo = str(row.get('CODIGO') or row.get('Código') or row.get('Código Acessório') or list(row.values)[0] or '').strip()
+            descricao = str(row.get('DESCRICAO') or row.get('Descrição') or '').strip()
+            if codigo and codigo != 'nan':
+                produtos_acessorios_cache.append({'codigo': codigo, 'descricao': descricao})
+                codigos_acessorios_validos_set.add(codigo)
+                
+        print(f"[INFO] {len(produtos_acessorios_cache)} acessórios carregados com sucesso!")
+    except Exception as e:
+        print(f"[ERRO] Falha ao carregar acessórios: {e}")
+
+# Chame a função no início junto com os outros carregamentos
+carregar_base_acessorios()
+
+
+@app.route('/buscar_produtos_acessorios', methods=['GET'])
+def buscar_produtos_acessorios():
+    termo = request.args.get('termo', '').lower().strip()
+    if not termo:
+        return jsonify([])
+    
+    resultados = []
+    for p in produtos_acessorios_cache:
+        if termo in p['codigo'].lower() or termo in p['descricao'].lower():
+            resultados.append(p)
+            if len(resultados) >= 15:
+                break
+    return jsonify(resultados)
+
+@app.route('/salvar_lote_acessorios', methods=['POST'])
+def salvar_lote_acessorios():
+    dados = request.json
+    data_lote = dados.get('data')
+    itens = dados.get('itens', [])
+
+    if not data_lote or not itens:
+        return jsonify({'sucesso': False, 'mensagem': 'Data ou itens não informados!'})
+
+    try:
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'})
+
+        planilha = gc.open(NOME_PLANILHA_ACESSORIOS)
+        
+        try:
+            sheet_mov = planilha.worksheet(data_lote)
+        except gspread.exceptions.WorksheetNotFound:
+            sheet_mov = planilha.add_worksheet(title=data_lote, rows="1000", cols="6")
+            sheet_mov.append_row(["ID", "Data", "Código", "Quantidade", "Tipo", "Status"])
+
+        linhas_para_adicionar = []
+        for item in itens:
+            codigo = item.get('CODIGO', '')
+            quantidade = int(item.get('QUANTIDADE', 1))
+            tipo = item.get('TIPO', 'Baixa Acessórios')
+            status = 'Não'
+            row_id = str(uuid.uuid4())[:8]
+            
+            linhas_para_adicionar.append([row_id, data_lote, codigo, quantidade, tipo, status])
+
+        sheet_mov.append_rows(linhas_para_adicionar)
+        return jsonify({'sucesso': True, 'mensagem': f'Acessórios guardados na aba {data_lote} com sucesso!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': f'Erro ao processar: {str(e)}'})
+
+@app.route('/consultar_acessorios', methods=['GET'])
+def consultar_acessorios():
+    inicio_str = request.args.get('inicio')
+    fim_str = request.args.get('fim')
+    
+    if not inicio_str or not fim_str:
+        return jsonify({'sucesso': False, 'mensagem': 'Datas obrigatórias.'}), 400
+    
+    try:
+        data_inicio = datetime.strptime(inicio_str.strip(), '%Y-%m-%d')
+        data_fim = datetime.strptime(fim_str.strip(), '%Y-%m-%d')
+        
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão.'}), 500
+
+        planilha = gc.open(NOME_PLANILHA_ACESSORIOS)
+        todas_abas = planilha.worksheets()
+        lista_itens = []
+
+        for aba in todas_abas:
+            nome_aba = aba.title.strip()
+            if nome_aba.upper() in ['PRODUTOS', 'MOVIMENTACAO', 'LIXEIRA']:
+                continue
+            
+            aba_data_str = nome_aba.split(' ')[0]
+            try:
+                data_aba = datetime.strptime(aba_data_str, '%Y-%m-%d')
+                if data_inicio <= data_aba <= data_fim:
+                    linhas = aba.get_all_values()
+                    if not linhas or len(linhas) < 2:
+                        continue
+                    
+                    cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+                    for index in range(1, len(linhas)):
+                        row = linhas[index]
+                        if not any(row):
+                            continue
+                        
+                        row_id = row[cabecalhos.index("ID")] if "ID" in cabecalhos and len(row) > cabecalhos.index("ID") else f"{aba_data_str}_{index}"
+                        codigo_val = row[cabecalhos.index("CÓDIGO")] if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO") else (row[cabecalhos.index("CODIGO")] if "CODIGO" in cabecalhos else row[2])
+                        qtd_val = int(float(str(row[cabecalhos.index("QUANTIDADE")]).replace(',', '.'))) if "QUANTIDADE" in cabecalhos else 1
+                        tipo_val = row[cabecalhos.index("TIPO")] if "TIPO" in cabecalhos else "Baixa Acessórios"
+                        status_val = row[cabecalhos.index("STATUS")] if "STATUS" in cabecalhos else "Não"
+
+                        lista_itens.append({
+                            "id": row_id,
+                            "data": aba_data_str,
+                            "codigo": codigo_val,
+                            "quantidade": qtd_val,
+                            "tipo": tipo_val,
+                            "status": status_val,
+                            "aba": nome_aba,
+                            "linha": index + 1
+                        })
+            except ValueError:
+                continue
+
+        return jsonify({'sucesso': True, 'itens': lista_itens})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+@app.route('/excluir_acessorio', methods=['POST'])
+def excluir_acessorio():
+    try:
+        dados = request.json
+        data_mov = dados.get('data')
+        id_alvo = str(dados.get('id', '')).strip()
+
+        gc = conectar_google_sheets()
+        planilha = gc.open(NOME_PLANILHA_ACESSORIOS)
+        sheet = planilha.worksheet(data_mov)
+        
+        linhas = sheet.get_all_values()
+        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+        col_id_idx = cabecalhos.index("ID") + 1
+
+        for idx, row in enumerate(linhas[1:], start=2):
+            if str(row[col_id_idx - 1]).strip() == id_alvo:
+                sheet.delete_rows(idx)
+                return jsonify({'sucesso': True, 'mensagem': 'Excluído com sucesso!'})
+                
+        return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado.'}), 404
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
