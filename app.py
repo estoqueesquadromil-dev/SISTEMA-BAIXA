@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 NOME_PLANILHA_PRODUTOS = 'produtos_oficiais'
 NOME_PLANILHA_MOVIMENTACAO = 'MOVIMENTACAO_NOMUS'
-NOME_PLANILHA_ETIQUETA = 'etiqueta'
+NOME_PLANILHA_ETIQUETA_PROPRIA = 'etiqueta'
 
 produtos_cache = []
 codigos_validos_set = set()
@@ -1983,7 +1983,13 @@ def consultar_etiquetas():
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
             
-        sheet = gc.open(NOME_PLANILHA_PRODUTOS).worksheet(NOME_PLANILHA_ETIQUETA)
+        # Abre o ficheiro próprio de etiquetas
+        planilha = gc.open(NOME_PLANILHA_ETIQUETA_PROPRIA)
+        try:
+            sheet = planilha.worksheet('etiqueta')
+        except:
+            sheet = planilha.sheet1
+            
         dados = sheet.get_all_records()
         
         itens = []
@@ -2014,7 +2020,11 @@ def salvar_etiquetas():
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
             
-        sheet = gc.open(NOME_PLANILHA_PRODUTOS).worksheet(NOME_PLANILHA_ETIQUETA)
+        planilha = gc.open(NOME_PLANILHA_ETIQUETA_PROPRIA)
+        try:
+            sheet = planilha.worksheet('etiqueta')
+        except:
+            sheet = planilha.sheet1
         
         linhas_para_adicionar = []
         for item in novos_itens:
@@ -2041,7 +2051,12 @@ def excluir_etiqueta():
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
             
-        sheet = gc.open(NOME_PLANILHA_PRODUTOS).worksheet(NOME_PLANILHA_ETIQUETA)
+        planilha = gc.open(NOME_PLANILHA_ETIQUETA_PROPRIA)
+        try:
+            sheet = planilha.worksheet('etiqueta')
+        except:
+            sheet = planilha.sheet1
+            
         dados = sheet.get_all_records()
         
         linha_encontrada = None
@@ -2066,7 +2081,12 @@ def limpar_etiquetas():
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
             
-        sheet = gc.open(NOME_PLANILHA_PRODUTOS).worksheet(NOME_PLANILHA_ETIQUETA)
+        planilha = gc.open(NOME_PLANILHA_ETIQUETA_PROPRIA)
+        try:
+            sheet = planilha.worksheet('etiqueta')
+        except:
+            sheet = planilha.sheet1
+            
         sheet.clear()
         sheet.append_row(['ID', 'CODIGO', 'DESCRICAO', 'QUANTIDADE'])
         return jsonify({'sucesso': True, 'mensagem': 'Todas as etiquetas foram limpas.'})
