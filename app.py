@@ -1979,12 +1979,11 @@ def remover_definitivo_lixeira():
 @app.route('/consultar_etiquetas', methods=['GET'])
 def consultar_etiquetas():
     try:
-        sheet = client.open(NOME_PLANILHA).worksheet('etiqueta')
+        sheet = gc.open(NOME_PLANILHA).worksheet('etiqueta') # Use 'gc' em vez de 'client'
         dados = sheet.get_all_records()
         
         itens = []
         for row in dados:
-            # Garante compatibilidade com os nomes das colunas da planilha
             id_val = str(row.get('ID') or row.get('id') or '')
             codigo = str(row.get('CODIGO') or row.get('Codigo') or '')
             descricao = str(row.get('DESCRICAO') or row.get('Descricao') or '')
@@ -2007,11 +2006,11 @@ def salvar_etiquetas():
         data = request.json
         novos_itens = data.get('itens', [])
         
-        sheet = client.open(NOME_PLANILHA).worksheet('etiqueta')
+        sheet = gc.open(NOME_PLANILHA).worksheet('etiqueta') # Use 'gc' aqui também
         
         linhas_para_adicionar = []
         for item in novos_itens:
-            id_unico = str(uuid.uuid4())[:8] # Gera um ID curto único
+            id_unico = str(uuid.uuid4())[:8]
             codigo = item.get('codigo')
             descricao = item.get('descricao')
             quantidade = item.get('quantidade')
@@ -2030,15 +2029,14 @@ def excluir_etiqueta():
         data = request.json
         id_alvo = str(data.get('id'))
         
-        sheet = client.open(NOME_PLANILHA).worksheet('etiqueta')
+        sheet = gc.open(NOME_PLANILHA).worksheet('etiqueta') # Use 'gc' aqui também
         dados = sheet.get_all_records()
         
-        # Procura a linha correspondente ao ID (começando na linha 2 por causa do cabeçalho)
         linha_encontrada = None
         for idx, row in enumerate(dados):
             row_id = str(row.get('ID') or row.get('id') or '')
             if row_id == id_alvo:
-                linha_encontrada = idx + 2 # +1 do cabeçalho, +1 do índice 0
+                linha_encontrada = idx + 2
                 break
                 
         if linha_encontrada:
@@ -2052,8 +2050,7 @@ def excluir_etiqueta():
 @app.route('/limpar_etiquetas', methods=['POST'])
 def limpar_etiquetas():
     try:
-        sheet = client.open(NOME_PLANILHA).worksheet('etiqueta')
-        # Mantém apenas o cabeçalho (linha 1) e limpa o resto
+        sheet = gc.open(NOME_PLANILHA).worksheet('etiqueta') # Use 'gc' aqui também
         sheet.clear()
         sheet.append_row(['ID', 'CODIGO', 'DESCRICAO', 'QUANTIDADE'])
         return jsonify({'sucesso': True, 'mensagem': 'Todas as etiquetas foram limpas.'})
