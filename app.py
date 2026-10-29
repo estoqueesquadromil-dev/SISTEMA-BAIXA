@@ -2268,3 +2268,32 @@ def excluir_acessorio():
         return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado.'}), 404
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
+@app.route('/editar_acessorio', methods=['POST'])
+def editar_acessorio():
+    try:
+        dados = request.json
+        data_mov = dados.get('data')
+        id_alvo = str(dados.get('id', '')).strip()
+        nova_quantidade = dados.get('quantidade')
+
+        gc = conectar_google_sheets()
+        planilha = gc.open(NOME_PLANILHA_ACESSORIOS)
+        sheet = planilha.worksheet(data_mov)
+        
+        linhas = sheet.get_all_values()
+        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+        
+        col_id_idx = cabecalhos.index("ID") + 1
+        col_qtd_idx = cabecalhos.index("QUANTIDADE") + 1
+
+        for idx, row in enumerate(linhas[1:], start=2):
+            if str(row[col_id_idx - 1]).strip() == id_alvo:
+                sheet.update_cell(idx, col_qtd_idx, nova_quantidade)
+                return jsonify({'sucesso': True, 'mensagem': 'Quantidade atualizada com sucesso!'})
+                
+        return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado.'}), 404
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
