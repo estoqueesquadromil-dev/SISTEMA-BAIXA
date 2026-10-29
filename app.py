@@ -2164,24 +2164,59 @@ def salvar_lote_acessorios():
         
         try:
             sheet_mov = planilha.worksheet(data_lote)
+            linhas_existentes = sheet_mov.get_all_values()
         except gspread.exceptions.WorksheetNotFound:
             sheet_mov = planilha.add_worksheet(title=data_lote, rows="1000", cols="6")
             sheet_mov.append_row(["ID", "Data", "Código", "Quantidade", "Tipo", "Status"])
+            linhas_existentes = []
+
+        # Extrai chaves (CÓDIGO + TIPO) de itens que já existem nesta data
+        chaves_existentes = set()
+        if len(linhas_existentes) > 1:
+            cabecalhos = [str(c).strip().upper() for c in linhas_existentes[0]]
+            col_cod_idx = cabecalhos.index("CÓDIGO") if "CÓDIGO" in cabecalhos else (cabecalhos.index("CODIGO") if "CODIGO" in cabecalhos else 2)
+            col_tipo_idx = cabecalhos.index("TIPO") if "TIPO" in cabecalhos else 4
+
+            for row in linhas_existentes[1:]:
+                if len(row) > max(col_cod_idx, col_tipo_idx):
+                    cod_existente = str(row[col_cod_idx]).strip().upper()
+                    tipo_existente = str(row[col_tipo_idx]).strip().upper()
+                    if cod_existente:
+                        chaves_existentes.add(f"{cod_existente}_{tipo_existente}")
 
         linhas_para_adicionar = []
+        duplicados_bloqueados = []
+
         for item in itens:
-            codigo = item.get('CODIGO', '')
+            codigo = str(item.get('CODIGO', '')).strip().upper()
             quantidade = int(item.get('QUANTIDADE', 1))
-            tipo = item.get('TIPO', 'Baixa Acessórios')
+            tipo = str(item.get('TIPO', 'Baixa Acessórios')).strip()
+            chave_item = f"{codigo}_{tipo.upper()}"
+
+            # Regra: Bloqueia se o produto com o mesmo tipo já existir no mesmo dia
+            if chave_item in chaves_existentes:
+                duplicados_bloqueados.append(f"{codigo} ({tipo})")
+                continue
+
             status = 'Não'
             row_id = str(uuid.uuid4())[:8]
             
             linhas_para_adicionar.append([row_id, data_lote, codigo, quantidade, tipo, status])
+            chaves_existentes.add(chave_item)
 
-        sheet_mov.append_rows(linhas_para_adicionar)
+        if duplicados_bloqueados:
+            msg_erro = f"Bloqueado! Os seguintes itens já foram lançados na data {data_lote}: " + ", ".join(duplicados_bloqueados)
+            return jsonify({'sucesso': False, 'mensagem': msg_erro})
+
+        if linhas_para_adicionar:
+            sheet_mov.append_rows(linhas_para_adicionar)
+
         return jsonify({'sucesso': True, 'mensagem': f'Acessórios guardados na aba {data_lote} com sucesso!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao processar: {str(e)}'})
+
+
+
 
 @app.route('/consultar_acessorios', methods=['GET'])
 def consultar_acessorios():
