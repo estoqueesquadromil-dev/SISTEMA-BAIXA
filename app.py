@@ -3,11 +3,13 @@ from flask import Flask, render_template, request, jsonify, Response
 import pandas as pd
 import gspread
 from datetime import datetime, timedelta
+import uuid
 
 app = Flask(__name__)
 
 NOME_PLANILHA_PRODUTOS = 'produtos_oficiais'
 NOME_PLANILHA_MOVIMENTACAO = 'MOVIMENTACAO_NOMUS'
+NOME_PLANILHA_ETIQUETA = 'etiqueta'
 
 produtos_cache = []
 codigos_validos_set = set()
@@ -1972,7 +1974,7 @@ def remover_definitivo_lixeira():
 
 
 
-import uuid
+
 
 @app.route('/consultar_etiquetas', methods=['GET'])
 def consultar_etiquetas():
