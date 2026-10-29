@@ -3129,21 +3129,53 @@ async function gerarPdfEtiquetas() {
             return;
         }
 
+        // Expande os itens com base na quantidade solicitada
+        let itensExpandidos = [];
+        resultado.itens.forEach(function(item) {
+            for (let i = 0; i < Number(item.quantidade); i++) {
+                itensExpandidos.push({
+                    codigo: item.codigo,
+                    descricao: item.descricao
+                });
+            }
+        });
+
         let janelaPrint = window.open('', '_blank');
         let htmlEtiquetas = "<html><head><title></title><style>" +
             "@page { size: 10cm 10cm; margin: 0; }" +
             "body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #fff; width: 10cm; height: 10cm; box-sizing: border-box; }" +
-            ".etiqueta-box { width: 100%; height: 100%; border: 2px solid #000; padding: 15px; box-sizing: border-box; text-align: center; page-break-after: always; background: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; }" +
-            ".codigo-txt { font-size: 36px; font-weight: bold; color: #000; margin-bottom: 10px; }" +
-            ".desc-txt { font-size: 16px; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.4; }" +
+            ".etiqueta-box { width: 100%; height: 100%; border: 2px solid #000; padding: 8px 12px; box-sizing: border-box; text-align: center; page-break-after: always; background: #fff; display: flex; flex-direction: column; justify-content: space-around; align-items: center; overflow: hidden; }" +
+            ".item-bloco { width: 100%; display: flex; flex-direction: column; align-items: center; }" +
+            ".codigo-txt { font-size: 42px; font-weight: bold; color: #000; margin-bottom: 2px; line-height: 1.1; }" +
+            ".desc-txt { font-size: 13px; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.2; max-width: 88%; word-break: break-word; margin: 0 auto; }" +
+            ".separador { width: 85%; border-top: 1px dashed #000; margin: 4px 0; }" +
             "@media print { body { padding: 0; margin: 0; } }" +
             "</style></head><body>";
 
-        resultado.itens.forEach(function(item) {
-            for (let i = 0; i < Number(item.quantidade); i++) {
-                htmlEtiquetas += "<div class='etiqueta-box'><div class='codigo-txt'>" + item.codigo + "</div><div class='desc-txt'>" + item.descricao + "</div></div>";
+        // Agrupa de 2 em 2 itens por página de etiqueta
+        for (let i = 0; i < itensExpandidos.length; i += 2) {
+            let item1 = itensExpandidos[i];
+            let item2 = itensExpandidos[i + 1];
+
+            htmlEtiquetas += "<div class='etiqueta-box'>";
+            
+            // Primeiro item
+            htmlEtiquetas += "<div class='item-bloco'>";
+            htmlEtiquetas += "<div class='codigo-txt'>" + item1.codigo + "</div>";
+            htmlEtiquetas += "<div class='desc-txt'>" + item1.descricao + "</div>";
+            htmlEtiquetas += "</div>";
+
+            // Segundo item (se existir)
+            if (item2) {
+                htmlEtiquetas += "<div class='separador'></div>";
+                htmlEtiquetas += "<div class='item-bloco'>";
+                htmlEtiquetas += "<div class='codigo-txt'>" + item2.codigo + "</div>";
+                htmlEtiquetas += "<div class='desc-txt'>" + item2.descricao + "</div>";
+                htmlEtiquetas += "</div>";
             }
-        });
+
+            htmlEtiquetas += "</div>";
+        }
 
         htmlEtiquetas += "</body></html>";
 
