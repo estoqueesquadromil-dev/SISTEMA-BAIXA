@@ -670,42 +670,48 @@
 </div>
 
 <!-- PAINEL 4: ETIQUETA -->
-    <div id="painel-etiqueta" class="painel">
-        <h2>Gerador de Etiquetas de Peças</h2>
-        <div class="form-row" style="margin-top: 15px;">
-            <div class="form-group-codigo">
-                <label for="input-codigo-etiqueta">Código ou Descrição da Peça:</label>
-                <input type="text" id="input-codigo-etiqueta" placeholder="Comece a digitar o código para buscar..." autocomplete="off">
-                <div id="resultados-busca-etiqueta" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #0056b3; max-height: 200px; overflow-y: auto; z-index: 9999; border-radius: 0 0 4px 4px; box-shadow: 0 6px 12px rgba(0,0,0,0.15);"></div>
-            </div>
-            <div class="form-group" style="max-width: 120px;">
-                <label for="input-qtd-etiqueta">Quantidade:</label>
-                <input type="number" id="input-qtd-etiqueta" value="1" min="1">
-            </div>
-            <button class="btn-adicionar" onclick="adicionarEtiquetaLista()">Adicionar</button>
+<div id="painel-etiqueta" class="painel">
+    <h2>Gerador e Gestão de Etiquetas</h2>
+    <div class="form-row" style="margin-top: 15px;">
+        <div class="form-group-codigo">
+            <label for="input-codigo-etiqueta">Código ou Descrição da Peça:</label>
+            <input type="text" id="input-codigo-etiqueta" placeholder="Comece a digitar o código para buscar..." autocomplete="off">
+            <div id="resultados-busca-etiqueta" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #0056b3; max-height: 200px; overflow-y: auto; z-index: 9999; border-radius: 0 0 4px 4px; box-shadow: 0 6px 12px rgba(0,0,0,0.15);"></div>
         </div>
-
-        <h3>Lista de Etiquetas para Impressão</h3>
-        <div class="table-responsive">
-            <table id="tabela-itens-etiqueta">
-                <thead>
-                    <tr>
-                        <th>Código</th>
-                        <th>Descrição Oficial</th>
-                        <th>Quantidade</th>
-                        <th style="width: 130px;">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td colspan="4" style="text-align: center; color: #777;">Nenhum código adicionado para etiqueta.</td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="form-group" style="max-width: 120px;">
+            <label for="input-qtd-etiqueta">Quantidade:</label>
+            <input type="number" id="input-qtd-etiqueta" value="1" min="1">
         </div>
-
-        <button class="btn-salvar" style="background-color: #007bff;" onclick="gerarPdfEtiquetas()">🖨️ Gerar PDF de Etiquetas</button>
+        <button class="btn-adicionar" onclick="adicionarEtiquetaLista()">Adicionar</button>
     </div>
+
+    <!-- Botões de Ação na Planilha -->
+    <div style="display: flex; gap: 10px; margin-top: 15px; margin-bottom: 15px; flex-wrap: wrap;">
+        <button class="btn-salvar" style="background-color: #28a745; width: auto; margin-top: 0;" onclick="salvarEtiquetasPlanilha()">💾 Salvar na Planilha</button>
+        <button class="btn-pesquisar" style="background-color: #007bff;" onclick="carregarEtiquetasPlanilha()">🔄 Atualizar Tabela</button>
+        <button class="btn-acao btn-excluir" style="background-color: #dc3545; padding: 0 15px; font-size: 15px;" onclick="limparTodasEtiquetasPlanilha()">🗑️ Limpar Tudo</button>
+        <button class="btn-salvar" style="background-color: #17a2b8; width: auto; margin-top: 0;" onclick="gerarPdfEtiquetas()">🖨️ Imprimir Etiquetas da Planilha</button>
+    </div>
+
+    <h3>Lista de Etiquetas Salvas na Planilha</h3>
+    <div class="table-responsive">
+        <table id="tabela-itens-etiqueta">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Descrição Oficial</th>
+                    <th>Quantidade</th>
+                    <th style="width: 130px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #777;">Carregando etiquetas da planilha...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
 
 
 
@@ -1110,6 +1116,9 @@ function mudarAba(aba, btn) {
     } else if (aba === 'etiqueta') {
         let painel = document.getElementById('painel-etiqueta');
         if (painel) { painel.style.display = 'block'; painel.classList.add('ativo'); }
+        if (typeof carregarEtiquetasPlanilha === 'function') {
+            carregarEtiquetasPlanilha();
+        }
     }
 
     // 3. Marca o botão clicado como ativo
@@ -2910,7 +2919,7 @@ async function atualizarStatusInventario(selectEl, aba, linha) {
     
 
 
-// --- MÓDULO DE ETIQUETAS ---
+// --- MÓDULO DE ETIQUETAS INTEGRADO COM A PLANILHA ---
 let listaEtiquetasCache = [];
 let produtoTempEtiqueta = null;
 
@@ -2958,6 +2967,7 @@ if (inputCodEtiqueta) {
     });
 }
 
+// Adiciona temporariamente à memória local antes de salvar
 function adicionarEtiquetaLista() {
     let codigo = inputCodEtiqueta.value.trim();
     let qtd = parseInt(document.getElementById('input-qtd-etiqueta').value) || 1;
@@ -2979,21 +2989,16 @@ function adicionarEtiquetaLista() {
     document.getElementById('input-qtd-etiqueta').value = '1';
     produtoTempEtiqueta = null;
     divResEtiqueta.innerHTML = '';
-    atualizarTabelaEtiquetas();
+    atualizarTabelaEtiquetasLocal();
 }
 
-function removerEtiquetaItem(codigo) {
-    listaEtiquetasCache = listaEtiquetasCache.filter(i => i.codigo !== codigo);
-    atualizarTabelaEtiquetas();
-}
-
-function atualizarTabelaEtiquetas() {
+function atualizarTabelaEtiquetasLocal() {
     let tbody = document.querySelector('#tabela-itens-etiqueta tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
 
     if (listaEtiquetasCache.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777;">Nenhum código adicionado para etiqueta.</td></tr>';
+        carregarEtiquetasPlanilha(); // Se a lista local estiver vazia, puxa da planilha
         return;
     }
 
@@ -3002,43 +3007,163 @@ function atualizarTabelaEtiquetas() {
         tr.innerHTML = '<td><strong>' + item.codigo + '</strong></td>' +
                        '<td>' + item.descricao + '</td>' +
                        '<td>' + item.quantidade + '</td>' +
-                       '<td><button class="btn-acao btn-excluir" onclick="removerEtiquetaItem(\'' + item.codigo + '\')">Excluir</button></td>';
+                       '<td><span style="color: #007bff; font-size: 12px;">Pendente de salvamento</span></td>';
         tbody.appendChild(tr);
     });
 }
 
-function gerarPdfEtiquetas() {
+// Salva os itens locais na aba 'etiqueta' do Google Sheets
+async function salvarEtiquetasPlanilha() {
     if (listaEtiquetasCache.length === 0) {
-        alert('Adicione pelo menos um item à lista para gerar o PDF.');
+        alert('Não há novos itens pendentes para salvar.');
         return;
     }
 
-    let janelaPrint = window.open('', '_blank');
-    let htmlEtiquetas = "<html><head><title>Imprimir Etiquetas</title><style>" +
-        "body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #fff; }" +
-        ".grid-etiquetas { display: flex; flex-wrap: wrap; gap: 10px; }" +
-        ".etiqueta-box { width: 48%; border: 1px solid #000; padding: 12px; box-sizing: border-box; text-align: center; margin-bottom: 10px; page-break-inside: avoid; background: #fff; }" +
-        ".codigo-txt { font-size: 24px; font-weight: bold; color: #000; margin-bottom: 6px; }" +
-        ".desc-txt { font-size: 13px; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.3; }" +
-        "@media print { body { padding: 0; } .etiqueta-box { border: 1px solid #000; } }" +
-        "</style></head><body><div class='grid-etiquetas'>";
-
-    listaEtiquetasCache.forEach(function(item) {
-        for (let i = 0; i < item.quantidade; i++) {
-            htmlEtiquetas += "<div class='etiqueta-box'><div class='codigo-txt'>" + item.codigo + "</div><div class='desc-txt'>" + item.descricao + "</div></div>";
+    try {
+        let resposta = await fetch('/salvar_etiquetas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itens: listaEtiquetasCache })
+        });
+        let resultado = await resposta.json();
+        
+        if (resultado.sucesso) {
+            alert('Etiquetas salvas na planilha com sucesso!');
+            listaEtiquetasCache = [];
+            carregarEtiquetasPlanilha(); // Recarrega direto da planilha com os IDs reais
+        } else {
+            alert('Erro ao salvar: ' + resultado.mensagem);
         }
-    });
-
-    htmlEtiquetas += "</div></body></html>";
-
-    janelaPrint.document.write(htmlEtiquetas);
-    janelaPrint.document.close();
-    
-    setTimeout(function() {
-        janelaPrint.focus();
-        janelaPrint.print();
-    }, 500);
+    } catch (err) {
+        console.error(err);
+        alert('Erro de comunicação ao salvar etiquetas.');
+    }
 }
+
+// Carrega os dados salvos da aba 'etiqueta' da planilha (ignorando a coluna ID na exibição)
+async function carregarEtiquetasPlanilha() {
+    let tbody = document.querySelector('#tabela-itens-etiqueta tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">A carregar da planilha...</td></tr>';
+
+    try {
+        let resposta = await fetch('/consultar_etiquetas');
+        let resultado = await resposta.json();
+
+        if (!resultado.sucesso || !resultado.itens || resultado.itens.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777;">Nenhuma etiqueta salva na planilha.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        resultado.itens.forEach(item => {
+            let tr = document.createElement('tr');
+            // O ID é guardado no atributo data-id mas não aparece visualmente na tabela
+            tr.innerHTML = `
+                <td><strong>${item.codigo}</strong></td>
+                <td>${item.descricao}</td>
+                <td>${item.quantidade}</td>
+                <td>
+                    <button class="btn-acao btn-excluir" onclick="excluirEtiquetaPlanilha('${item.id}')">Excluir</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        console.error(err);
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: red;">Erro ao carregar etiquetas da planilha.</td></tr>';
+    }
+}
+
+// Exclui um item específico da planilha usando o ID
+async function excluirEtiquetaPlanilha(idItem) {
+    if (!confirm('Tem a certeza que deseja excluir esta etiqueta da planilha?')) return;
+
+    try {
+        let resposta = await fetch('/excluir_etiqueta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: idItem })
+        });
+        let resultado = await resposta.json();
+        if (resultado.sucesso) {
+            carregarEtiquetasPlanilha();
+        } else {
+            alert('Erro ao excluir: ' + resultado.mensagem);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Erro de comunicação ao excluir.');
+    }
+}
+
+// Limpa todos os registos da aba 'etiqueta' na planilha
+async function limparTodasEtiquetasPlanilha() {
+    if (!confirm('ATENÇÃO: Deseja limpar todas as etiquetas salvas na planilha?')) return;
+
+    try {
+        let resposta = await fetch('/limpar_etiquetas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        let resultado = await resposta.json();
+        if (resultado.sucesso) {
+            alert('Todas as etiquetas foram limpas com sucesso!');
+            carregarEtiquetasPlanilha();
+        } else {
+            alert('Erro: ' + resultado.mensagem);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Erro de comunicação ao limpar.');
+    }
+}
+
+// Imprime apenas o que está guardado na planilha[cite: 16]
+async function gerarPdfEtiquetas() {
+    try {
+        let resposta = await fetch('/consultar_etiquetas');
+        let resultado = await resposta.json();
+
+        if (!resultado.sucesso || !resultado.itens || resultado.itens.length === 0) {
+            alert('Não há etiquetas salvas na planilha para imprimir.');
+            return;
+        }
+
+        let janelaPrint = window.open('', '_blank');
+        let htmlEtiquetas = "<html><head><title>Imprimir Etiquetas</title><style>" +
+            "body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #fff; }" +
+            ".grid-etiquetas { display: flex; flex-wrap: wrap; gap: 10px; }" +
+            ".etiqueta-box { width: 48%; border: 1px solid #000; padding: 12px; box-sizing: border-box; text-align: center; margin-bottom: 10px; page-break-inside: avoid; background: #fff; }" +
+            ".codigo-txt { font-size: 24px; font-weight: bold; color: #000; margin-bottom: 6px; }" +
+            ".desc-txt { font-size: 13px; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.3; }" +
+            "@media print { body { padding: 0; } .etiqueta-box { border: 1px solid #000; } }" +
+            "</style></head><body><div class='grid-etiquetas'>";
+
+        resultado.itens.forEach(function(item) {
+            for (let i = 0; i < Number(item.quantidade); i++) {
+                htmlEtiquetas += "<div class='etiqueta-box'><div class='codigo-txt'>" + item.codigo + "</div><div class='desc-txt'>" + item.descricao + "</div></div>";
+            }
+        });
+
+        htmlEtiquetas += "</div></body></html>";
+
+        janelaPrint.document.write(htmlEtiquetas);
+        janelaPrint.document.close();
+        
+        setTimeout(function() {
+            janelaPrint.focus();
+            janelaPrint.print();
+        }, 500);
+
+    } catch (err) {
+        console.error(err);
+        alert('Erro ao carregar dados para impressão.');
+    }
+}
+
+// Carrega as etiquetas da planilha automaticamente ao abrir a aba de etiquetas
+// (Adicione esta chamada dentro da função mudarAba se a aba for 'etiqueta')
 
 </script>
 
