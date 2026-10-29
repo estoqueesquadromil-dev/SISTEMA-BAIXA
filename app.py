@@ -1969,3 +1969,91 @@ def remover_definitivo_lixeira():
         return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado na lixeira.'}), 404
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
+import uuid
+
+@app.route('/consultar_etiquetas', methods=['GET'])
+def consultar_etiquetas():
+    try:
+        sheet = client.open(NOME_PLANILHA).worksheet('etiqueta')
+        dados = sheet.get_all_records()
+        
+        itens = []
+        for row in dados:
+            # Garante compatibilidade com os nomes das colunas da planilha
+            id_val = str(row.get('ID') or row.get('id') or '')
+            codigo = str(row.get('CODIGO') or row.get('Codigo') or '')
+            descricao = str(row.get('DESCRICAO') or row.get('Descricao') or '')
+            quantidade = row.get('QUANTIDADE') or row.get('Quantidade') or 1
+            
+            if codigo:
+                itens.append({
+                    'id': id_val,
+                    'codigo': codigo,
+                    'descricao': descricao,
+                    'quantidade': quantidade
+                })
+        return jsonify({'sucesso': True, 'itens': itens})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)})
+
+@app.route('/salvar_etiquetas', methods=['POST'])
+def salvar_etiquetas():
+    try:
+        data = request.json
+        novos_itens = data.get('itens', [])
+        
+        sheet = client.open(NOME_PLANILHA).worksheet('etiqueta')
+        
+        linhas_para_adicionar = []
+        for item in novos_itens:
+            id_unico = str(uuid.uuid4())[:8] # Gera um ID curto único
+            codigo = item.get('codigo')
+            descricao = item.get('descricao')
+            quantidade = item.get('quantidade')
+            linhas_para_adicionar.append([id_unico, codigo, descricao, quantidade])
+            
+        if linhas_para_adicionar:
+            sheet.append_rows(linhas_para_adicionar)
+            
+        return jsonify({'sucesso': True, 'mensagem': 'Etiquetas salvas com sucesso!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)})
+
+@app.route('/excluir_etiqueta', methods=['POST'])
+def excluir_etiqueta():
+    try:
+        data = request.json
+        id_alvo = str(data.get('id'))
+        
+        sheet = client.open(NOME_PLANILHA).worksheet('etiqueta')
+        dados = sheet.get_all_records()
+        
+        # Procura a linha correspondente ao ID (começando na linha 2 por causa do cabeçalho)
+        linha_encontrada = None
+        for idx, row in enumerate(dados):
+            row_id = str(row.get('ID') or row.get('id') or '')
+            if row_id == id_alvo:
+                linha_encontrada = idx + 2 # +1 do cabeçalho, +1 do índice 0
+                break
+                
+        if linha_encontrada:
+            sheet.delete_rows(linha_encontrada)
+            return jsonify({'sucesso': True, 'mensagem': 'Etiqueta excluída com sucesso!'})
+        else:
+            return jsonify({'sucesso': False, 'mensagem': 'ID não encontrado na planilha.'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)})
+
+@app.route('/limpar_etiquetas', methods=['POST'])
+def limpar_etiquetas():
+    try:
+        sheet = client.open(NOME_PLANILHA).worksheet('etiqueta')
+        # Mantém apenas o cabeçalho (linha 1) e limpa o resto
+        sheet.clear()
+        sheet.append_row(['ID', 'CODIGO', 'DESCRICAO', 'QUANTIDADE'])
+        return jsonify({'sucesso': True, 'mensagem': 'Todas as etiquetas foram limpas.'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)})
