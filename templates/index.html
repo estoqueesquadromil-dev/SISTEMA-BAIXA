@@ -813,11 +813,11 @@
             <input type="date" id="data-acessorios">
         </div>
         <div class="form-group-codigo" style="position: relative;">
-            <label for="input-codigo-acessorios">Código do Acessório:</label>
-            <input type="text" id="input-codigo-acessorios" placeholder="Digite para buscar..." autocomplete="off">
+            <label for="input-codigo-acessorios">Código ou Descrição:</label>
+            <input type="text" id="input-codigo-acessorios" placeholder="Digite o código ou descrição..." autocomplete="off">
             <div id="resultados-busca-acessorios" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #0056b3; max-height: 200px; overflow-y: auto; z-index: 9999;"></div>
         </div>
-        <div class="form-group" style="max-width: 140px;">
+        <div class="form-group" style="max-width: 160px;">
             <label for="select-tipo-acessorios">Tipo:</label>
             <select id="select-tipo-acessorios">
                 <option value="Baixa Acessórios">Baixa Acessórios</option>
@@ -848,11 +848,12 @@
     </div>
     <button class="btn-salvar" onclick="salvarLoteAcessorios()">💾 Salvar Lote na Planilha</button>
 
-    <!-- Consulta -->
+    <!-- Consulta com Filtro por Código -->
     <h3 style="margin-top: 30px;">Consultar Acessórios Lançados</h3>
     <div class="form-row">
         <div class="form-group"><label>Início:</label><input type="date" id="filtro-inicio-acessorios"></div>
         <div class="form-group"><label>Fim:</label><input type="date" id="filtro-fim-acessorios"></div>
+        <div class="form-group"><label>Filtrar Código:</label><input type="text" id="filtro-codigo-acessorios" placeholder="Ex: A4012" oninput="carregarDadosAcessorios()"></div>
         <button class="btn-pesquisar" onclick="carregarDadosAcessorios()">🔍 Consultar</button>
     </div>
     <div class="table-responsive">
@@ -871,7 +872,6 @@
         </table>
     </div>
 </div>
-
 
 
     
@@ -3293,10 +3293,17 @@ if (inputCodAcessorio) {
             let res = await fetch('/buscar_produtos_acessorios?termo=' + encodeURIComponent(termo));
             let prods = await res.json();
             divResAcessorio.innerHTML = '';
+            
+            if (prods.length === 0) {
+                divResAcessorio.innerHTML = '<div class="item-resultado" style="color: #999;">Nenhum acessório encontrado</div>';
+                return;
+            }
+
             prods.forEach(p => {
                 let div = document.createElement('div');
                 div.className = 'item-resultado';
-                div.textContent = p.codigo + ' - ' + p.descricao;
+                // Mostra o código e a descrição lado a lado nas sugestões
+                div.textContent = `${p.codigo} - ${p.descricao}`;
                 div.onclick = () => {
                     inputCodAcessorio.value = p.codigo;
                     produtoTempAcessorio = p;
@@ -3305,6 +3312,12 @@ if (inputCodAcessorio) {
                 divResAcessorio.appendChild(div);
             });
         } catch (e) { console.error(e); }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!inputCodAcessorio.contains(e.target) && !divResAcessorio.contains(e.target)) {
+            divResAcessorio.innerHTML = '';
+        }
     });
 }
 
@@ -3362,6 +3375,8 @@ async function salvarLoteAcessorios() {
 async function carregarDadosAcessorios() {
     let inicio = document.getElementById('filtro-inicio-acessorios').value;
     let fim = document.getElementById('filtro-fim-acessorios').value;
+    let filtroCodigo = document.getElementById('filtro-codigo-acessorios').value.trim().toLowerCase();
+    
     let tbody = document.querySelector('#tabela-consulta-acessorios tbody');
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Carregando...</td></tr>';
 
@@ -3374,7 +3389,19 @@ async function carregarDadosAcessorios() {
             return;
         }
 
-        r.itens.forEach(item => {
+        let itensFiltrados = r.itens.filter(item => {
+            if (filtroCodigo && !item.codigo.toLowerCase().includes(filtroCodigo)) {
+                return false;
+            }
+            return true;
+        });
+
+        if (itensFiltrados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Nenhum item corresponde ao filtro de código.</td></tr>';
+            return;
+        }
+
+        itensFiltrados.forEach(item => {
             let tr = document.createElement('tr');
             tr.innerHTML = `<td>${item.data}</td><td><strong>${item.codigo}</strong></td><td>${item.quantidade}</td><td>${item.tipo}</td><td>${item.status}</td><td><button class="btn-acao btn-excluir" onclick="excluirAcessorio('${item.data}', '${item.id}')">Excluir</button></td>`;
             tbody.appendChild(tr);
@@ -3394,7 +3421,6 @@ async function excluirAcessorio(data, id) {
         if (r.sucesso) { carregarDadosAcessorios(); } else { alert(r.mensagem); }
     } catch (e) { alert('Erro ao excluir.'); }
 }
-
     
 
 </script>
