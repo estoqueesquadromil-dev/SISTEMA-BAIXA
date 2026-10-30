@@ -112,6 +112,7 @@
         <button class="btn-aba" onclick="mudarAba('aba-b', this)">Baguete</button>
         <button class="btn-aba" onclick="mudarAba('etiqueta', this)">Etiqueta</button>
         <button class="btn-aba" onclick="mudarAba('acessorios', this)">Acessórios</button>
+        <button class="btn-aba" onclick="mudarAba('recebimento', this)">Recebimento</button>
     </div>
 
     <!-- PAINEL 1: REALIZAR BAIXA -->
@@ -888,6 +889,116 @@
         </table>
     </div>
 </div>
+
+
+
+
+<!-- PAINEL RECEBIMENTO -->
+<div id="painel-recebimento" class="painel">
+    <h2>Módulo de Recebimento e Estoque</h2>
+    
+    <!-- Filtro de Data Superior -->
+    <div class="form-row" style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 15px; border: 1px solid #ddd;">
+        <div class="form-group" style="max-width: 160px;">
+            <label>Data Início:</label>
+            <input type="date" id="filtro-inicio-rec">
+        </div>
+        <div class="form-group" style="max-width: 160px;">
+            <label>Data Fim:</label>
+            <input type="date" id="filtro-fim-rec">
+        </div>
+        <button class="btn-pesquisar" onclick="carregarDadosRecebimento()">🔍 Filtrar / Consultar</button>
+    </div>
+
+    <!-- Campos de Lançamento -->
+    <div style="display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap;">
+        <!-- Bloco 1: Produtos Recebidos e Conferidos -->
+        <div style="flex: 1; background: #e8f5e9; padding: 15px; border-radius: 6px; border: 1px solid #c8e6c9; min-width: 300px;">
+            <h3 style="color: #2e7d32; margin-top: 0;">Produtos Recebidos e Conferidos (Entra)</h3>
+            <div class="form-group" style="position: relative; margin-bottom: 10px;">
+                <label>Código / Descrição:</label>
+                <input type="text" id="input-rec-conferidos" placeholder="Digite para buscar..." autocomplete="off">
+                <div id="res-rec-conferidos" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; max-height: 150px; overflow-y: auto; z-index: 999;"></div>
+            </div>
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label>Quantidade:</label>
+                <input type="number" id="qtd-rec-conferidos" value="1" min="1">
+            </div>
+            <button class="btn-salvar" style="background-color: #2e7d32;" onclick="salvarMovimentoRecebimento('produtos_recebidos', 'res-rec-conferidos', 'input-rec-conferidos', 'qtd-rec-conferidos')">Salvar Recebimento</button>
+        </div>
+
+        <!-- Bloco 2: Entrada no Estoque Nomus -->
+        <div style="flex: 1; background: #e3f2fd; padding: 15px; border-radius: 6px; border: 1px solid #bbdefb; min-width: 300px;">
+            <h3 style="color: #1565c0; margin-top: 0;">Entrada no Estoque Nomus (Retira)</h3>
+            <div class="form-group" style="position: relative; margin-bottom: 10px;">
+                <label>Código / Descrição:</label>
+                <input type="text" id="input-rec-nomus" placeholder="Digite para buscar..." autocomplete="off">
+                <div id="res-rec-nomus" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; max-height: 150px; overflow-y: auto; z-index: 999;"></div>
+            </div>
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label>Quantidade:</label>
+                <input type="number" id="qtd-rec-nomus" value="1" min="1">
+            </div>
+            <button class="btn-salvar" style="background-color: #1565c0;" onclick="salvarMovimentoRecebimento('entrada_nomus', 'res-rec-nomus', 'input-rec-nomus', 'qtd-rec-nomus')">Salvar Estoque Nomus</button>
+        </div>
+    </div>
+
+    <!-- Tabela 1: Lista de Produtos com Saldo -->
+    <h3 style="margin-top: 30px;">Saldo Atual dos Produtos</h3>
+    <div class="table-responsive">
+        <table id="tabela-saldos-rec">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Descrição</th>
+                    <th>Saldo Total</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Tabelas de Entradas e Saídas -->
+    <div style="display: flex; gap: 20px; margin-top: 30px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 450px;">
+            <h3 style="color: #2e7d32;">Tabela de Entradas (Recebidos)</h3>
+            <div class="table-responsive">
+                <table id="tabela-entradas-rec">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Código</th>
+                            <th>Qtd</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="flex: 1; min-width: 450px;">
+            <h3 style="color: #1565c0;">Tabela de Saídas (Estoque Nomus)</h3>
+            <div class="table-responsive">
+                <table id="tabela-saidas-rec">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Código</th>
+                            <th>Qtd</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
 
     
     
@@ -3522,6 +3633,166 @@ async function excluirAcessorio(data, id) {
         if (r.sucesso) { carregarDadosAcessorios(); } else { alert(r.mensagem); }
     } catch (e) { alert('Erro ao excluir.'); }
 }
+
+
+document.addEventListener("DOMContentLoaded", function() {
+    let hoje = new Date().toISOString().split('T')[0];
+    let inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+    
+    if(document.getElementById('filtro-inicio-rec')) {
+        document.getElementById('filtro-inicio-rec').value = inicioMes;
+        document.getElementById('filtro-fim-rec').value = hoje;
+    }
+    
+    configurarAutocompleteRec('input-rec-conferidos', 'res-rec-conferidos');
+    configurarAutocompleteRec('input-rec-nomus', 'res-rec-nomus');
+});
+
+function configurarAutocompleteRec(inputId, resId) {
+    let input = document.getElementById(inputId);
+    let resDiv = document.getElementById(resId);
+    
+    if(!input) return;
+    
+    input.addEventListener('input', async function() {
+        let termo = this.value.trim();
+        if(termo.length < 1) { resDiv.innerHTML = ''; return; }
+        
+        try {
+            let res = await fetch('/buscar_produtos_recebimento?termo=' + encodeURIComponent(termo));
+            let data = await res.json();
+            resDiv.innerHTML = '';
+            
+            data.forEach(p => {
+                let div = document.createElement('div');
+                div.className = 'item-resultado';
+                div.textContent = `${p.codigo} - ${p.descricao}`;
+                div.onclick = () => {
+                    input.value = p.codigo;
+                    resDiv.innerHTML = '';
+                };
+                resDiv.appendChild(div);
+            });
+        } catch(e) { console.error(e); }
+    });
+}
+
+async function salvarMovimentoRecebimento(tipoMov, resId, inputId, qtdId) {
+    let codigo = document.getElementById(inputId).value.trim();
+    let quantidade = document.getElementById(qtdId).value;
+    let dataHoje = new Date().toISOString().split('T')[0];
+
+    if(!codigo) {
+        alert('Informe o código do produto.');
+        return;
+    }
+
+    try {
+        let res = await fetch('/salvar_recebimento', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ data: dataHoje, tipo_mov: tipoMov, codigo: codigo, quantidade: quantidade })
+        });
+        let r = await res.json();
+        if(r.sucesso) {
+            alert(r.mensagem);
+            document.getElementById(inputId).value = '';
+            document.getElementById(qtdId).value = '1';
+            carregarDadosRecebimento();
+        } else {
+            alert(r.mensagem);
+        }
+    } catch(e) { alert('Erro ao salvar.'); }
+}
+
+async function carregarDadosRecebimento() {
+    let inicio = document.getElementById('filtro-inicio-rec').value;
+    let fim = document.getElementById('filtro-fim-rec').value;
+    
+    if(!inicio || !fim) return;
+
+    try {
+        let res = await fetch(`/consultar_recebimento?inicio=${inicio}&fim=${fim}`);
+        let r = await res.json();
+        
+        if(!r.sucesso) return;
+
+        // Tabela Saldos
+        let tbodySaldos = document.querySelector('#tabela-saldos-rec tbody');
+        tbodySaldos.innerHTML = '';
+        r.saldos.forEach(s => {
+            let cor = s.saldo < 0 ? 'color: #dc3545; font-weight: bold;' : '';
+            let tr = document.createElement('tr');
+            tr.innerHTML = `<td><strong>${s.codigo}</strong></td><td>${s.descricao}</td><td style="${cor}">${s.saldo}</td>`;
+            tbodySaldos.appendChild(tr);
+        });
+
+        // Tabela Entradas
+        let tbodyEntradas = document.querySelector('#tabela-entradas-rec tbody');
+        tbodyEntradas.innerHTML = '';
+        r.entradas.forEach(e => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `<td>${e.data}</td><td><strong>${e.codigo}</strong></td><td>${e.quantidade}</td>
+            <td>
+                <button class="btn-acao btn-editar" onclick="editarRec('${e.aba}', '${e.id}', ${e.quantidade})">Editar</button>
+                <button class="btn-acao btn-excluir" onclick="excluirRec('${e.aba}', '${e.id}')">Excluir</button>
+            </td>`;
+            tbodyEntradas.appendChild(tr);
+        });
+
+        // Tabela Saídas
+        let tbodySaidas = document.querySelector('#tabela-saidas-rec tbody');
+        tbodySaidas.innerHTML = '';
+        r.saidas.forEach(s => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `<td>${s.data}</td><td><strong>${s.codigo}</strong></td><td>${s.quantidade}</td>
+            <td>
+                <button class="btn-acao btn-editar" onclick="editarRec('${s.aba}', '${s.id}', ${s.quantidade})">Editar</button>
+                <button class="btn-acao btn-excluir" onclick="excluirRec('${s.aba}', '${s.id}')">Excluir</button>
+            </td>`;
+            tbodySaidas.appendChild(tr);
+        });
+
+    } catch(e) { console.error(e); }
+}
+
+async function excluirRec(aba, id) {
+    if(!confirm('Deseja excluir este registo?')) return;
+    try {
+        let res = await fetch('/excluir_recebimento', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ aba: aba, id: id })
+        });
+        let r = await res.json();
+        if(r.sucesso) carregarDadosRecebimento();
+        else alert(r.mensagem);
+    } catch(e) { alert('Erro ao excluir.'); }
+}
+
+async function editarRec(aba, id, qtdAtual) {
+    let novaQtd = prompt("Editar quantidade:", qtdAtual);
+    if(novaQtd === null) return;
+    let qtdNum = parseFloat(novaQtd);
+    if(isNaN(qtdNum) || qtdNum <= 0) { alert('Quantidade inválida.'); return; }
+
+    try {
+        let res = await fetch('/editar_recebimento', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ aba: aba, id: id, quantidade: qtdNum })
+        });
+        let r = await res.json();
+        if(r.sucesso) carregarDadosRecebimento();
+        else alert(r.mensagem);
+    } catch(e) { alert('Erro ao editar.'); }
+}
+
+// Atualize também a função mudarAba para carregar os dados ao clicar no botão correspondente:
+// Dentro da função mudarAba existente, adicione:
+// if (aba === 'recebimento') { carregarDadosRecebimento(); }
+
+
 
 
     
