@@ -931,7 +931,7 @@
                 <label>Quantidade:</label>
                 <input type="number" id="qtd-rec-conferidos" value="1" min="1">
             </div>
-            <button class="btn-salvar" style="background-color: #2e7d32;" onclick="salvarMovimentoRecebimento('produtos_recebidos', 'data-rec-conferidos', 'res-rec-conferidos', 'input-rec-conferidos', 'qtd-rec-conferidos')">Salvar Recebimento</button>
+            <button id="btn-salvar-rec-conferidos" class="btn-salvar" style="background-color: #2e7d32;" onclick="salvarMovimentoRecebimento('produtos_recebidos', 'data-rec-conferidos', 'res-rec-conferidos', 'input-rec-conferidos', 'qtd-rec-conferidos', this)">Salvar Recebimento</button>
         </div>
 
         <!-- Bloco 2: Entrada no Estoque Nomus -->
@@ -952,7 +952,7 @@
                 <label>Quantidade:</label>
                 <input type="number" id="qtd-rec-nomus" value="1" min="1">
             </div>
-            <button class="btn-salvar" style="background-color: #1565c0;" onclick="salvarMovimentoRecebimento('entrada_nomus', 'data-rec-nomus', 'res-rec-nomus', 'input-rec-nomus', 'qtd-rec-nomus')">Salvar Estoque Nomus</button>
+            <button id="btn-salvar-rec-nomus" class="btn-salvar" style="background-color: #1565c0;" onclick="salvarMovimentoRecebimento('entrada_nomus', 'data-rec-nomus', 'res-rec-nomus', 'input-rec-nomus', 'qtd-rec-nomus', this)">Salvar Estoque Nomus</button>
         </div>
     </div>
 
@@ -1008,7 +1008,6 @@
         </div>
     </div>
 </div>
-
 
 
 
