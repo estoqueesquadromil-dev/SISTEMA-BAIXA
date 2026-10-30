@@ -897,8 +897,8 @@
 <div id="painel-recebimento" class="painel">
     <h2>Módulo de Recebimento e Estoque</h2>
     
-    <!-- Filtro de Data Superior -->
-    <div class="form-row" style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 15px; border: 1px solid #ddd;">
+<!-- Filtro de Data e Código Superior -->
+    <div class="form-row" style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 15px; border: 1px solid #ddd; align-items: flex-end;">
         <div class="form-group" style="max-width: 160px;">
             <label>Data Início:</label>
             <input type="date" id="filtro-inicio-rec">
@@ -907,9 +907,12 @@
             <label>Data Fim:</label>
             <input type="date" id="filtro-fim-rec">
         </div>
+        <div class="form-group" style="max-width: 200px;">
+            <label>Filtrar por Código:</label>
+            <input type="text" id="filtro-codigo-rec" placeholder="Ex: PPUX100..." oninput="carregarDadosRecebimento()">
+        </div>
         <button class="btn-pesquisar" onclick="carregarDadosRecebimento()">🔍 Filtrar / Consultar</button>
     </div>
-
     <!-- Campos de Lançamento com Data Individual -->
     <div style="display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap;">
         
@@ -3759,6 +3762,7 @@ async function salvarMovimentoRecebimento(tipoMov, dataId, resId, inputId, qtdId
 async function carregarDadosRecebimento() {
     let inicio = document.getElementById('filtro-inicio-rec').value;
     let fim = document.getElementById('filtro-fim-rec').value;
+    let filtroCodigo = document.getElementById('filtro-codigo-rec') ? document.getElementById('filtro-codigo-rec').value.trim().toLowerCase() : '';
     
     if(!inicio || !fim) return;
 
@@ -3768,20 +3772,30 @@ async function carregarDadosRecebimento() {
         
         if(!r.sucesso) return;
 
+        // Filtra a lista de saldos se houver texto no campo de código
+        let saldosFiltrados = r.saldos.filter(s => {
+            if (filtroCodigo && !s.codigo.toLowerCase().includes(filtroCodigo) && !s.descricao.toLowerCase().includes(filtroCodigo)) {
+                return false;
+            }
+            return true;
+        });
+
         // Tabela Saldos
         let tbodySaldos = document.querySelector('#tabela-saldos-rec tbody');
         tbodySaldos.innerHTML = '';
-        r.saldos.forEach(s => {
+        saldosFiltrados.forEach(s => {
             let cor = s.saldo < 0 ? 'color: #dc3545; font-weight: bold;' : '';
             let tr = document.createElement('tr');
             tr.innerHTML = `<td><strong>${s.codigo}</strong></td><td>${s.descricao}</td><td style="${cor}">${s.saldo}</td>`;
             tbodySaldos.appendChild(tr);
         });
 
-        // Tabela Entradas
+        // Filtra e preenche a Tabela de Entradas
         let tbodyEntradas = document.querySelector('#tabela-entradas-rec tbody');
         tbodyEntradas.innerHTML = '';
-        r.entradas.forEach(e => {
+        let entradasFiltradas = r.entradas.filter(e => !filtroCodigo || e.codigo.toLowerCase().includes(filtroCodigo));
+        
+        entradasFiltradas.forEach(e => {
             let tr = document.createElement('tr');
             tr.innerHTML = `<td>${e.data}</td><td><strong>${e.codigo}</strong></td><td>${e.quantidade}</td>
             <td>
@@ -3791,10 +3805,12 @@ async function carregarDadosRecebimento() {
             tbodyEntradas.appendChild(tr);
         });
 
-        // Tabela Saídas
+        // Filtra e preenche a Tabela de Saídas
         let tbodySaidas = document.querySelector('#tabela-saidas-rec tbody');
         tbodySaidas.innerHTML = '';
-        r.saidas.forEach(s => {
+        let saidasFiltradas = r.saidas.filter(s => !filtroCodigo || s.codigo.toLowerCase().includes(filtroCodigo));
+
+        saidasFiltradas.forEach(s => {
             let tr = document.createElement('tr');
             tr.innerHTML = `<td>${s.data}</td><td><strong>${s.codigo}</strong></td><td>${s.quantidade}</td>
             <td>
