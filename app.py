@@ -12,6 +12,7 @@ NOME_PLANILHA_PRODUTOS = 'produtos_oficiais'
 NOME_PLANILHA_MOVIMENTACAO = 'MOVIMENTACAO_NOMUS'
 NOME_PLANILHA_ETIQUETA_PROPRIA = 'etiqueta'
 NOME_PLANILHA_ACESSORIOS = 'acessorios_movimentacao'
+NOME_PLANILHA_RECEBIMENTO = 'recebimento_mercadoria'
 
 produtos_cache = []
 codigos_validos_set = set()
@@ -2332,3 +2333,231 @@ def editar_acessorio():
         return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado.'}), 404
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
+# ==========================================
+# MÓDULO DE RECEBIMENTO DE MERCADORIA
+# ==========================================
+
+produtos_recebimento_cache = []
+codigos_recebimento_validos_set = set()
+
+def carregar_base_recebimento():
+    global produtos_recebimento_cache, codigos_recebimento_validos_set
+    try:
+        gc = conectar_google_sheets()
+        if not gc:
+            return
+        
+        planilha = gc.open(NOME_PLANILHA_RECEBIMENTO)
+        try:
+            sheet = planilha.worksheet('PRODUTOS')
+        except:
+            sheet = planilha.sheet1
+            
+        dados = sheet.get_all_records()
+        df = pd.DataFrame(dados)
+        
+        produtos_recebimento_cache = []
+        codigos_recebimento_validos_set = set()
+        for _, row in df.iterrows():
+            codigo = str(row.get('CODIGO') or row.get('Código') or list(row.values)[0] or '').strip()
+            descricao = str(row.get('DESCRICAO') or row.get('Descrição') or '').strip()
+            if codigo and codigo != 'nan':
+                produtos_recebimento_cache.append({'codigo': codigo, 'descricao': descricao})
+                codigos_recebimento_validos_set.add(codigo.upper())
+                
+        print(f"[INFO] {len(produtos_recebimento_cache)} produtos de recebimento carregados!")
+    except Exception as e:
+        print(f"[ERRO] Falha ao carregar base de recebimento: {e}")
+
+carregar_base_recebimento()
+
+@app.route('/buscar_produtos_recebimento', methods=['GET'])
+def buscar_produtos_recebimento():
+    termo = request.args.get('termo', '').lower().strip()
+    if not termo:
+        return jsonify([])
+    
+    resultados = []
+    for p in produtos_recebimento_cache:
+        if termo in p['codigo'].lower() or termo in p['descricao'].lower():
+            resultados.append(p)
+            if len(resultados) >= 15:
+                break
+    return jsonify(resultados)
+
+@app.route('/salvar_recebimento', methods=['POST'])
+def salvar_recebimento():
+    dados = request.json
+    data_lote = dados.get('data')
+    tipo_mov = dados.get('tipo_mov') # 'entrada_nomus' ou 'produtos_recebidos'
+    codigo = str(dados.get('codigo', '')).strip().upper()
+    try:
+        quantidade = int(dados.get('quantidade', 1))
+    except:
+        quantidade = 1
+
+    if not data_lote or not codigo:
+        return jsonify({'sucesso': False, 'mensagem': 'Data ou código não informados!'})
+
+    try:
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'})
+
+        planilha = gc.open(NOME_PLANILHA_RECEBIMENTO)
+        
+        try:
+            sheet = planilha.worksheet(data_lote)
+        except gspread.exceptions.WorksheetNotFound:
+            sheet = planilha.add_worksheet(title=data_lote, rows="1000", cols="7")
+            # Cabeçalho exato solicitado
+            sheet.append_row(["ID", "Data", "Entrada Nomus", "Saida Recebido", "Qtd Entrada", "Qtd Saida", "Total"])
+
+        row_id = str(uuid.uuid4())[:8]
+        
+        # Mapeamento exato das colunas
+        # id, data, entrada nomos, saida recebido, qtd entrada, qtd saida, total
+        if tipo_mov == 'entrada_nomus':
+            # Retira do saldo (Qtd Entrada preenchida, Entrada Nomus = Código)
+            qtd_entrada = quantidade
+            qtd_saida = 0
+            total = -quantidade
+            linha_dados = [row_id, data_lote, codigo, "", qtd_entrada, qtd_saida, total]
+        else:
+            # Entra no saldo (Qtd Saida preenchida, Saida Recebido = Código -> Ajustado para refletir Entrada/Saída na lógica)
+            qtd_entrada = 0
+            qtd_saida = quantidade
+            total = quantidade
+            linha_dados = [row_id, data_lote, "", codigo, qtd_entrada, qtd_saida, total]
+
+        sheet.append_row(linha_dados)
+        return jsonify({'sucesso': True, 'mensagem': 'Registo guardado com sucesso!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)})
+
+@app.route('/consultar_recebimento', methods=['GET'])
+def consultar_recebimento():
+    inicio = request.args.get('inicio')
+    fim = request.args.get('fim')
+    
+    if not inicio or not fim:
+        return jsonify({'sucesso': False, 'mensagem': 'Datas obrigatórias.'}), 400
+
+    try:
+        d_ini = datetime.strptime(inicio, '%Y-%m-%d')
+        d_fim = datetime.strptime(fim, '%Y-%m-%d')
+        
+        gc = conectar_google_sheets()
+        planilha = gc.open(NOME_PLANILHA_RECEBIMENTO)
+        todas_abas = planilha.worksheets()
+        
+        entradas = []
+        saidas = []
+        saldos_produtos = {p['codigo']: 0 for p in produtos_recebimento_cache}
+
+        for aba in todas_abas:
+            nome_aba = aba.title.strip()
+            if nome_aba.upper() == 'PRODUTOS':
+                continue
+            
+            try:
+                d_aba = datetime.strptime(nome_aba.split(' ')[0], '%Y-%m-%d')
+                if d_ini <= d_aba <= d_fim:
+                    linhas = aba.get_all_values()
+                    if len(linhas) < 2:
+                        continue
+                    
+                    cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+                    for idx, row in enumerate(linhas[1:], start=2):
+                        if not any(row):
+                            continue
+                        
+                        row_id = row[0] if len(row) > 0 else f"{nome_aba}_{idx}"
+                        data_val = row[1] if len(row) > 1 else nome_aba
+                        ent_nomus = row[2] if len(row) > 2 else ""
+                        sai_rec = row[3] if len(row) > 3 else ""
+                        
+                        try:
+                            qtd_ent = float(str(row[4]).replace(',', '.')) if len(row) > 4 and row[4] != '' else 0
+                        except: qtd_ent = 0
+                        
+                        try:
+                            qtd_sai = float(str(row[5]).replace(',', '.')) if len(row) > 5 and row[5] != '' else 0
+                        except: qtd_sai = 0
+
+                        # Acumula no saldo geral de produtos
+                        if ent_nomus:
+                            saldos_produtos[ent_nomus] = saldos_produtos.get(ent_nomus, 0) - qtd_ent
+                            entradas.append({
+                                "id": row_id, "data": data_val, "codigo": ent_nomus, 
+                                "quantidade": qtd_ent, "aba": nome_aba, "linha": idx
+                            })
+                        if sai_rec:
+                            saldos_produtos[sai_rec] = saldos_produtos.get(sai_rec, 0) + qtd_sai
+                            saidas.append({
+                                "id": row_id, "data": data_val, "codigo": sai_rec, 
+                                "quantidade": qtd_sai, "aba": nome_aba, "linha": idx
+                            })
+            except ValueError:
+                continue
+
+        lista_saldos = [{"codigo": k, "saldo": v, "descricao": next((p['descricao'] for p in produtos_recebimento_cache if p['codigo'] == k), '')} for k, v in saldos_produtos.items()]
+
+        return jsonify({
+            'sucesso': True,
+            'entradas': entradas,
+            'saidas': saidas,
+            'saldos': lista_saldos
+        })
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)})
+
+@app.route('/excluir_recebimento', methods=['POST'])
+def excluir_recebimento():
+    try:
+        dados = request.json
+        aba = dados.get('aba')
+        id_alvo = str(dados.get('id')).strip()
+        
+        gc = conectar_google_sheets()
+        planilha = gc.open(NOME_PLANILHA_RECEBIMENTO)
+        sheet = planilha.worksheet(aba)
+        
+        linhas = sheet.get_all_values()
+        for idx, row in enumerate(linhas[1:], start=2):
+            if str(row[0]).strip() == id_alvo:
+                sheet.delete_rows(idx)
+                return jsonify({'sucesso': True, 'mensagem': 'Excluído com sucesso!'})
+        return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado.'}), 404
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)})
+
+@app.route('/editar_recebimento', methods=['POST'])
+def editar_recebimento():
+    try:
+        dados = request.json
+        aba = dados.get('aba')
+        id_alvo = str(dados.get('id')).strip()
+        nova_qtd = float(dados.get('quantidade'))
+        
+        gc = conectar_google_sheets()
+        planilha = gc.open(NOME_PLANILHA_RECEBIMENTO)
+        sheet = planilha.worksheet(aba)
+        
+        linhas = sheet.get_all_values()
+        for idx, row in enumerate(linhas[1:], start=2):
+            if str(row[0]).strip() == id_alvo:
+                # Se for entrada (col 5 / índice 4 > 0), atualiza Qtd Entrada e Total
+                if row[4] != '':
+                    sheet.update_cell(idx, 5, nova_qtd)
+                    sheet.update_cell(idx, 7, -nova_qtd)
+                else: # Saída
+                    sheet.update_cell(idx, 6, nova_qtd)
+                    sheet.update_cell(idx, 7, nova_qtd)
+                return jsonify({'sucesso': True, 'mensagem': 'Atualizado com sucesso!'})
+        return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado.'}), 404
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)})
