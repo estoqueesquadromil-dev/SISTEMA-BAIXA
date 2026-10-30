@@ -3663,13 +3663,14 @@ document.addEventListener("DOMContentLoaded", function() {
         document.getElementById('filtro-fim-rec').value = hoje;
     }
 
-    // Inicializa os campos de data dos formulários de salvamento com a data de hoje por defeito
     if(document.getElementById('data-rec-conferidos')) document.getElementById('data-rec-conferidos').value = hoje;
     if(document.getElementById('data-rec-nomus')) document.getElementById('data-rec-nomus').value = hoje;
     
     configurarAutocompleteRec('input-rec-conferidos', 'res-rec-conferidos');
     configurarAutocompleteRec('input-rec-nomus', 'res-rec-nomus');
 });
+
+    
 
 function configurarAutocompleteRec(inputId, resId) {
     let input = document.getElementById(inputId);
@@ -3700,8 +3701,8 @@ function configurarAutocompleteRec(inputId, resId) {
     });
 }
 
-// Atualizado para receber o ID do campo de data correspondente
-async function salvarMovimentoRecebimento(tipoMov, dataId, resId, inputId, qtdId) {
+// Função de salvamento com bloqueio visual do botão
+async function salvarMovimentoRecebimento(tipoMov, dataId, resId, inputId, qtdId, btnElemento) {
     let dataLote = document.getElementById(dataId).value;
     let codigo = document.getElementById(inputId).value.trim();
     let quantidade = document.getElementById(qtdId).value;
@@ -3716,6 +3717,13 @@ async function salvarMovimentoRecebimento(tipoMov, dataId, resId, inputId, qtdId
         return;
     }
 
+    // --- BLOQUEIO VISUAL DO BOTÃO ---
+    let textoOriginal = btnElemento.innerHTML;
+    btnElemento.disabled = true;
+    btnElemento.style.opacity = '0.5'; // Deixa a cor bem mais clara
+    btnElemento.style.cursor = 'not-allowed';
+    btnElemento.innerHTML = '⏳ Salvando...';
+
     try {
         let res = await fetch('/salvar_recebimento', {
             method: 'POST',
@@ -3723,6 +3731,7 @@ async function salvarMovimentoRecebimento(tipoMov, dataId, resId, inputId, qtdId
             body: JSON.stringify({ data: dataLote, tipo_mov: tipoMov, codigo: codigo, quantidade: quantidade })
         });
         let r = await res.json();
+        
         if(r.sucesso) {
             alert(r.mensagem);
             document.getElementById(inputId).value = '';
@@ -3731,9 +3740,16 @@ async function salvarMovimentoRecebimento(tipoMov, dataId, resId, inputId, qtdId
         } else {
             alert(r.mensagem);
         }
-    } catch(e) { alert('Erro ao salvar.'); }
+    } catch(e) { 
+        alert('Erro de comunicação ao salvar.'); 
+    } finally {
+        // --- RESTAURAR BOTÃO ---
+        btnElemento.disabled = false;
+        btnElemento.style.opacity = '1'; // Cor volta ao normal
+        btnElemento.style.cursor = 'pointer';
+        btnElemento.innerHTML = textoOriginal;
+    }
 }
-
 
     
 
