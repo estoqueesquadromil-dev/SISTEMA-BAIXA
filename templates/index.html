@@ -1318,12 +1318,20 @@ function mudarAba(aba, btn) {
         if (typeof carregarDadosAcessorios === 'function') {
             carregarDadosAcessorios();
         }
+    } else if (aba === 'recebimento') {
+        let painel = document.getElementById('painel-recebimento');
+        if (painel) { 
+            painel.style.display = 'block'; 
+            painel.classList.add('ativo'); 
+        }
+        if (typeof carregarDadosRecebimento === 'function') {
+            carregarDadosRecebimento();
+        }
     }
 
     // 3. Marca o botão clicado como ativo
     if (btn) btn.classList.add('ativo');
 }
-
 
     
 
