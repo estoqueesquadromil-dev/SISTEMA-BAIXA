@@ -429,7 +429,7 @@
     
     <button id="btn-salvar-ordem" onclick="salvarOrdemProducao()" class="btn btn-success" style="display: none; padding: 10px 20px; background-color: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 4px; margin-bottom: 25px;">💾 Salvar Ordem</button>
 
-    <!-- SEÇÃO DE CONSULTA E FILTROS DE ORDENS DE PRODUÇÃO CRIADAS (ÚNICA E CORRETA) -->
+    <!-- SEÇÃO DE CONSULTA E FILTROS DE ORDENS DE PRODUÇÃO CRIADAS -->
     <div style="margin-top: 30px; border-top: 2px solid #ddd; padding-top: 20px;">
         <h3>Ordens de Produção Criadas</h3>
 
@@ -453,10 +453,22 @@
             </div>
         </div>
 
-        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
             <button class="btn btn-primary" onclick="carregarOrdensCriadas()" style="padding: 8px 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Filtrar</button>
-            <button class="btn btn-success" onclick="baixarExcelOrdens()" style="padding: 8px 16px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Baixar Excel</button>
+            <button class="btn btn-success" onclick="baixarExcelOrdensCriadas()" style="padding: 8px 16px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Baixar Excel</button>
             <button class="btn btn-secondary" onclick="toggleSecaoLixeira()" style="padding: 8px 16px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Ver Lixeira</button>
+        </div>
+
+        <!-- PAINEL DE ALTERAÇÃO EM LOTE (SIM / NÃO) -->
+        <div style="background: #f8f9fa; padding: 12px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px; display: flex; gap: 15px; align-items: flex-end;">
+            <div style="max-width: 200px; margin: 0;">
+                <label for="status-lote-ordens"><strong>Alterar Status Selecionados:</strong></label>
+                <select id="status-lote-ordens" class="form-control" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="Sim">Sim (Feito)</option>
+                    <option value="Não" selected>Não (Pendente)</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" style="background-color: #17a2b8; height: 38px; padding: 0 15px; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" onclick="aplicarStatusLoteOrdens()">Salvar Alteração em Lote</button>
         </div>
 
         <!-- TABELA DE ORDENS CONSULTADAS -->
@@ -464,17 +476,18 @@
             <table id="tabela-ordens-criadas" class="table" style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background-color: #0056b3; color: white;">
-                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center; width: 60px;">
-                            <input type="checkbox" id="check-todos-ordens" onclick="alternarTodasOrdens(this)" title="Marcar/Desmarcar todas">
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center; width: 50px;">
+                            <input type="checkbox" id="check-todas-ordens-lote" onclick="alternarTodasOrdensLote(this)" title="Marcar/Desmarcar todas">
                         </th>
                         <th style="padding: 10px; border: 1px solid #ddd;">Data</th>
                         <th style="padding: 10px; border: 1px solid #ddd;">Código Principal</th>
-                        <th style="padding: 10px; border: 1px solid #ddd;">Quantidade Ordem</th>
-                        <th style="padding: 10px; border: 1px solid #ddd;">Ações</th>
+                        <th style="padding: 10px; border: 1px실 solid #ddd;">Quantidade Ordem</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Status</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Ações</th>
                     </tr>
                 </thead>
                 <tbody id="tbody-ordens-criadas">
-                    <tr><td colspan="5" style="text-align: center; color: #777; padding: 15px;">Selecione o período e clique em "Filtrar" para buscar as ordens.</td></tr>
+                    <tr><td colspan="6" style="text-align: center; color: #777; padding: 15px;">Selecione o período e clique em "Filtrar" para buscar as ordens.</td></tr>
                 </tbody>
             </table>
         </div>
@@ -2472,7 +2485,7 @@ async function carregarOrdensCriadas() {
     if (!dataInicio || !dataFim) {
         let tbody = document.querySelector('#tabela-ordens-criadas tbody');
         if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777; padding: 15px;">Selecione a Data Início e a Data Fim para carregar as ordens.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #777; padding: 15px;">Selecione a Data Início e a Data Fim para carregar as ordens.</td></tr>';
         }
         return;
     }
@@ -2488,41 +2501,43 @@ async function carregarOrdensCriadas() {
         tbody.innerHTML = '';
 
         if (!dados.sucesso || !dados.ordens || dados.ordens.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777; padding: 15px;">Nenhuma ordem encontrada para este período.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #777; padding: 15px;">Nenhuma ordem encontrada para este período.</td></tr>';
             return;
         }
 
         let ordensFiltradas = dados.ordens.filter(ordem => {
             let isFeito = ordem.feito === true || ordem.feito === 'Sim' || ordem.feito === 'TRUE';
-            if (statusFiltro === 'Não' || statusFiltro === 'pendentes') return !isFeito;
-            if (statusFiltro === 'Sim' || statusFiltro === 'feitos') return isFeito;
+            if (statusFiltro === 'Não') return !isFeito;
+            if (statusFiltro === 'Sim') return isFeito;
             return true;
         });
 
         if (ordensFiltradas.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777; padding: 15px;">Nenhuma ordem corresponde ao status selecionado.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #777; padding: 15px;">Nenhuma ordem corresponde ao status selecionado.</td></tr>';
             return;
         }
 
-// Localize a parte onde as ordens são desenhadas na tabela em carregarOrdensCriadas()
         ordensFiltradas.forEach(ordem => {
             let tr = document.createElement('tr');
             let isFeito = ordem.feito === true || ordem.feito === 'Sim' || ordem.feito === 'TRUE';
-            tr.style.cssText = isFeito ? 'background-color: #e8f5e9; text-decoration: line-through; color: #666;' : '';
-        
-            // Dentro do forEach em carregarOrdensCriadas():
+            tr.style.cssText = isFeito ? 'background-color: #e8f5e9;' : '';
+            
+            let statusCor = isFeito ? 'color: green; font-weight: bold;' : 'color: red; font-weight: bold;';
+
             tr.innerHTML = `
                 <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
-                    <input type="checkbox" class="check-ordem-item" data-id="${ordem.id}" ${isFeito ? 'checked' : ''} onchange="atualizarStatusPlanilha('${ordem.id}', this.checked)">
+                    <input type="checkbox" class="check-ordem-item" data-id="${ordem.id}" data-data="${ordem.data}">
                 </td>
                 <td style="padding: 10px; border: 1px solid #ddd;">${ordem.data}</td>
                 <td style="padding: 10px; border: 1px solid #ddd;">${ordem.codigoPrincipal}</td>
                 <td style="padding: 10px; border: 1px solid #ddd;">${ordem.quantidadeOrdem}</td>
                 <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                    <span style="${statusCor}">${isFeito ? 'Sim' : 'Não'}</span>
+                </td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
                     <button onclick="moverParaLixeira('${ordem.id}')" style="background-color: #ffc107; color: #333; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">Mover p/ Lixeira</button>
                 </td>
             `;
-            
             tbody.appendChild(tr);
         });
         
@@ -2530,6 +2545,67 @@ async function carregarOrdensCriadas() {
         console.error(err);
     }
 }
+
+
+
+
+
+function alternarTodasOrdensLote(master) {
+    let checkboxes = document.querySelectorAll('.check-ordem-item');
+    checkboxes.forEach(cb => cb.checked = master.checked);
+}
+
+// Função para aplicar o status (Sim / Não) em lote sem recarregar a API excessivamente
+async function aplicarStatusLoteOrdens() {
+    let novoStatus = document.getElementById('status-lote-ordens').value;
+    let checkboxes = document.querySelectorAll('.check-ordem-item:checked');
+
+    if (checkboxes.length === 0) {
+        alert('Selecione pelo menos uma ordem na tabela!');
+        return;
+    }
+
+    let agrupadoPorData = {};
+    checkboxes.forEach(cb => {
+        let idOrdem = cb.getAttribute('data-id');
+        let dataOrdem = cb.getAttribute('data-data');
+        if (idOrdem && dataOrdem) {
+            if (!agrupadoPorData[dataOrdem]) {
+                agrupadoPorData[dataOrdem] = [];
+            }
+            agrupadoPorData[dataOrdem].push(idOrdem);
+        }
+    });
+
+    try {
+        let sucessoGeral = true;
+        
+        // Dispara uma requisição otimizada por aba/data correspondente
+        for (let [dataRegisto, idsArray] of Object.entries(agrupadoPorData)) {
+            let resposta = await fetch('/atualizar_status_lote_ordens_por_id', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: dataRegisto, ids: idsArray, status: novoStatus })
+            });
+            let resultado = await resposta.json();
+            if (!resultado.sucesso) {
+                sucessoGeral = false;
+            }
+        }
+
+        if (sucessoGeral) {
+            alert('Status atualizado com sucesso em lote!');
+            carregarOrdensCriadas(); // Atualiza a tabela
+        } else {
+            alert('Erro ao atualizar alguns itens.');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Erro de comunicação com o servidor.');
+    }
+}
+
+
 
     
     
