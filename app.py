@@ -861,7 +861,7 @@ def listar_ordens_criadas():
 
 
 
-# Nova rota para alternar o status de "Feito" diretamente na linha da planilha
+# 1. Rota unitária (caso queira manter)
 @app.route('/alternar_status_ordem', methods=['POST'])
 def alternar_status_ordem():
     try:
@@ -872,8 +872,6 @@ def alternar_status_ordem():
         gc = conectar_google_sheets()
         planilha = gc.open(PLANILHA_CRIAR_ORDENS)
         
-        # Como o ID é único, precisamos de varrer as abas do dia ou procurar na aba correta. 
-        # Se o id_ordem contiver a data ou se procurarmos em todas as abas de data:
         for aba in planilha.worksheets():
             if aba.title.upper() in ["LIXEIRA", "DADOS"]:
                 continue
@@ -888,7 +886,6 @@ def alternar_status_ordem():
             for idx, row in enumerate(linhas[1:], start=2):
                 val_id = str(row[col_id_idx - 1]).strip() if len(row) >= col_id_idx else ""
                 if val_id == id_ordem:
-                    # Encontrou a linha exata! Atualiza o status
                     if "STATUS" not in cabecalhos and "FEITO" not in cabecalhos:
                         col_status_idx = len(cabecalhos) + 1
                         aba.update_cell(1, col_status_idx, "Status")
@@ -901,6 +898,72 @@ def alternar_status_ordem():
         return jsonify({'sucesso': False, 'mensagem': 'ID da ordem não encontrado na planilha.'}), 404
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+# 2. Rota em lote (essencial para alterar vários itens de uma só vez sem estourar a API)
+@app.route('/atualizar_status_lote_ordens_por_id', methods=['POST'])
+def atualizar_status_lote_ordens_por_id():
+    try:
+        dados = request.get_json()
+        if not dados:
+            return jsonify({'sucesso': False, 'mensagem': 'Dados inválidos.'}), 400
+            
+        data_consulta = str(dados.get('data', '')).strip()
+        ids_selecionados = [str(i).strip() for i in dados.get('ids', [])]
+        novo_status = str(dados.get('status', 'Não')).strip()
+        
+        if not data_consulta or not ids_selecionados:
+            return jsonify({'sucesso': False, 'mensagem': 'Nenhum item selecionado.'}), 400
+            
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+        
+        try:
+            aba = planilha.worksheet(data_consulta)
+        except Exception:
+            return jsonify({'sucesso': False, 'mensagem': f'Aba da data {data_consulta} não encontrada.'}), 400
+            
+        linhas_planilha = aba.get_all_values()
+        if not linhas_planilha or len(linhas_planilha) < 2:
+            return jsonify({'sucesso': False, 'mensagem': 'A planilha está vazia.'}), 400
+            
+        cabecalhos = [str(c).strip().upper() for c in linhas_planilha[0]]
+        
+        if "ID" not in cabecalhos:
+            return jsonify({'sucesso': False, 'mensagem': 'Coluna ID não encontrada na planilha.'}), 400
+            
+        col_status_idx = None
+        for h in ["STATUS", "FEITO"]:
+            if h in cabecalhos:
+                col_status_idx = cabecalhos.index(h) + 1
+                break
+        if not col_status_idx:
+            col_status_idx = len(cabecalhos) + 1
+            aba.update_cell(1, col_status_idx, "Status")
+            
+        col_id_idx = cabecalhos.index("ID") + 1
+        cell_updates = []
+        
+        for idx_l, linha in enumerate(linhas_planilha[1:], start=2):
+            id_celula = str(linha[col_id_idx - 1]).strip() if len(linha) >= col_id_idx else ""
+            if id_celula in ids_selecionados:
+                cell_address = gspread.utils.rowcol_to_a1(idx_l, col_status_idx)
+                cell_updates.append({
+                    'range': cell_address,
+                    'values': [[novo_status]]
+                })
+                
+        if cell_updates:
+            aba.batch_update(cell_updates)
+                
+        return jsonify({'sucesso': True, 'mensagem': 'Status atualizado em lote com sucesso!'})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
 
 
 
