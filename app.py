@@ -2753,3 +2753,64 @@ def atualizar_status_acessorios_lote():
         
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro interno no servidor: {str(e)}'}), 500
+
+
+
+@app.route('/salvar_saldo_acessorio', methods=['POST'])
+def salvar_saldo_acessorio():
+    try:
+        dados = request.get_json()
+        if not dados:
+            return jsonify({'sucesso': False, 'mensagem': 'Dados inválidos.'}), 400
+            
+        codigo = str(dados.get('codigo', '')).strip().upper()
+        quantidade = str(dados.get('quantidade', '')).strip()
+        
+        if not codigo or not quantidade:
+            return jsonify({'sucesso': False, 'mensagem': 'Preencha o código e a quantidade.'}), 400
+            
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        planilha = gc.open(NOME_PLANILHA_ACESSORIOS)
+        
+        # Verifica se a aba SALDO_ACESSORIOS existe, senão cria automaticamente
+        try:
+            aba_saldo = planilha.worksheet("SALDO_ACESSORIOS")
+        except Exception:
+            aba_saldo = planilha.add_worksheet(title="SALDO_ACESSORIOS", rows="1000", cols="5")
+            aba_saldo.append_row(["CODIGO", "QUANTIDADE"])
+            
+        linhas = aba_saldo.get_all_values()
+        cabecalhos = [str(c).strip().upper() for c in linhas[0]] if linhas else []
+        
+        if "CODIGO" not in cabecalhos or "QUANTIDADE" not in cabecalhos:
+            aba_saldo.clear()
+            aba_saldo.append_row(["CODIGO", "QUANTIDADE"])
+            linhas = aba_saldo.get_all_values()
+            cabecalhos = ["CODIGO", "QUANTIDADE"]
+            
+        col_cod_idx = cabecalhos.index("CODIGO") + 1
+        col_qtd_idx = cabecalhos.index("QUANTIDADE") + 1
+        
+        encontrado = False
+        for idx, linha in enumerate(linhas):
+            if idx == 0:
+                continue
+            cod_atual = str(linha[col_cod_idx - 1]).strip().upper() if len(linha) >= col_cod_idx else ""
+            if cod_atual == codigo:
+                # Atualiza a linha existente somando ou substituindo (aqui vamos substituir/atualizar com o valor informado)
+                cell_address = gspread.utils.rowcol_to_a1(idx + 1, col_qtd_idx)
+                aba_saldo.update(cell_address, [[quantidade]])
+                encontrado = True
+                break
+                
+        if not encontrado:
+            # Adiciona nova linha se o código ainda não existir na aba de saldo
+            aba_saldo.append_row([codigo, quantidade])
+            
+        return jsonify({'sucesso': True, 'mensagem': 'Saldo de acessório salvo com sucesso!'})
+        
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': f'Erro ao salvar saldo: {str(e)}'}), 500
