@@ -2898,3 +2898,56 @@ def consultar_saldo_acessorios():
         return jsonify({'sucesso': True, 'saldos': saldos})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
+@app.route('/verificar_acessorios_existentes', methods=['POST'])
+def verificar_acessorios_existentes():
+    try:
+        dados = request.get_json()
+        data_mov = request.args.get('data') or dados.get('data')
+        itens = dados.get('itens', [])
+        
+        if not data_mov or not itens:
+            return jsonify({'sucesso': True, 'itensDuplicados': []})
+            
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        try:
+            planilha = gc.open(NOME_PLANILHA_ACESSORIOS)
+            aba = planilha.worksheet(data_mov)
+        except Exception:
+            # Se a aba do dia ainda não existe, significa que não há duplicados
+            return jsonify({'sucesso': True, 'itensDuplicados': []})
+            
+        linhas = aba.get_all_values()
+        if not linhas or len(linhas) < 2:
+            return jsonify({'sucesso': True, 'itensDuplicados': []})
+            
+        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+        col_cod_idx = cabecalhos.index("CÓDIGO") + 1 if "CÓDIGO" in cabecalhos else (cabecalhos.index("CODIGO") + 1 if "CODIGO" in cabecalhos else 3)
+        col_tipo_idx = cabecalhos.index("TIPO") + 1 if "TIPO" in cabecalhos else 5
+        
+        # Coleta todos os itens já existentes na planilha nesta data
+        existentes = set()
+        for idx, linha in enumerate(linhas):
+            if idx == 0: continue
+            cod = str(linha[col_cod_idx - 1]).strip().upper() if len(linha) >= col_cod_idx else ""
+            tipo = str(linha[col_tipo_idx - 1]).strip() if len(linha) >= col_tipo_idx else ""
+            if cod:
+                existentes.add(f"{cod}_{tipo}")
+                
+        itens_duplicados = []
+        for item in itens:
+            codigo = str(item.get('CODIGO', item.get('codigo', ''))).strip().upper()
+            tipo = str(item.get('TIPO', item.get('tipo', 'Baixa Acessórios'))).strip()
+            chave = f"{codigo}_{tipo}"
+            
+            if chave in existentes:
+                itens_duplicados.append(f"{codigo} ({tipo})")
+                
+        return jsonify({'sucesso': True, 'itensDuplicados': itens_duplicados})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
