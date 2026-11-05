@@ -2604,7 +2604,8 @@ def consultar_recebimento():
                 except:
                     qtd_sai = 0.0
 
-                # ENTRADAS (Produtos Recebidos / Saida Recebido) -> Somam no saldo e voam para a tabela de Entradas
+                # Correção da visualização:
+                # ENTRADAS (Produtos Recebidos / Coluna D) -> Vão para a tabela verde de Entradas
                 if cod_saida and qtd_sai > 0:
                     if cod_saida not in saldos_dict:
                         saldos_dict[cod_saida] = 0.0
@@ -2616,7 +2617,7 @@ def consultar_recebimento():
                             'aba': nome_aba, 'id': row_id, 'data': data_item, 'codigo': cod_saida, 'quantidade': qtd_sai
                         })
 
-                # SAÍDAS (Estoque Nomus / Entrada Nomus) -> Subtraem do saldo e voam para a tabela de Saídas
+                # SAÍDAS (Estoque Nomus / Coluna C) -> Vão para a tabela azul de Saídas
                 if cod_entrada and qtd_ent > 0:
                     if cod_entrada not in saldos_dict:
                         saldos_dict[cod_entrada] = 0.0
@@ -2646,7 +2647,6 @@ def consultar_recebimento():
         
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
 
 
 
