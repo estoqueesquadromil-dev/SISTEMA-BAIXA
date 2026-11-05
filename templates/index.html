@@ -1422,53 +1422,24 @@ function mudarAba(aba, btn) {
 
     
 
-// Configuração segura do input de código após o carregamento da página
 document.addEventListener("DOMContentLoaded", function() {
-    const inputCodigo = document.getElementById('input-codigo');
-    const divResultados = document.getElementById('resultados-busca');
+    let hoje = new Date().toISOString().split('T')[0];
+    let inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+    
+    if(document.getElementById('filtro-inicio-rec')) {
+        document.getElementById('filtro-inicio-rec').value = inicioMes;
+        document.getElementById('filtro-fim-rec').value = hoje;
+        carregarDadosRecebimento(); // Carrega automaticamente ao abrir a página
+    }
 
-    if (inputCodigo && divResultados) {
-        inputCodigo.addEventListener('input', async function() {
-            let termo = this.value.trim();
-            produtoSelecionadoTemp = null;
-            if (termo.length < 1) {
-                divResultados.innerHTML = '';
-                return;
-            }
-            try {
-                let resposta = await fetch(`/buscar_produtos?termo=${encodeURIComponent(termo)}`);
-                let produtos = await resposta.json();
-                
-                divResultados.innerHTML = '';
-                if (produtos.length === 0) {
-                    divResultados.innerHTML = '<div class="item-resultado" style="color: #999;">Nenhum produto encontrado</div>';
-                    return;
-                }
-
-                produtos.forEach(p => {
-                    let div = document.createElement('div');
-                    div.className = 'item-resultado';
-                    div.textContent = `${p.codigo} - ${p.descricao}`;
-                    div.onclick = () => {
-                        inputCodigo.value = p.codigo;
-                        produtoSelecionadoTemp = p;
-                        divResultados.innerHTML = '';
-                    };
-                    divResultados.appendChild(div);
-                });
-            } catch (err) {
-                console.error("Erro na busca:", err);
-            }
-        });
-
-        document.addEventListener('click', function(e) {
-            if (!inputCodigo.contains(e.target) && !divResultados.contains(e.target)) {
-                divResultados.innerHTML = '';
-            }
-        });
+    if(document.getElementById('data-rec-conferidos')) document.getElementById('data-rec-conferidos').value = hoje;
+    if(document.getElementById('data-rec-nomus')) document.getElementById('data-rec-nomus').value = hoje;
+    
+    if (typeof configurarAutocompleteRec === 'function') {
+        configurarAutocompleteRec('input-rec-conferidos', 'res-rec-conferidos');
+        configurarAutocompleteRec('input-rec-nomus', 'res-rec-nomus');
     }
 });
-
 
 
     
