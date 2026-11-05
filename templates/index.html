@@ -4148,7 +4148,6 @@ async function processarSaldoLoteAcessorio() {
         let partes = linha.trim().split(/\s+/); // Separa por espaço ou tabulação
         if (partes.length >= 2) {
             let codigo = partes[0].trim();
-            // Junta o resto caso a quantidade tenha pontos ou formatos complexos
             let quantidade = partes.slice(1).join('').trim(); 
             if (codigo && quantidade) {
                 itensParaEnviar.push({ codigo: codigo, quantidade: quantidade });
@@ -4161,34 +4160,35 @@ async function processarSaldoLoteAcessorio() {
         return;
     }
 
-    if (!confirm(`Deseja atualizar o saldo de ${itensParaEnviar.length} acessório(s)?`)) return;
+    if (!confirm(`Deseja enviar o saldo de ${itensParaEnviar.length} acessório(s) em lote de uma vez?`)) return;
+
+    // Mostra indicador visual de carregamento rápido
+    let botao = event.target;
+    let textoOriginal = botao.innerText;
+    botao.innerText = "A processar...";
+    botao.disabled = true;
 
     try {
-        let sucessoGeral = true;
-        for (let item of itensParaEnviar) {
-            let resposta = await fetch('/salvar_saldo_acessorio', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(item)
-            });
-            let resultado = await resposta.json();
-            if (!resultado.sucesso) {
-                sucessoGeral = false;
-            }
-        }
-
-        if (sucessoGeral) {
-            alert('Saldos de acessórios atualizados com sucesso na aba SALDO_ACESSORIOS!');
+        let resposta = await fetch('/salvar_saldo_acessorio_lote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itens: itensParaEnviar })
+        });
+        
+        let resultado = await resposta.json();
+        if (resultado.sucesso) {
+            alert(resultado.mensagem);
             document.getElementById('input-lote-saldo-acessorios').value = '';
         } else {
-            alert('Ocorreu um erro ao atualizar alguns itens.');
+            alert('Erro: ' + resultado.mensagem);
         }
     } catch (err) {
         alert('Erro de comunicação com o servidor: ' + err.message);
+    } finally {
+        botao.innerText = textoOriginal;
+        botao.disabled = false;
     }
 }
-
-
     
 
 </script>
