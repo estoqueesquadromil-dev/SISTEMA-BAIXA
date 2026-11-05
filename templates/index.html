@@ -835,6 +835,23 @@
 <!-- PAINEL: ACESSÓRIOS -->
 <div id="painel-acessorios" class="painel">
     <h2>Gestão de Acessórios</h2>
+
+    <!-- NOVO BLOCO: SALDO DE ESTOQUE DE ACESSÓRIOS -->
+    <div style="background: #eef2f7; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #d1d9e0;">
+        <h3 style="margin-top: 0; color: #0056b3; font-size: 16px;">Cadastrar / Atualizar Saldo de Estoque</h3>
+        <div class="form-row" style="margin-top: 10px; align-items: flex-end; display: flex; gap: 15px; flex-wrap: wrap;">
+            <div class="form-group-codigo" style="position: relative; flex: 1; min-width: 200px; margin: 0;">
+                <label for="input-codigo-saldo">Código do Acessório:</label>
+                <input type="text" id="input-codigo-saldo" placeholder="Digite o código..." autocomplete="off">
+            </div>
+            <div class="form-group" style="max-width: 130px; margin: 0;">
+                <label for="input-qtd-saldo">Quantidade:</label>
+                <input type="number" id="input-qtd-saldo" value="1" min="0">
+            </div>
+            <button class="btn-adicionar" style="background-color: #28a745; height: 38px;" onclick="salvarSaldoAcessorio()">💾 Salvar Saldo</button>
+        </div>
+    </div>
+
     <div class="form-row" style="margin-top: 15px;">
         <div class="form-group" style="max-width: 160px;">
             <label for="data-acessorios">Data:</label>
@@ -930,8 +947,6 @@
         </table>
     </div>
 </div>
-
-
 
 <!-- PAINEL RECEBIMENTO -->
 <div id="painel-recebimento" class="painel">
@@ -4086,6 +4101,38 @@ async function aplicarTipoEmMassa() {
         alert('Erro de comunicação com o servidor: ' + err.message);
     }
 }    
+
+
+
+
+async function salvarSaldoAcessorio() {
+    let codigo = document.getElementById('input-codigo-saldo').value.trim();
+    let quantidade = document.getElementById('input-qtd-saldo').value.trim();
+
+    if (!codigo || !quantidade) {
+        alert('Por favor, informe o código e a quantidade para o saldo.');
+        return;
+    }
+
+    try {
+        let resposta = await fetch('/salvar_saldo_acessorio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ codigo: codigo, quantidade: quantidade })
+        });
+        
+        let resultado = await resposta.json();
+        if (resultado.sucesso) {
+            alert(resultado.mensagem);
+            document.getElementById('input-codigo-saldo').value = '';
+            document.getElementById('input-qtd-saldo').value = '1';
+        } else {
+            alert('Erro: ' + resultado.mensagem);
+        }
+    } catch (err) {
+        alert('Erro de comunicação com o servidor: ' + err.message);
+    }
+}
 
     
 
