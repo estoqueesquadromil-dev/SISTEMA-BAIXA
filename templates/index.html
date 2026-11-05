@@ -1115,7 +1115,6 @@ document.addEventListener("DOMContentLoaded", function() {
     
 
 
-// Variável global para armazenar os saldos carregados
 let cacheSaldosAcessorios = {};
 
 async function carregarSaldosCache() {
@@ -1130,7 +1129,8 @@ async function carregarSaldosCache() {
     }
 }
 
-// Chame carregarSaldosCache() sempre que abrir a aba de Acessórios ou carregar a página.
+// Carrega os saldos assim que a página é aberta ou a aba é carregada
+carregarSaldosCache();
 
 
 // Controla a exibição dos campos de medida exclusivamente para o VF22
@@ -3603,7 +3603,7 @@ if (inputCodAcessorio) {
 }
 
 function adicionarAcessorioLista() {
-    let codigo = inputCodAcessorio.value.trim();
+    let codigo = inputCodAcessorio ? inputCodAcessorio.value.trim() : document.getElementById('input-codigo-acessorios').value.trim();
     let qtd = parseInt(document.getElementById('input-qtd-acessorios').value) || 1;
     let tipo = document.getElementById('select-tipo-acessorios').value;
 
@@ -3612,42 +3612,63 @@ function adicionarAcessorioLista() {
         return;
     }
 
-    // Regra: Não deixa adicionar o mesmo código duas vezes na lista temporária
-    let duplicado = listaAcessoriosTemp.some(item => item.CODIGO.toUpperCase() === codigo.toUpperCase() && item.TIPO === tipo);
-    if (duplicado) {
-        alert(`O código "${codigo}" com o tipo "${tipo}" já está na lista para lançamento.`);
+    if (qtd <= 0) {
+        alert('A quantidade deve ser maior que zero.');
         return;
     }
 
-    listaAcessoriosTemp.push({ CODIGO: codigo, QUANTIDADE: qtd, TIPO: tipo });
-    inputCodAcessorio.value = '';
+    // Regra original: Não deixa adicionar o mesmo código duas vezes na lista temporária com o mesmo tipo
+    let duplicado = listaAcessoriosTemp.some(item => item.CODIGO.toUpperCase() === codigo.toUpperCase() && item.TIPO === tipo);
+    if (duplicado) {
+        alert('Este código já está na lista temporária com este tipo.');
+        return;
+    }
+
+    listaAcessoriosTemp.push({
+        CODIGO: codigo,
+        QUANTIDADE: qtd,
+        TIPO: tipo
+    });
+
+    // Limpa os campos após adicionar
+    if (inputCodAcessorio) inputCodAcessorio.value = '';
+    document.getElementById('input-codigo-acessorios').value = '';
     document.getElementById('input-qtd-acessorios').value = '1';
+    
+    // Esconde o aviso de saldo após adicionar
+    let avisoEl = document.getElementById('aviso-saldo-acessorio');
+    if (avisoEl) avisoEl.style.display = 'none';
+
+    // Atualiza a tabela temporária visualmente
     atualizarTabelaTempAcessorios();
 }
 
-// Exemplo de ajuste ao renderizar a tabela temporária:
+
+    
+
+// Função original que desenha a tabela temporária (mantida limpa sem coluna de saldo)
 function atualizarTabelaTempAcessorios() {
     let tbody = document.querySelector('#tabela-temp-acessorios tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
-    
-    // Certifique-se de carregar os saldos antes
-    // carregarSaldosCache();
 
-    listaAcessoriosTemp.forEach((item, index) => {
-        let saldoDisponivel = cacheSaldosAcessorios[item.codigo.toUpperCase()] ?? '0';
-        
+    if (listaAcessoriosTemp.length === 0) {
+        return;
+    }
+
+    listaAcessoriosTemp.forEach((item, idx) => {
         let tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><strong>${item.codigo}</strong></td>
-            <td>${item.tipo}</td>
-            <td>${item.quantidade}</td>
-            <td style="color: #0056b3; font-weight: bold;">${saldoDisponivel}</td>
-            <td><button class="btn-acao btn-excluir" onclick="removerAcessorioTemp(${index})">Remover</button></td>
-        `;
+            <td><strong>${item.CODIGO}</strong></td>
+            <td>${item.TIPO}</td>
+            <td>${item.QUANTIDADE}</td>
+            <td>
+                <button class="btn-acao" style="background:#f0ad4e; color:white; border:none; padding:4px 8px; border-radius:4px; margin-right:4px;" onclick="editarItemTemp(${idx})">Editar</button>
+                <button class="btn-acao btn-excluir" onclick="listaAcessoriosTemp.splice(${idx},1); atualizarTabelaTempAcessorios()">Remover</button>
+            </td>`;
         tbody.appendChild(tr);
     });
 }
-
 
     
 function editarItemTemp(idx) {
