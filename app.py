@@ -2984,3 +2984,87 @@ def verificar_acessorios_existentes():
         return jsonify({'sucesso': True, 'itensDuplicados': itens_duplicados})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+async function carregarDadosRecebimento() {
+    let inicio = document.getElementById('filtro-inicio-rec').value;
+    let fim = document.getElementById('filtro-fim-rec').value;
+    let filtroCodigo = document.getElementById('filtro-codigo-rec') ? document.getElementById('filtro-codigo-rec').value.trim().toLowerCase() : '';
+    
+    if(!inicio || !fim) return;
+
+    try {
+        let res = await fetch(`/consultar_recebimento?inicio=${inicio}&fim=${fim}`);
+        let r = await res.json();
+        
+        if(!r.sucesso) return;
+
+        // 1. Tabela de Saldo Global (Exibe o acumulado total de tudo, sem depender do filtro de datas)
+        let tbodySaldos = document.querySelector('#tabela-saldos-rec tbody');
+        if (tbodySaldos) {
+            tbodySaldos.innerHTML = '';
+            let saldosFiltrados = r.saldos.filter(s => {
+                if (filtroCodigo && !s.codigo.toLowerCase().includes(filtroCodigo) && !s.descricao.toLowerCase().includes(filtroCodigo)) {
+                    return false;
+                }
+                return true;
+            });
+
+            if (saldosFiltrados.length === 0) {
+                tbodySaldos.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #777;">Nenhum saldo encontrado.</td></tr>';
+            } else {
+                saldosFiltrados.forEach(s => {
+                    let cor = s.saldo < 0 ? 'color: #dc3545; font-weight: bold;' : 'font-weight: bold;';
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `<td><strong>${s.codigo}</strong></td><td>${s.descricao}</td><td style="${cor}">${s.saldo}</td>`;
+                    tbodySaldos.appendChild(tr);
+                });
+            }
+        }
+
+        // 2. Tabela de Entradas (Respeita o filtro de período)
+        let tbodyEntradas = document.querySelector('#tabela-entradas-rec tbody');
+        if (tbodyEntradas) {
+            tbodyEntradas.innerHTML = '';
+            let entradasFiltradas = r.entradas.filter(e => !filtroCodigo || e.codigo.toLowerCase().includes(filtroCodigo));
+            
+            if (entradasFiltradas.length === 0) {
+                tbodyEntradas.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777;">Nenhuma entrada no período.</td></tr>';
+            } else {
+                entradasFiltradas.forEach(e => {
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${e.data}</td><td><strong>${e.codigo}</strong></td><td>${e.quantidade}</td>
+                    <td>
+                        <button class="btn-acao btn-editar" onclick="editarRec('${e.aba}', '${e.id}', ${e.quantidade})">Editar</button>
+                        <button class="btn-acao btn-excluir" onclick="excluirRec('${e.aba}', '${e.id}')">Excluir</button>
+                    </td>`;
+                    tbodyEntradas.appendChild(tr);
+                });
+            }
+        }
+
+        // 3. Tabela de Saídas (Respeita o filtro de período)
+        let tbodySaidas = document.querySelector('#tabela-saidas-rec tbody');
+        if (tbodySaidas) {
+            tbodySaidas.innerHTML = '';
+            let saidasFiltradas = r.saidas.filter(s => !filtroCodigo || s.codigo.toLowerCase().includes(filtroCodigo));
+
+            if (saidasFiltradas.length === 0) {
+                tbodySaidas.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777;">Nenhuma saída no período.</td></tr>';
+            } else {
+                saidasFiltradas.forEach(s => {
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${s.data}</td><td><strong>${s.codigo}</strong></td><td>${s.quantidade}</td>
+                    <td>
+                        <button class="btn-acao btn-editar" onclick="editarRec('${s.aba}', '${s.id}', ${s.quantidade})">Editar</button>
+                        <button class="btn-acao btn-excluir" onclick="excluirRec('${s.aba}', '${s.id}')">Excluir</button>
+                    </td>`;
+                    tbodySaidas.appendChild(tr);
+                });
+            }
+        }
+
+    } catch(e) { 
+        console.error("Erro ao carregar dados de recebimento:", e); 
+    }
+}
