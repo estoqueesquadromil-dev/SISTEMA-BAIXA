@@ -2602,7 +2602,7 @@ def consultar_recebimento():
                 except:
                     qtd_sai = 0.0
 
-                # ENTRADAS (Produtos Recebidos) -> SOMAM AO SALDO (+)
+                # ENTRADAS (Produtos Recebidos / Saida Recebido) -> Somam no saldo e voam para a tabela de Entradas
                 if cod_saida and qtd_sai > 0:
                     if cod_saida not in saldos_dict:
                         saldos_dict[cod_saida] = 0.0
@@ -2614,7 +2614,7 @@ def consultar_recebimento():
                             'aba': nome_aba, 'id': row_id, 'data': data_item, 'codigo': cod_saida, 'quantidade': qtd_sai
                         })
 
-                # SAÍDAS (Estoque Nomus) -> SUBTRAEM DO SALDO (-)
+                # SAÍDAS (Estoque Nomus / Entrada Nomus) -> Subtraem do saldo e voam para a tabela de Saídas
                 if cod_entrada and qtd_ent > 0:
                     if cod_entrada not in saldos_dict:
                         saldos_dict[cod_entrada] = 0.0
