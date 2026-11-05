@@ -3725,6 +3725,29 @@ async function salvarLoteAcessorios() {
         return;
     }
 
+    // 1. Faz uma verificação prévia no servidor para saber se algum item da lista já existe na data
+    try {
+        let resVerificacao = await fetch(`/verificar_acessorios_existentes?data=${data}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itens: listaAcessoriosTemp })
+        });
+        let rVerif = await resVerificacao.json();
+
+        if (rVerif.sucesso && rVerif.itensDuplicados && rVerif.itensDuplicados.length > 0) {
+            let listaNomes = rVerif.itensDuplicados.join(', ');
+            
+            // Exibe a mensagem de alerta perguntando se deseja salvar/somar
+            let confirmar = confirm(`⚠️ Atenção: Os seguintes itens já foram lançados na data ${data}:\n\n${listaNomes}\n\nDeseja salvar mesmo assim e somar as quantidades?`);
+            
+            if (!confirmar) {
+                return; // Cancela a operação
+            }
+        }
+    } catch (e) {
+        console.error("Erro na verificação prévia:", e);
+    }
+
     // Bloqueia o botão e altera o estilo enquanto salva
     if (btnSalvar) {
         btnSalvar.disabled = true;
@@ -3753,7 +3776,6 @@ async function salvarLoteAcessorios() {
     } catch (e) { 
         alert('Erro de comunicação com o servidor.'); 
     } finally {
-        // Restaura o botão após concluir ou ocorrer erro
         if (btnSalvar) {
             btnSalvar.disabled = false;
             btnSalvar.innerHTML = btnSalvar.dataset.textoOriginal || '💾 Salvar Lote na Planilha';
@@ -3762,7 +3784,6 @@ async function salvarLoteAcessorios() {
         }
     }
 }
-
     
 
 async function carregarDadosAcessorios() {
