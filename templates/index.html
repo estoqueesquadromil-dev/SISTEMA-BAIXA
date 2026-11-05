@@ -3698,8 +3698,21 @@ async function salvarLoteAcessorios() {
         return;
     }
 
-    // 1. Faz uma verificação prévia no servidor para saber se algum item da lista já existe na data
+    // --- BLOQUEIO INSTANTÂNEO CONTRA DUPLO CLIQUE ---
+    if (btnSalvar && btnSalvar.disabled) {
+        return; // Impede qualquer execução adicional se já estiver desativado
+    }
+
+    if (btnSalvar) {
+        btnSalvar.disabled = true;
+        btnSalvar.dataset.textoOriginal = btnSalvar.innerHTML;
+        btnSalvar.innerHTML = '⏳ Verificando...';
+        btnSalvar.style.opacity = '0.6';
+        btnSalvar.style.cursor = 'not-allowed';
+    }
+
     try {
+        // 1. Faz uma verificação prévia no servidor para saber se algum item da lista já existe na data
         let resVerificacao = await fetch(`/verificar_acessorios_existentes?data=${data}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3714,23 +3727,22 @@ async function salvarLoteAcessorios() {
             let confirmar = confirm(`⚠️ Atenção: Os seguintes itens já foram lançados na data ${data}:\n\n${listaNomes}\n\nDeseja salvar mesmo assim e somar as quantidades?`);
             
             if (!confirmar) {
+                // Se o utilizador cancelar, reativamos o botão para que ele possa corrigir algo se quiser
+                if (btnSalvar) {
+                    btnSalvar.disabled = false;
+                    btnSalvar.innerHTML = btnSalvar.dataset.textoOriginal || '💾 Salvar Lote na Planilha';
+                    btnSalvar.style.opacity = '1';
+                    btnSalvar.style.cursor = 'pointer';
+                }
                 return; // Cancela a operação
             }
         }
-    } catch (e) {
-        console.error("Erro na verificação prévia:", e);
-    }
 
-    // Bloqueia o botão e altera o estilo enquanto salva
-    if (btnSalvar) {
-        btnSalvar.disabled = true;
-        btnSalvar.dataset.textoOriginal = btnSalvar.innerHTML;
-        btnSalvar.innerHTML = '⏳ Salvando na planilha...';
-        btnSalvar.style.opacity = '0.6';
-        btnSalvar.style.cursor = 'not-allowed';
-    }
+        // Altera o texto para indicando o salvamento real
+        if (btnSalvar) {
+            btnSalvar.innerHTML = '⏳ Salvando na planilha...';
+        }
 
-    try {
         let res = await fetch('/salvar_lote_acessorios', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3749,6 +3761,7 @@ async function salvarLoteAcessorios() {
     } catch (e) { 
         alert('Erro de comunicação com o servidor.'); 
     } finally {
+        // Reativa o botão apenas no final de todo o processo (sucesso, erro ou salvamento concluído)
         if (btnSalvar) {
             btnSalvar.disabled = false;
             btnSalvar.innerHTML = btnSalvar.dataset.textoOriginal || '💾 Salvar Lote na Planilha';
@@ -3756,8 +3769,7 @@ async function salvarLoteAcessorios() {
             btnSalvar.style.cursor = 'pointer';
         }
     }
-}
-    
+}    
 
 async function carregarDadosAcessorios() {
     let inicio = document.getElementById('filtro-inicio-acessorios').value;
