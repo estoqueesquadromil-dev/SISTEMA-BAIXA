@@ -4047,55 +4047,74 @@ async function carregarDadosRecebimento() {
         
         if(!r.sucesso) return;
 
-        // Filtra a lista de saldos se houver texto no campo de código
-        let saldosFiltrados = r.saldos.filter(s => {
-            if (filtroCodigo && !s.codigo.toLowerCase().includes(filtroCodigo) && !s.descricao.toLowerCase().includes(filtroCodigo)) {
-                return false;
-            }
-            return true;
-        });
-
-        // Tabela Saldos
+        // 1. Tabela de Saldo Global (Exibe o acumulado total de tudo, sem depender do filtro de datas)
         let tbodySaldos = document.querySelector('#tabela-saldos-rec tbody');
-        tbodySaldos.innerHTML = '';
-        saldosFiltrados.forEach(s => {
-            let cor = s.saldo < 0 ? 'color: #dc3545; font-weight: bold;' : '';
-            let tr = document.createElement('tr');
-            tr.innerHTML = `<td><strong>${s.codigo}</strong></td><td>${s.descricao}</td><td style="${cor}">${s.saldo}</td>`;
-            tbodySaldos.appendChild(tr);
-        });
+        if (tbodySaldos) {
+            tbodySaldos.innerHTML = '';
+            let saldosFiltrados = r.saldos.filter(s => {
+                if (filtroCodigo && !s.codigo.toLowerCase().includes(filtroCodigo) && !s.descricao.toLowerCase().includes(filtroCodigo)) {
+                    return false;
+                }
+                return true;
+            });
 
-        // Filtra e preenche a Tabela de Entradas
+            if (saldosFiltrados.length === 0) {
+                tbodySaldos.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #777;">Nenhum saldo encontrado.</td></tr>';
+            } else {
+                saldosFiltrados.forEach(s => {
+                    let cor = s.saldo < 0 ? 'color: #dc3545; font-weight: bold;' : 'font-weight: bold;';
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `<td><strong>${s.codigo}</strong></td><td>${s.descricao}</td><td style="${cor}">${s.saldo}</td>`;
+                    tbodySaldos.appendChild(tr);
+                });
+            }
+        }
+
+        // 2. Tabela de Entradas (Respeita o filtro de período)
         let tbodyEntradas = document.querySelector('#tabela-entradas-rec tbody');
-        tbodyEntradas.innerHTML = '';
-        let entradasFiltradas = r.entradas.filter(e => !filtroCodigo || e.codigo.toLowerCase().includes(filtroCodigo));
-        
-        entradasFiltradas.forEach(e => {
-            let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${e.data}</td><td><strong>${e.codigo}</strong></td><td>${e.quantidade}</td>
-            <td>
-                <button class="btn-acao btn-editar" onclick="editarRec('${e.aba}', '${e.id}', ${e.quantidade})">Editar</button>
-                <button class="btn-acao btn-excluir" onclick="excluirRec('${e.aba}', '${e.id}')">Excluir</button>
-            </td>`;
-            tbodyEntradas.appendChild(tr);
-        });
+        if (tbodyEntradas) {
+            tbodyEntradas.innerHTML = '';
+            let entradasFiltradas = r.entradas.filter(e => !filtroCodigo || e.codigo.toLowerCase().includes(filtroCodigo));
+            
+            if (entradasFiltradas.length === 0) {
+                tbodyEntradas.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777;">Nenhuma entrada no período.</td></tr>';
+            } else {
+                entradasFiltradas.forEach(e => {
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${e.data}</td><td><strong>${e.codigo}</strong></td><td>${e.quantidade}</td>
+                    <td>
+                        <button class="btn-acao btn-editar" onclick="editarRec('${e.aba}', '${e.id}', ${e.quantidade})">Editar</button>
+                        <button class="btn-acao btn-excluir" onclick="excluirRec('${e.aba}', '${e.id}')">Excluir</button>
+                    </td>`;
+                    tbodyEntradas.appendChild(tr);
+                });
+            }
+        }
 
-        // Filtra e preenche a Tabela de Saídas
+        // 3. Tabela de Saídas (Respeita o filtro de período)
         let tbodySaidas = document.querySelector('#tabela-saidas-rec tbody');
-        tbodySaidas.innerHTML = '';
-        let saidasFiltradas = r.saidas.filter(s => !filtroCodigo || s.codigo.toLowerCase().includes(filtroCodigo));
+        if (tbodySaidas) {
+            tbodySaidas.innerHTML = '';
+            let saidasFiltradas = r.saidas.filter(s => !filtroCodigo || s.codigo.toLowerCase().includes(filtroCodigo));
 
-        saidasFiltradas.forEach(s => {
-            let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${s.data}</td><td><strong>${s.codigo}</strong></td><td>${s.quantidade}</td>
-            <td>
-                <button class="btn-acao btn-editar" onclick="editarRec('${s.aba}', '${s.id}', ${s.quantidade})">Editar</button>
-                <button class="btn-acao btn-excluir" onclick="excluirRec('${s.aba}', '${s.id}')">Excluir</button>
-            </td>`;
-            tbodySaidas.appendChild(tr);
-        });
+            if (saidasFiltradas.length === 0) {
+                tbodySaidas.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #777;">Nenhuma saída no período.</td></tr>';
+            } else {
+                saidasFiltradas.forEach(s => {
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${s.data}</td><td><strong>${s.codigo}</strong></td><td>${s.quantidade}</td>
+                    <td>
+                        <button class="btn-acao btn-editar" onclick="editarRec('${s.aba}', '${s.id}', ${s.quantidade})">Editar</button>
+                        <button class="btn-acao btn-excluir" onclick="excluirRec('${s.aba}', '${s.id}')">Excluir</button>
+                    </td>`;
+                    tbodySaidas.appendChild(tr);
+                });
+            }
+        }
 
-    } catch(e) { console.error(e); }
+    } catch(e) { 
+        console.error("Erro ao carregar dados de recebimento:", e); 
+    }
 }
 
 async function excluirRec(aba, id) {
