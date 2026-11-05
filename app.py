@@ -2534,7 +2534,7 @@ def consultar_recebimento():
             
         planilha = gc.open(NOME_PLANILHA_RECEBIMENTO)
         
-        # 1. CARREGA TODOS OS PRODUTOS OFICIAIS DA BASE DE RECEBIMENTO
+        # 1. Carrega todos os produtos oficiais da base
         produtos_base = {}
         try:
             sheet_prods = planilha.worksheet('PRODUTOS')
@@ -2548,11 +2548,10 @@ def consultar_recebimento():
             registos_prods = sheet_prods.get_all_records()
             for r in registos_prods:
                 cod = str(r.get('CODIGO') or r.get('Código') or list(r.values)[0] or '').strip().upper()
-                desc = str(r.get('DESCRICAO') or r.get('Descrição') or 'Produto / Acessório').strip()
+                desc = str(r.get('DESCRICAO') or r.get('Descrição') or 'Produto / Opcional').strip()
                 if cod and cod != 'NAN':
                     produtos_base[cod] = desc
 
-        # 2. CALCULA OS MOVIMENTOS DE TODO O HISTÓRICO
         saldos_dict = {cod: 0.0 for cod in produtos_base.keys()}
         entradas_lista = []
         saidas_lista = []
@@ -2603,29 +2602,30 @@ def consultar_recebimento():
                 except:
                     qtd_sai = 0.0
 
-                if cod_entrada and qtd_ent > 0:
-                    if cod_entrada not in saldos_dict:
-                        saldos_dict[cod_entrada] = 0.0
-                        produtos_base[cod_entrada] = 'Produto / Acessório'
-                    saldos_dict[cod_entrada] += qtd_ent
-                    
-                    if not dt_inicio or not dt_fim or (dt_inicio <= data_aba <= dt_fim):
-                        entradas_lista.append({
-                            'aba': nome_aba, 'id': row_id, 'data': data_item, 'codigo': cod_entrada, 'quantidade': qtd_ent
-                        })
-
+                # ENTRADAS (Produtos Recebidos) -> SOMAM AO SALDO (+)
                 if cod_saida and qtd_sai > 0:
                     if cod_saida not in saldos_dict:
                         saldos_dict[cod_saida] = 0.0
-                        produtos_base[cod_saida] = 'Produto / Acessório'
-                    saldos_dict[cod_saida] -= qtd_sai
+                        produtos_base[cod_saida] = 'Produto / Opcional'
+                    saldos_dict[cod_saida] += qtd_sai
                     
                     if not dt_inicio or not dt_fim or (dt_inicio <= data_aba <= dt_fim):
-                        saidas_lista.append({
+                        entradas_lista.append({
                             'aba': nome_aba, 'id': row_id, 'data': data_item, 'codigo': cod_saida, 'quantidade': qtd_sai
                         })
 
-        # Monta a lista final incluindo todos os produtos (mesmo os com saldo 0)
+                # SAÍDAS (Estoque Nomus) -> SUBTRAEM DO SALDO (-)
+                if cod_entrada and qtd_ent > 0:
+                    if cod_entrada not in saldos_dict:
+                        saldos_dict[cod_entrada] = 0.0
+                        produtos_base[cod_entrada] = 'Produto / Opcional'
+                    saldos_dict[cod_entrada] -= qtd_ent
+                    
+                    if not dt_inicio or not dt_fim or (dt_inicio <= data_aba <= dt_fim):
+                        saidas_lista.append({
+                            'aba': nome_aba, 'id': row_id, 'data': data_item, 'codigo': cod_entrada, 'quantidade': qtd_ent
+                        })
+
         lista_saldos = []
         for cod, desc in produtos_base.items():
             saldo_total = saldos_dict.get(cod, 0.0)
