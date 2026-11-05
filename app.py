@@ -2756,18 +2756,16 @@ def atualizar_status_acessorios_lote():
 
 
 
-@app.route('/salvar_saldo_acessorio', methods=['POST'])
-def salvar_saldo_acessorio():
+@app.route('/salvar_saldo_acessorio_lote', methods=['POST'])
+def salvar_saldo_acessorio_lote():
     try:
         dados = request.get_json()
-        if not dados:
-            return jsonify({'sucesso': False, 'mensagem': 'Dados inválidos.'}), 400
+        if not dados or 'itens' not in dados:
+            return jsonify({'sucesso': False, 'mensagem': 'Nenhum dado enviado.'}), 400
             
-        codigo = str(dados.get('codigo', '')).strip().upper()
-        quantidade = str(dados.get('quantidade', '')).strip()
-        
-        if not codigo or not quantidade:
-            return jsonify({'sucesso': False, 'mensagem': 'Preencha o código e a quantidade.'}), 400
+        itens_recebidos = dados.get('itens', [])
+        if not itens_recebidos:
+            return jsonify({'sucesso': False, 'mensagem': 'A lista de itens está vazia.'}), 400
             
         gc = conectar_google_sheets()
         if not gc:
@@ -2775,11 +2773,11 @@ def salvar_saldo_acessorio():
             
         planilha = gc.open(NOME_PLANILHA_ACESSORIOS)
         
-        # Verifica se a aba SALDO_ACESSORIOS existe, senão cria automaticamente
+        # Garante que a aba SALDO_ACESSORIOS existe
         try:
             aba_saldo = planilha.worksheet("SALDO_ACESSORIOS")
         except Exception:
-            aba_saldo = planilha.add_worksheet(title="SALDO_ACESSORIOS", rows="1000", cols="5")
+            aba_saldo = planilha.add_worksheet(title="SALDO_ACESSORIOS", rows="2000", cols="5")
             aba_saldo.append_row(["CODIGO", "QUANTIDADE"])
             
         linhas = aba_saldo.get_all_values()
@@ -2794,23 +2792,48 @@ def salvar_saldo_acessorio():
         col_cod_idx = cabecalhos.index("CODIGO") + 1
         col_qtd_idx = cabecalhos.index("QUANTIDADE") + 1
         
-        encontrado = False
+        # Mapeia os códigos existentes para atualizar de forma rápida
+        mapa_indices = {}
         for idx, linha in enumerate(linhas):
             if idx == 0:
                 continue
             cod_atual = str(linha[col_cod_idx - 1]).strip().upper() if len(linha) >= col_cod_idx else ""
-            if cod_atual == codigo:
-                # Atualiza a linha existente somando ou substituindo (aqui vamos substituir/atualizar com o valor informado)
-                cell_address = gspread.utils.rowcol_to_a1(idx + 1, col_qtd_idx)
-                aba_saldo.update(cell_address, [[quantidade]])
-                encontrado = True
-                break
+            if cod_atual:
+                mapa_indices[cod_atual] = idx + 1 # Linha na planilha (1-based)
                 
-        if not encontrado:
-            # Adiciona nova linha se o código ainda não existir na aba de saldo
-            aba_saldo.append_row([codigo, quantidade])
+        cell_updates = []
+        novas_linhas = []
+        
+        for item in itens_recebidos:
+            codigo = str(item.get('codigo', '')).strip().upper()
+            quantidade = str(item.get('quantidade', '')).strip()
             
-        return jsonify({'sucesso': True, 'mensagem': 'Saldo de acessório salvo com sucesso!'})
+            if not codigo:
+                continue
+                
+            if codigo in mapa_indices:
+                # Atualiza a linha existente
+                row_num = mapa_indices[codigo]
+                cell_address = gspread.utils.rowcol_to_a1(row_num, col_qtd_idx)
+                cell_updates.append({
+                    'range': cell_address,
+                    'values': [[quantidade]]
+                })
+            else:
+                # Adiciona à lista de novos itens para inserir no final
+                novas_linhas.append([codigo, quantidade])
+                # Evita duplicados na mesma importação em lote
+                mapa_indices[codigo] = True 
+
+        # Executa a atualização em lote das células existentes (1 única requisição em batch)
+        if cell_updates:
+            aba_saldo.batch_update(cell_updates)
+            
+        # Adiciona novos itens de uma só vez (1 única requisição)
+        if novas_linhas:
+            aba_saldo.append_rows(novas_linhas)
+            
+        return jsonify({'sucesso': True, 'mensagem': f'Saldo de {len(itens_recebidos)} acessórios atualizado com sucesso em lote!'})
         
     except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': f'Erro ao salvar saldo: {str(e)}'}), 500
+        return jsonify({'sucesso': False, 'mensagem': f'Erro interno no servidor: {str(e)}'}), 500
