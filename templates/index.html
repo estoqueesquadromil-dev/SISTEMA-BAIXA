@@ -900,10 +900,24 @@
         </div>
         <button class="btn-pesquisar" onclick="carregarDadosAcessorios()">🔍 Consultar</button>
     </div>
+
+    <!-- PAINEL DE ALTERAÇÃO EM LOTE PARA ACESSÓRIOS -->
+    <div style="background: #f8f9fa; padding: 12px; border: 1px solid #ddd; border-radius: 6px; margin: 15px 0; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+        <div class="form-group" style="max-width: 160px; margin: 0;">
+            <label for="status-lote-acessorios">Alterar Status:</label>
+            <select id="status-lote-acessorios" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <option value="Sim">Sim</option>
+                <option value="Não" selected>Não</option>
+            </select>
+        </div>
+        <button class="btn-pesquisar" style="height: 38px;" onclick="aplicarStatusLoteAcessorios()">Salvar Status em Lote</button>
+    </div>
+
     <div class="table-responsive">
         <table id="tabela-consulta-acessorios">
             <thead>
                 <tr>
+                    <th style="width: 40px; text-align: center;"><input type="checkbox" id="check-todos-acessorios" onclick="alternarTodosAcessorios(this)"></th>
                     <th>Data</th>
                     <th>Código</th>
                     <th>Quantidade</th>
@@ -916,7 +930,6 @@
         </table>
     </div>
 </div>
-
 
 
 
@@ -3671,14 +3684,14 @@ async function carregarDadosAcessorios() {
     let filtroStatus = document.getElementById('filtro-status-acessorios').value;
     
     let tbody = document.querySelector('#tabela-consulta-acessorios tbody');
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Carregando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Carregando...</td></tr>';
 
     try {
         let res = await fetch(`/consultar_acessorios?inicio=${inicio}&fim=${fim}`);
         let r = await res.json();
         tbody.innerHTML = '';
         if (!r.sucesso || r.itens.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Nenhum registo encontrado.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Nenhum registo encontrado.</td></tr>';
             return;
         }
 
@@ -3690,26 +3703,89 @@ async function carregarDadosAcessorios() {
         });
 
         if (itensFiltrados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Nenhum item corresponde aos filtros selecionados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Nenhum item corresponde aos filtros selecionados.</td></tr>';
             return;
         }
 
         itensFiltrados.forEach(item => {
             let tr = document.createElement('tr');
             tr.innerHTML = `
+                <td style="text-align: center;"><input type="checkbox" class="check-item-acessorios" data-id="${item.id}" data-data="${item.data}"></td>
                 <td>${item.data}</td>
                 <td><strong>${item.codigo}</strong></td>
                 <td>${item.quantidade}</td>
                 <td>${item.tipo}</td>
-                <td>${item.status}</td>
+                <td><strong>${item.status}</strong></td>
                 <td>
                     <button class="btn-acao" style="background:#0275d8; color:white; border:none; padding:4px 8px; border-radius:4px; margin-right:4px;" onclick="editarAcessorioPlanilha('${item.data}', '${item.id}', ${item.quantidade})">Editar</button>
                     <button class="btn-acao btn-excluir" onclick="excluirAcessorio('${item.data}', '${item.id}')">Excluir</button>
                 </td>`;
             tbody.appendChild(tr);
         });
-    } catch (e) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Erro ao carregar.</td></tr>'; }
+    } catch (e) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">Erro ao carregar.</td></tr>'; }
 }
+
+
+
+
+function alternarTodosAcessorios(master) {
+    let checkboxes = document.querySelectorAll('.check-item-acessorios');
+    checkboxes.forEach(cb => {
+        let tr = cb.closest('tr');
+        if (tr && tr.style.display !== 'none') {
+            cb.checked = master.checked;
+        }
+    });
+}
+
+async function aplicarStatusLoteAcessorios() {
+    let novoStatus = document.getElementById('status-lote-acessorios').value;
+    let checkboxes = document.querySelectorAll('.check-item-acessorios:checked');
+
+    if (checkboxes.length === 0) {
+        alert('Selecione pelo menos um acessório na tabela!');
+        return;
+    }
+
+    let agrupadoPorData = {};
+    checkboxes.forEach(cb => {
+        let idItem = cb.getAttribute('data-id');
+        let dataItem = cb.getAttribute('data-data');
+        if (idItem && dataItem) {
+            if (!agrupadoPorData[dataItem]) {
+                agrupadoPorData[dataItem] = [];
+            }
+            agrupadoPorData[dataItem].push(idItem);
+        }
+    });
+
+    try {
+        let sucessoGeral = true;
+        
+        for (let [dataRegisto, idsArray] of Object.entries(agrupadoPorData)) {
+            let resposta = await fetch('/atualizar_status_acessorios_lote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: dataRegisto, ids: idsArray, status: novoStatus })
+            });
+            let resultado = await resposta.json();
+            if (!resultado.sucesso) {
+                sucessoGeral = false;
+            }
+        }
+
+        if (sucessoGeral) {
+            alert('Status dos acessórios atualizado em lote com sucesso!');
+            carregarDadosAcessorios();
+        } else {
+            alert('Erro ao atualizar alguns itens.');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Erro de comunicação com o servidor.');
+    }
+}
+    
 
 async function editarAcessorioPlanilha(data, id, qtdAtual) {
     let novaQtd = prompt("Editar Quantidade do Acessório:", qtdAtual);
