@@ -2212,72 +2212,93 @@ def buscar_produtos_acessorios():
 
 @app.route('/salvar_lote_acessorios', methods=['POST'])
 def salvar_lote_acessorios():
-    dados = request.json
-    data_lote = dados.get('data')
-    itens = dados.get('itens', [])
-
-    if not data_lote or not itens:
-        return jsonify({'sucesso': False, 'mensagem': 'Data ou itens não informados!'})
-
     try:
+        dados = request.get_json()
+        data_mov = dados.get('data')
+        itens = dados.get('itens', [])
+        
+        if not data_mov or not itens:
+            return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos.'}), 400
+            
         gc = conectar_google_sheets()
         if not gc:
-            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'})
-
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
         planilha = gc.open(NOME_PLANILHA_ACESSORIOS)
         
+        # Nome da aba baseado na data (ex: '2026-11-05')
+        nome_aba = data_mov
         try:
-            sheet_mov = planilha.worksheet(data_lote)
-            linhas_existentes = sheet_mov.get_all_values()
-        except gspread.exceptions.WorksheetNotFound:
-            sheet_mov = planilha.add_worksheet(title=data_lote, rows="1000", cols="6")
-            sheet_mov.append_row(["ID", "Data", "Código", "Quantidade", "Tipo", "Status"])
-            linhas_existentes = []
+            aba = planilha.worksheet(nome_aba)
+        except Exception:
+            # Se a aba do dia não existir, cria com os cabeçalhos padrão
+            aba = planilha.add_worksheet(title=nome_aba, rows="1000", cols="10")
+            aba.append_row(["ID", "Data", "Código", "Quantidade", "Tipo", "Status"])
+            
+        linhas = aba.get_all_values()
+        cabecalhos = [str(c).strip().upper() for c in linhas[0]] if linhas else []
+        
+        col_cod_idx = cabecalhos.index("CÓDIGO") + 1 if "CÓDIGO" in cabecalhos else (cabecalhos.index("CODIGO") + 1 if "CODIGO" in cabecalhos else 3)
+        col_qtd_idx = cabecalhos.index("QUANTIDADE") + 1 if "QUANTIDADE" in cabecalhos else 4
+        col_tipo_idx = cabecalhos.index("TIPO") + 1 if "TIPO" in cabecalhos else 5
+        
+        cell_updates = []
+        novas_linhas = []
+        itens_somados = []
 
-        # Extrai chaves (CÓDIGO + TIPO) de itens que já existem nesta data
-        chaves_existentes = set()
-        if len(linhas_existentes) > 1:
-            cabecalhos = [str(c).strip().upper() for c in linhas_existentes[0]]
-            col_cod_idx = cabecalhos.index("CÓDIGO") if "CÓDIGO" in cabecalhos else (cabecalhos.index("CODIGO") if "CODIGO" in cabecalhos else 2)
-            col_tipo_idx = cabecalhos.index("TIPO") if "TIPO" in cabecalhos else 4
-
-            for row in linhas_existentes[1:]:
-                if len(row) > max(col_cod_idx, col_tipo_idx):
-                    cod_existente = str(row[col_cod_idx]).strip().upper()
-                    tipo_existente = str(row[col_tipo_idx]).strip().upper()
-                    if cod_existente:
-                        chaves_existentes.add(f"{cod_existente}_{tipo_existente}")
-
-        linhas_para_adicionar = []
-        duplicados_bloqueados = []
+        # Mapeia os itens já existentes na aba do dia (Chave: Código + Tipo)
+        mapa_existentes = {}
+        for idx, linha in enumerate(linhas):
+            if idx == 0: continue
+            cod = str(linha[col_cod_idx - 1]).strip().upper() if len(linha) >= col_cod_idx else ""
+            tipo = str(linha[col_tipo_idx - 1]).strip() if len(linha) >= col_tipo_idx else ""
+            if cod:
+                chave = f"{cod}_{tipo}"
+                mapa_existentes[chave] = {
+                    'row': idx + 1,
+                    'qtd_atual': float(str(linha[col_qtd_idx - 1]).replace(',', '.')) if len(linha) >= col_qtd_idx and linha[col_qtd_idx - 1] != '' else 0
+                }
 
         for item in itens:
-            codigo = str(item.get('CODIGO', '')).strip().upper()
-            quantidade = int(item.get('QUANTIDADE', 1))
-            tipo = str(item.get('TIPO', 'Baixa Acessórios')).strip()
-            chave_item = f"{codigo}_{tipo.upper()}"
-
-            # Regra: Bloqueia se o produto com o mesmo tipo já existir no mesmo dia
-            if chave_item in chaves_existentes:
-                duplicados_bloqueados.append(f"{codigo} ({tipo})")
-                continue
-
-            status = 'Não'
-            row_id = str(uuid.uuid4())[:8]
+            codigo = str(item.get('CODIGO', item.get('codigo', ''))).strip().upper()
+            quantidade = float(str(item.get('QUANTIDADE', item.get('quantidade', 1))).replace(',', '.'))
+            tipo = str(item.get('TIPO', item.get('tipo', 'Baixa Acessórios'))).strip()
             
-            linhas_para_adicionar.append([row_id, data_lote, codigo, quantidade, tipo, status])
-            chaves_existentes.add(chave_item)
+            chave = f"{codigo}_{tipo}"
+            
+            if chave in mapa_existentes:
+                # Se já existe, soma à quantidade atual na planilha
+                info = mapa_existentes[chave]
+                nova_qtd = info['qtd_atual'] + quantidade
+                cell_address = gspread.utils.rowcol_to_a1(info['row'], col_qtd_idx)
+                
+                cell_updates.append({
+                    'range': cell_address,
+                    'values': [[str(nova_qtd).replace('.', ',')]]
+                })
+                itens_somados.append(f"{codigo} ({tipo})")
+            else:
+                # Se não existe, gera um ID único e adiciona como nova linha
+                import uuid
+                novo_id = str(uuid.uuid4())[:8]
+                novas_linhas.append([novo_id, data_mov, codigo, str(quantidade).replace('.', ','), tipo, "Não"])
+                # Adiciona ao mapa local para evitar duplicidade no mesmo envio em lote
+                mapa_existentes[chave] = {'row': len(linhas) + len(novas_linhas), 'qtd_atual': quantidade}
 
-        if duplicados_bloqueados:
-            msg_erro = f"Bloqueado! Os seguintes itens já foram lançados na data {data_lote}: " + ", ".join(duplicados_bloqueados)
-            return jsonify({'sucesso': False, 'mensagem': msg_erro})
-
-        if linhas_para_adicionar:
-            sheet_mov.append_rows(linhas_para_adicionar)
-
-        return jsonify({'sucesso': True, 'mensagem': f'Acessórios guardados na aba {data_lote} com sucesso!'})
+        if cell_updates:
+            aba.batch_update(cell_updates)
+            
+        if novas_linhas:
+            aba.append_rows(novas_linhas)
+            
+        msg = "Lote salvo com sucesso!"
+        if itens_somados:
+            msg += f" Os seguintes itens já existiam na data e tiveram as quantidades somadas: {', '.join(itens_somados)}."
+            
+        return jsonify({'sucesso': True, 'mensagem': msg})
+        
     except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': f'Erro ao processar: {str(e)}'})
+        return jsonify({'sucesso': False, 'mensagem': f'Erro interno: {str(e)}'}), 500
 
 
 
