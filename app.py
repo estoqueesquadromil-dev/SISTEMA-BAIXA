@@ -2533,33 +2533,49 @@ def consultar_recebimento():
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
             
         planilha = gc.open(NOME_PLANILHA_RECEBIMENTO)
-        todas_abas = planilha.worksheets()
         
-        saldos_dict = {}
+        # 1. CARREGA TODOS OS PRODUTOS OFICIAIS DA BASE DE RECEBIMENTO
+        produtos_base = {}
+        try:
+            sheet_prods = planilha.worksheet('PRODUTOS')
+        except:
+            try:
+                sheet_prods = planilha.sheet1
+            except:
+                sheet_prods = None
+
+        if sheet_prods:
+            registos_prods = sheet_prods.get_all_records()
+            for r in registos_prods:
+                cod = str(r.get('CODIGO') or r.get('Código') or list(r.values)[0] or '').strip().upper()
+                desc = str(r.get('DESCRICAO') or r.get('Descrição') or 'Produto / Acessório').strip()
+                if cod and cod != 'NAN':
+                    produtos_base[cod] = desc
+
+        # 2. CALCULA OS MOVIMENTOS DE TODO O HISTÓRICO
+        saldos_dict = {cod: 0.0 for cod in produtos_base.keys()}
         entradas_lista = []
         saidas_lista = []
         
-        # Converte as datas de filtro se fornecidas
         dt_inicio = datetime.strptime(inicio.strip(), '%Y-%m-%d') if inicio else None
         dt_fim = datetime.strptime(fim.strip(), '%Y-%m-%d') if fim else None
 
+        todas_abas = planilha.worksheets()
         for aba in todas_abas:
             nome_aba = aba.title.strip()
-            
-            # Valida se o nome da aba é uma data válida (ex: '2026-11-05')
+            if nome_aba.upper() in ['PRODUTOS', 'SALDOS', 'LIXEIRA']:
+                continue
+                
             try:
                 data_aba = datetime.strptime(nome_aba.split(' ')[0], '%Y-%m-%d')
             except ValueError:
-                continue # Ignora abas que não sejam datas (como 'PRODUTOS', etc.)
+                continue
                 
             linhas = aba.get_all_values()
             if not linhas or len(linhas) < 2:
                 continue
                 
             cabecalhos = [str(c).strip().upper() for c in linhas[0]]
-            
-            # Índices das colunas com base no cabeçalho criado em /salvar_recebimento
-            # ["ID", "Data", "Entrada Nomus", "Saida Recebido", "Qtd Entrada", "Qtd Saida", "Total"]
             idx_id = cabecalhos.index("ID") if "ID" in cabecalhos else 0
             idx_data = cabecalhos.index("DATA") if "DATA" in cabecalhos else 1
             idx_ent_nomus = cabecalhos.index("ENTRADA NOMUS") if "ENTRADA NOMUS" in cabecalhos else 2
@@ -2587,45 +2603,36 @@ def consultar_recebimento():
                 except:
                     qtd_sai = 0.0
 
-                # 1. Processa Entradas (Estoque Nomus / Qtd Entrada) -> SOMA no saldo global
                 if cod_entrada and qtd_ent > 0:
                     if cod_entrada not in saldos_dict:
-                        saldos_dict[cod_entrada] = {'saldo': 0.0}
-                    saldos_dict[cod_entrada]['saldo'] += qtd_ent
+                        saldos_dict[cod_entrada] = 0.0
+                        produtos_base[cod_entrada] = 'Produto / Acessório'
+                    saldos_dict[cod_entrada] += qtd_ent
                     
-                    # Filtra por período apenas para a tabela detalhada da tela
                     if not dt_inicio or not dt_fim or (dt_inicio <= data_aba <= dt_fim):
                         entradas_lista.append({
-                            'aba': nome_aba,
-                            'id': row_id,
-                            'data': data_item,
-                            'codigo': cod_entrada,
-                            'quantidade': qtd_ent
+                            'aba': nome_aba, 'id': row_id, 'data': data_item, 'codigo': cod_entrada, 'quantidade': qtd_ent
                         })
 
-                # 2. Processa Saídas (Produtos Recebidos / Qtd Saida) -> SUBTRAI no saldo global
                 if cod_saida and qtd_sai > 0:
                     if cod_saida not in saldos_dict:
-                        saldos_dict[cod_saida] = {'saldo': 0.0}
-                    saldos_dict[cod_saida]['saldo'] -= qtd_sai
+                        saldos_dict[cod_saida] = 0.0
+                        produtos_base[cod_saida] = 'Produto / Acessório'
+                    saldos_dict[cod_saida] -= qtd_sai
                     
-                    # Filtra por período apenas para a tabela detalhada da tela
                     if not dt_inicio or not dt_fim or (dt_inicio <= data_aba <= dt_fim):
                         saidas_lista.append({
-                            'aba': nome_aba,
-                            'id': row_id,
-                            'data': data_item,
-                            'codigo': cod_saida,
-                            'quantidade': qtd_sai
+                            'aba': nome_aba, 'id': row_id, 'data': data_item, 'codigo': cod_saida, 'quantidade': qtd_sai
                         })
 
-        # Monta a lista final de saldos acumulados de TODO O PERÍODO (independentemente dos filtros de data)
+        # Monta a lista final incluindo todos os produtos (mesmo os com saldo 0)
         lista_saldos = []
-        for cod, info in saldos_dict.items():
+        for cod, desc in produtos_base.items():
+            saldo_total = saldos_dict.get(cod, 0.0)
             lista_saldos.append({
                 'codigo': cod,
-                'descricao': 'Produto / Acessório',
-                'saldo': info['saldo']
+                'descricao': desc,
+                'saldo': saldo_total
             })
 
         return jsonify({
