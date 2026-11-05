@@ -2497,30 +2497,32 @@ def salvar_recebimento():
             sheet = planilha.worksheet(data_lote)
         except gspread.exceptions.WorksheetNotFound:
             sheet = planilha.add_worksheet(title=data_lote, rows="1000", cols="7")
-            # Cabeçalho exato solicitado
-            sheet.append_row(["ID", "Data", "Entrada Nomus", "Saida Recebido", "Qtd Entrada", "Qtd Saida", "Total"])
+            # Cabeçalho corrigido alinhado ao padrão correto do dia 30/10/2026
+            sheet.append_row(["ID", "Data", "entrada nomus", "Recebidos", "qtd nomus", "qtd recebido", "total"])
 
         row_id = str(uuid.uuid4())[:8]
         
-        # Mapeamento exato das colunas
-        # id, data, entrada nomos, saida recebido, qtd entrada, qtd saida, total
+        # Mapeamento ajustado para gravar nas colunas exatas da planilha
         if tipo_mov == 'entrada_nomus':
-            # Retira do saldo (Qtd Entrada preenchida, Entrada Nomus = Código)
-            qtd_entrada = quantidade
-            qtd_saida = 0
+            # Entrada no Estoque Nomus (Retira) -> Vai para 'entrada nomus' e 'qtd nomus'
+            qtd_nomus = quantidade
+            qtd_recebido = 0
             total = -quantidade
-            linha_dados = [row_id, data_lote, codigo, "", qtd_entrada, qtd_saida, total]
+            linha_dados = [row_id, data_lote, codigo, "", qtd_nomus, qtd_recebido, total]
         else:
-            # Entra no saldo (Qtd Saida preenchida, Saida Recebido = Código -> Ajustado para refletir Entrada/Saída na lógica)
-            qtd_entrada = 0
-            qtd_saida = quantidade
+            # Produtos Recebidos e Conferidos (Entra) -> Vai para 'Recebidos' e 'qtd recebido'
+            qtd_nomus = 0
+            qtd_recebido = quantidade
             total = quantidade
-            linha_dados = [row_id, data_lote, "", codigo, qtd_entrada, qtd_saida, total]
+            linha_dados = [row_id, data_lote, "", codigo, qtd_nomus, qtd_recebido, total]
 
         sheet.append_row(linha_dados)
         return jsonify({'sucesso': True, 'mensagem': 'Registo guardado com sucesso!'})
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)})
+
+
+
 
 @app.route('/consultar_recebimento', methods=['GET'])
 def consultar_recebimento():
