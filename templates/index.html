@@ -844,6 +844,10 @@
         <div class="form-group-codigo" style="position: relative;">
             <label for="input-codigo-acessorios">Código ou Descrição:</label>
             <input type="text" id="input-codigo-acessorios" placeholder="Digite o código ou descrição..." autocomplete="off">
+            
+            <!-- AVISO DE SALDO DISPONÍVEL -->
+            <div id="aviso-saldo-acessorio" style="font-size: 13px; color: #0056b3; font-weight: bold; margin-top: 4px; display: none;"></div>
+
             <div id="resultados-busca-acessorios" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #0056b3; max-height: 200px; overflow-y: auto; z-index: 9999;"></div>
         </div>
         <div class="form-group" style="max-width: 160px;">
@@ -942,8 +946,6 @@
         </table>
     </div>
 </div>
-
-
 
     
 
@@ -3567,6 +3569,11 @@ if (inputCodAcessorio) {
     inputCodAcessorio.addEventListener('input', async function() {
         let termo = this.value.trim();
         produtoTempAcessorio = null;
+        
+        // Esconde o aviso se limpar o campo
+        let avisoEl = document.getElementById('aviso-saldo-acessorio');
+        if (!termo && avisoEl) avisoEl.style.display = 'none';
+
         if (termo.length < 1) {
             divResAcessorio.innerHTML = '';
             return;
@@ -3589,6 +3596,13 @@ if (inputCodAcessorio) {
                     inputCodAcessorio.value = p.codigo;
                     produtoTempAcessorio = p;
                     divResAcessorio.innerHTML = '';
+
+                    // MOSTRA O SALDO ATUAL EM ESTOQUE NO AVISO
+                    let saldoDisponivel = cacheSaldosAcessorios[p.codigo.toUpperCase()] ?? '0';
+                    if (avisoEl) {
+                        avisoEl.textContent = `📦 Saldo atual em estoque: ${saldoDisponivel}`;
+                        avisoEl.style.display = 'block';
+                    }
                 };
                 divResAcessorio.appendChild(div);
             });
@@ -3601,6 +3615,9 @@ if (inputCodAcessorio) {
         }
     });
 }
+
+
+    
 
 function adicionarAcessorioLista() {
     let codigo = inputCodAcessorio ? inputCodAcessorio.value.trim() : document.getElementById('input-codigo-acessorios').value.trim();
@@ -3617,7 +3634,6 @@ function adicionarAcessorioLista() {
         return;
     }
 
-    // Regra original: Não deixa adicionar o mesmo código duas vezes na lista temporária com o mesmo tipo
     let duplicado = listaAcessoriosTemp.some(item => item.CODIGO.toUpperCase() === codigo.toUpperCase() && item.TIPO === tipo);
     if (duplicado) {
         alert('Este código já está na lista temporária com este tipo.');
@@ -3630,7 +3646,6 @@ function adicionarAcessorioLista() {
         TIPO: tipo
     });
 
-    // Limpa os campos após adicionar
     if (inputCodAcessorio) inputCodAcessorio.value = '';
     document.getElementById('input-codigo-acessorios').value = '';
     document.getElementById('input-qtd-acessorios').value = '1';
@@ -3639,10 +3654,8 @@ function adicionarAcessorioLista() {
     let avisoEl = document.getElementById('aviso-saldo-acessorio');
     if (avisoEl) avisoEl.style.display = 'none';
 
-    // Atualiza a tabela temporária visualmente
     atualizarTabelaTempAcessorios();
 }
-
 
     
 
