@@ -2837,3 +2837,43 @@ def salvar_saldo_acessorio_lote():
         
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro interno no servidor: {str(e)}'}), 500
+
+
+
+@app.route('/consultar_saldo_acessorios', methods=['GET'])
+def consultar_saldo_acessorios():
+    try:
+        codigo_filtro = request.args.get('codigo', '').strip().upper()
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
+        try:
+            planilha = gc.open(NOME_PLANILHA_ACESSORIOS)
+            aba_saldo = planilha.worksheet("SALDO_ACESSORIOS")
+        except Exception:
+            return jsonify({'sucesso': True, 'saldos': {}})
+            
+        linhas = aba_saldo.get_all_values()
+        if not linhas or len(linhas) < 2:
+            return jsonify({'sucesso': True, 'saldos': {}})
+            
+        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+        if "CODIGO" not in cabecalhos or "QUANTIDADE" not in cabecalhos:
+            return jsonify({'sucesso': True, 'saldos': {}})
+            
+        col_cod_idx = cabecalhos.index("CODIGO") + 1
+        col_qtd_idx = cabecalhos.index("QUANTIDADE") + 1
+        
+        saldos = {}
+        for idx, linha in enumerate(linhas):
+            if idx == 0:
+                continue
+            cod = str(linha[col_cod_idx - 1]).strip().upper() if len(linha) >= col_cod_idx else ""
+            qtd = str(linha[col_qtd_idx - 1]).strip() if len(linha) >= col_qtd_idx else "0"
+            if cod:
+                saldos[cod] = qtd
+                
+        return jsonify({'sucesso': True, 'saldos': saldos})
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
