@@ -3634,9 +3634,26 @@ function adicionarAcessorioLista() {
         return;
     }
 
-    let duplicado = listaAcessoriosTemp.some(item => item.CODIGO.toUpperCase() === codigo.toUpperCase() && item.TIPO === tipo);
-    if (duplicado) {
-        alert('Este código já está na lista temporária com este tipo.');
+    // Verifica se já existe o mesmo código com o mesmo tipo na lista temporária
+    let indexExistente = listaAcessoriosTemp.findIndex(item => item.CODIGO.toUpperCase() === codigo.toUpperCase() && item.TIPO === tipo);
+
+    if (indexExistente !== -1) {
+        let confirmar = confirm(`O código "${codigo}" com o tipo "${tipo}" já está na lista temporária.\n\nDeseja carregar este item para cima para editar a quantidade?`);
+        if (confirmar) {
+            // Preenche os campos de cima com os dados do item existente
+            if (inputCodAcessorio) inputCodAcessorio.value = listaAcessoriosTemp[indexExistente].CODIGO;
+            document.getElementById('input-codigo-acessorios').value = listaAcessoriosTemp[indexExistente].CODIGO;
+            document.getElementById('input-qtd-acessorios').value = listaAcessoriosTemp[indexExistente].QUANTIDADE;
+            document.getElementById('select-tipo-acessorios').value = listaAcessoriosTemp[indexExistente].TIPO;
+
+            // Remove o item antigo da lista temporária para que possa ser readicionado atualizado
+            listaAcessoriosTemp.splice(indexExistente, 1);
+            atualizarTabelaTempAcessorios();
+            
+            // Dá foco no input de quantidade para facilitar a edição rápida
+            document.getElementById('input-qtd-acessorios').focus();
+            document.getElementById('input-qtd-acessorios').select();
+        }
         return;
     }
 
@@ -3646,6 +3663,7 @@ function adicionarAcessorioLista() {
         TIPO: tipo
     });
 
+    // Limpa os campos após adicionar
     if (inputCodAcessorio) inputCodAcessorio.value = '';
     document.getElementById('input-codigo-acessorios').value = '';
     document.getElementById('input-qtd-acessorios').value = '1';
@@ -3654,9 +3672,9 @@ function adicionarAcessorioLista() {
     let avisoEl = document.getElementById('aviso-saldo-acessorio');
     if (avisoEl) avisoEl.style.display = 'none';
 
+    // Atualiza a tabela temporária visualmente
     atualizarTabelaTempAcessorios();
 }
-
     
 
 // Função original que desenha a tabela temporária (mantida limpa sem coluna de saldo)
