@@ -1116,7 +1116,55 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 });
 
-    
+ // --- AUTOCOMPLETE PARA A ABA BAIXA ---
+const inputCodigoBaixa = document.getElementById('input-codigo');
+const divResultadosBaixa = document.getElementById('resultados-busca');
+
+if (inputCodigoBaixa && divResultadosBaixa) {
+    inputCodigoBaixa.addEventListener('input', async function() {
+        let termo = this.value.trim();
+        divResultadosBaixa.innerHTML = '';
+        
+        if (termo.length < 1) {
+            divResultadosBaixa.style.display = 'none';
+            return;
+        }
+
+        try {
+            let resposta = await fetch('/buscar_produtos?termo=' + encodeURIComponent(termo));
+            let produtos = await resposta.json();
+            
+            if (produtos.length === 0) {
+                divResultadosBaixa.innerHTML = '<div class="item-resultado" style="color: #999;">Nenhum produto encontrado</div>';
+                divResultadosBaixa.style.display = 'block';
+                return;
+            }
+
+            produtos.forEach(p => {
+                let div = document.createElement('div');
+                div.className = 'item-resultado';
+                div.textContent = `${p.codigo} - ${p.descricao}`;
+                div.onclick = () => {
+                    inputCodigoBaixa.value = p.codigo;
+                    divResultadosBaixa.innerHTML = '';
+                    divResultadosBaixa.style.display = 'none';
+                };
+                divResultadosBaixa.appendChild(div);
+            });
+            divResultadosBaixa.style.display = 'block';
+        } catch (err) {
+            console.error("Erro na busca de produtos da baixa:", err);
+        }
+    });
+
+    // Fecha a lista de sugestões se clicar fora dela
+    document.addEventListener('click', function(e) {
+        if (!inputCodigoBaixa.contains(e.target) && !divResultadosBaixa.contains(e.target)) {
+            divResultadosBaixa.innerHTML = '';
+            divResultadosBaixa.style.display = 'none';
+        }
+    });
+}   
 
 
 let cacheSaldosAcessorios = {};
