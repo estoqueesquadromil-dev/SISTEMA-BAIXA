@@ -231,15 +231,29 @@
 
     <div id="contador-ordens" class="contador-badge" style="display: none;">Total de Ordens: 0</div>
 
-    <div class="painel-lote-status" id="painel-lote" style="display: none;">
-        <div class="form-group" style="max-width: 200px; margin: 0;">
-            <label for="status-lote">Alterar Status Selecionados:</label>
+    <div class="painel-lote-status" id="painel-lote" style="display: none; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+        <div class="form-group" style="max-width: 160px; margin: 0;">
+            <label for="status-lote">Alterar Status:</label>
             <select id="status-lote">
                 <option value="Sim">Sim</option>
                 <option value="Não" selected>Não</option>
             </select>
         </div>
-        <button class="btn-pesquisar" style="height: 38px;" onclick="aplicarStatusEmMassa()">Salvar Alteração em Lote</button>
+        <button class="btn-pesquisar" style="height: 38px;" onclick="aplicarStatusEmMassa()">Salvar Status</button>
+
+        <div class="form-group" style="max-width: 200px; margin: 0;">
+            <label for="tipo-lote">Alterar Tipo:</label>
+            <select id="tipo-lote">
+                <option value="Baixa Diaria" selected>Baixa Diaria</option>
+                <option value="Aproveitamento de Sucata">Aproveitamento de Sucata</option>
+                <option value="Ajuste Entrada">Ajuste Entrada</option>
+                <option value="Erro no corte">Erro no corte</option>
+                <option value="Perfil Menor">Perfil Menor</option>
+                <option value="Perfil Maior">Perfil Maior</option>
+                <option value="Outros">Outros</option>
+            </select>
+        </div>
+        <button class="btn-pesquisar" style="height: 38px; background-color: #28a745;" onclick="aplicarTipoEmMassa()">Salvar Tipo</button>
     </div>
 
     <h3>Itens dados baixa no período</h3>
@@ -3936,6 +3950,66 @@ async function editarRec(aba, id, qtdAtual) {
 
 
 
+
+
+async function aplicarTipoEmMassa() {
+    let novoTipo = document.getElementById('tipo-lote').value;
+    let linhas = document.querySelectorAll('#tabela-consulta tbody tr');
+    let atualizacoesPorData = {};
+    
+    linhas.forEach((tr) => {
+        if (tr.style.display === 'none') return;
+        let checkbox = tr.querySelector('.check-item');
+        if (checkbox && checkbox.checked) {
+            let rowId = tr.getAttribute('data-id');
+            let dataLinha = tr.children[1] ? tr.children[1].innerText.trim() : '';
+            if (rowId && dataLinha) {
+                if (!atualizacoesPorData[dataLinha]) {
+                    atualizacoesPorData[dataLinha] = [];
+                }
+                atualizacoesPorData[dataLinha].push(rowId);
+            }
+        }
+    });
+
+    if (Object.keys(atualizacoesPorData).length === 0) {
+        alert('Selecione pelo menos um item visível na tabela!');
+        return;
+    }
+
+    if (!confirm(`Tem a certeza que deseja alterar o tipo dos itens selecionados para "${novoTipo}"?`)) return;
+
+    try {
+        let sucessoGeral = true;
+        let mensagemFinal = "";
+
+        for (let [dataRegisto, idsArray] of Object.entries(atualizacoesPorData)) {
+            let resposta = await fetch('/atualizar_tipo_lote_por_id', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    data: dataRegisto, 
+                    ids: idsArray, 
+                    tipo: novoTipo 
+                })
+            });
+            let resultado = await resposta.json();
+            if (!resultado.sucesso) {
+                sucessoGeral = false;
+                mensagemFinal = resultado.mensagem;
+            }
+        }
+        
+        if (sucessoGeral) {
+            alert('Tipo atualizado com sucesso em lote!');
+            consultarBaixas(); // Recarrega a tabela com os novos dados
+        } else {
+            alert('Erro ao atualizar: ' + mensagemFinal);
+        }
+    } catch (err) {
+        alert('Erro de comunicação com o servidor: ' + err.message);
+    }
+}    
 
     
 
