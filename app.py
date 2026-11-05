@@ -2533,83 +2533,93 @@ def consultar_recebimento():
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
             
         planilha = gc.open(NOME_PLANILHA_RECEBIMENTO)
+        todas_abas = planilha.worksheets()
         
         saldos_dict = {}
         entradas_lista = []
         saidas_lista = []
         
-        # 1. SALDO GERAL (PERCORRE TUDO, SEM FILTRO DE DATA, PARA DAR O RESULTADO FINAL DE TUDO)
-        try:
-            aba_rec = planilha.worksheet('produtos_recebidos')
-            linhas_rec = aba_rec.get_all_values()
-            if len(linhas_rec) > 1:
-                cab = [str(c).strip().upper() for c in linhas_rec[0]]
-                idx_id = cab.index("ID") if "ID" in cab else 0
-                idx_data = cab.index("DATA") if "DATA" in cab else 1
-                idx_cod = cab.index("CÓDIGO") if "CÓDIGO" in cab else 2
-                idx_qtd = cab.index("QUANTIDADE") if "QUANTIDADE" in cab else 3
-                
-                for row_idx, row in enumerate(linhas_rec[1:], start=2):
-                    if len(row) > max(idx_cod, idx_qtd):
-                        row_id = str(row[idx_id]) if len(row) > idx_id else str(row_idx)
-                        data_item = str(row[idx_data]).strip() if len(row) > idx_data else ""
-                        cod = str(row[idx_cod]).strip().upper()
-                        qtd = float(str(row[idx_qtd]).replace(',', '.')) or 0
-                        
-                        if cod:
-                            # Acumula sempre para o saldo global de todo o período
-                            if cod not in saldos_dict: 
-                                saldos_dict[cod] = {'saldo': 0}
-                            saldos_dict[cod]['saldo'] += qtd
-                            
-                            # Apenas adiciona na tabela detalhada se estiver dentro do período filtrado
-                            if not inicio or not fim or (inicio <= data_item <= fim):
-                                entradas_lista.append({
-                                    'aba': 'produtos_recebidos',
-                                    'id': row_id,
-                                    'data': data_item,
-                                    'codigo': cod,
-                                    'quantidade': qtd
-                                })
-        except Exception as e:
-            print("Erro ao ler produtos_recebidos:", e)
+        # Converte as datas de filtro se fornecidas
+        dt_inicio = datetime.strptime(inicio.strip(), '%Y-%m-%d') if inicio else None
+        dt_fim = datetime.strptime(fim.strip(), '%Y-%m-%d') if fim else None
 
-        try:
-            aba_nomus = planilha.worksheet('entrada_nomus')
-            linhas_nomus = aba_nomus.get_all_values()
-            if len(linhas_nomus) > 1:
-                cab = [str(c).strip().upper() for c in linhas_nomus[0]]
-                idx_id = cab.index("ID") if "ID" in cab else 0
-                idx_data = cab.index("DATA") if "DATA" in cab else 1
-                idx_cod = cab.index("CÓDIGO") if "CÓDIGO" in cab else 2
-                idx_qtd = cab.index("QUANTIDADE") if "QUANTIDADE" in cab else 3
+        for aba in todas_abas:
+            nome_aba = aba.title.strip()
+            
+            # Valida se o nome da aba é uma data válida (ex: '2026-11-05')
+            try:
+                data_aba = datetime.strptime(nome_aba.split(' ')[0], '%Y-%m-%d')
+            except ValueError:
+                continue # Ignora abas que não sejam datas (como 'PRODUTOS', etc.)
                 
-                for row_idx, row in enumerate(linhas_nomus[1:], start=2):
-                    if len(row) > max(idx_cod, idx_qtd):
-                        row_id = str(row[idx_id]) if len(row) > idx_id else str(row_idx)
-                        data_item = str(row[idx_data]).strip() if len(row) > idx_data else ""
-                        cod = str(row[idx_cod]).strip().upper()
-                        qtd = float(str(row[idx_qtd]).replace(',', '.')) or 0
-                        
-                        if cod:
-                            # Subtrai sempre para o saldo global de todo o período
-                            if cod not in saldos_dict: 
-                                saldos_dict[cod] = {'saldo': 0}
-                            saldos_dict[cod]['saldo'] -= qtd
-                            
-                            # Apenas adiciona na tabela detalhada se estiver dentro do período filtrado
-                            if not inicio or not fim or (inicio <= data_item <= fim):
-                                saidas_lista.append({
-                                    'aba': 'entrada_nomus',
-                                    'id': row_id,
-                                    'data': data_item,
-                                    'codigo': cod,
-                                    'quantidade': qtd
-                                })
-        except Exception as e:
-            print("Erro ao ler entrada_nomus:", e)
+            linhas = aba.get_all_values()
+            if not linhas or len(linhas) < 2:
+                continue
+                
+            cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+            
+            # Índices das colunas com base no cabeçalho criado em /salvar_recebimento
+            # ["ID", "Data", "Entrada Nomus", "Saida Recebido", "Qtd Entrada", "Qtd Saida", "Total"]
+            idx_id = cabecalhos.index("ID") if "ID" in cabecalhos else 0
+            idx_data = cabecalhos.index("DATA") if "DATA" in cabecalhos else 1
+            idx_ent_nomus = cabecalhos.index("ENTRADA NOMUS") if "ENTRADA NOMUS" in cabecalhos else 2
+            idx_sai_rec = cabecalhos.index("SAIDA RECEBIDO") if "SAIDA RECEBIDO" in cabecalhos else 3
+            idx_qtd_ent = cabecalhos.index("QTD ENTRADA") if "QTD ENTRADA" in cabecalhos else 4
+            idx_qtd_sai = cabecalhos.index("QTD SAIDA") if "QTD SAIDA" in cabecalhos else 5
+            
+            for row_idx, row in enumerate(linhas[1:], start=2):
+                if not any(row):
+                    continue
+                    
+                row_id = str(row[idx_id]).strip() if len(row) > idx_id else f"{nome_aba}_{row_idx}"
+                data_item = str(row[idx_data]).strip() if len(row) > idx_data else nome_aba
+                
+                cod_entrada = str(row[idx_ent_nomus]).strip().upper() if len(row) > idx_ent_nomus else ""
+                cod_saida = str(row[idx_sai_rec]).strip().upper() if len(row) > idx_sai_rec else ""
+                
+                try:
+                    qtd_ent = float(str(row[idx_qtd_ent]).replace(',', '.')) if len(row) > idx_qtd_ent and row[idx_qtd_ent] != '' else 0.0
+                except:
+                    qtd_ent = 0.0
+                    
+                try:
+                    qtd_sai = float(str(row[idx_qtd_sai]).replace(',', '.')) if len(row) > idx_qtd_sai and row[idx_qtd_sai] != '' else 0.0
+                except:
+                    qtd_sai = 0.0
 
-        # Converte o dicionário de saldos globais para a lista
+                # 1. Processa Entradas (Estoque Nomus / Qtd Entrada) -> SOMA no saldo global
+                if cod_entrada and qtd_ent > 0:
+                    if cod_entrada not in saldos_dict:
+                        saldos_dict[cod_entrada] = {'saldo': 0.0}
+                    saldos_dict[cod_entrada]['saldo'] += qtd_ent
+                    
+                    # Filtra por período apenas para a tabela detalhada da tela
+                    if not dt_inicio or not dt_fim or (dt_inicio <= data_aba <= dt_fim):
+                        entradas_lista.append({
+                            'aba': nome_aba,
+                            'id': row_id,
+                            'data': data_item,
+                            'codigo': cod_entrada,
+                            'quantidade': qtd_ent
+                        })
+
+                # 2. Processa Saídas (Produtos Recebidos / Qtd Saida) -> SUBTRAI no saldo global
+                if cod_saida and qtd_sai > 0:
+                    if cod_saida not in saldos_dict:
+                        saldos_dict[cod_saida] = {'saldo': 0.0}
+                    saldos_dict[cod_saida]['saldo'] -= qtd_sai
+                    
+                    # Filtra por período apenas para a tabela detalhada da tela
+                    if not dt_inicio or not dt_fim or (dt_inicio <= data_aba <= dt_fim):
+                        saidas_lista.append({
+                            'aba': nome_aba,
+                            'id': row_id,
+                            'data': data_item,
+                            'codigo': cod_saida,
+                            'quantidade': qtd_sai
+                        })
+
+        # Monta a lista final de saldos acumulados de TODO O PERÍODO (independentemente dos filtros de data)
         lista_saldos = []
         for cod, info in saldos_dict.items():
             lista_saldos.append({
@@ -2620,9 +2630,9 @@ def consultar_recebimento():
 
         return jsonify({
             'sucesso': True,
-            'saldos': lista_saldos,  # Saldo total acumulado de TUDO (sempre fixo independentemente do filtro)
-            'entradas': entradas_lista, # Filtrado por data para a tabela de baixo
-            'saidas': saidas_lista       # Filtrado por data para a tabela de baixo
+            'saldos': lista_saldos,
+            'entradas': entradas_lista,
+            'saidas': saidas_lista
         })
         
     except Exception as e:
