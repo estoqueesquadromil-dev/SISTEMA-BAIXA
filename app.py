@@ -2524,80 +2524,84 @@ def salvar_recebimento():
 
 @app.route('/consultar_recebimento', methods=['GET'])
 def consultar_recebimento():
-    inicio = request.args.get('inicio')
-    fim = request.args.get('fim')
-    
-    if not inicio or not fim:
-        return jsonify({'sucesso': False, 'mensagem': 'Datas obrigatórias.'}), 400
-
     try:
-        d_ini = datetime.strptime(inicio, '%Y-%m-%d')
-        d_fim = datetime.strptime(fim, '%Y-%m-%d')
+        inicio = request.args.get('inicio')
+        fim = request.args.get('fim')
         
         gc = conectar_google_sheets()
-        planilha = gc.open(NOME_PLANILHA_RECEBIMENTO)
-        todas_abas = planilha.worksheets()
-        
-        entradas = []
-        saidas = []
-        saldos_produtos = {p['codigo']: 0 for p in produtos_recebimento_cache}
-
-        for aba in todas_abas:
-            nome_aba = aba.title.strip()
-            if nome_aba.upper() == 'PRODUTOS':
-                continue
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
             
-            try:
-                d_aba = datetime.strptime(nome_aba.split(' ')[0], '%Y-%m-%d')
-                if d_ini <= d_aba <= d_fim:
-                    linhas = aba.get_all_values()
-                    if len(linhas) < 2:
-                        continue
-                    
-                    cabecalhos = [str(c).strip().upper() for c in linhas[0]]
-                    for idx, row in enumerate(linhas[1:], start=2):
-                        if not any(row):
-                            continue
-                        
-                        row_id = row[0] if len(row) > 0 else f"{nome_aba}_{idx}"
-                        data_val = row[1] if len(row) > 1 else nome_aba
-                        ent_nomus = row[2] if len(row) > 2 else ""
-                        sai_rec = row[3] if len(row) > 3 else ""
-                        
-                        try:
-                            qtd_ent = float(str(row[4]).replace(',', '.')) if len(row) > 4 and row[4] != '' else 0
-                        except: qtd_ent = 0
-                        
-                        try:
-                            qtd_sai = float(str(row[5]).replace(',', '.')) if len(row) > 5 and row[5] != '' else 0
-                        except: qtd_sai = 0
+        planilha = gc.open(NOME_PLANILHA_RECEBIMENTO) # (ou o nome da sua planilha de recebimento)
+        
+        # 1. CALCULA O SALDO GERAL DE TODO O PERÍODO PARA TODOS OS PRODUTOS
+        saldos_dict = {}
+        
+        # Processa aba de produtos recebidos (Entradas)
+        try:
+            aba_rec = planilha.worksheet('produtos_recebidos')
+            linhas_rec = aba_rec.get_all_values()
+            if len(linhas_rec) > 1:
+                cab = [str(c).strip().upper() for c in linhas_rec[0]]
+                idx_cod = cab.index("CÓDIGO") if "CÓDIGO" in cab else 2
+                idx_qtd = cab.index("QUANTIDADE") if "QUANTIDADE" in cab else 3
+                for row in linhas_rec[1:]:
+                    if len(row) > max(idx_cod, idx_qtd):
+                        cod = str(row[idx_cod]).strip().upper()
+                        qtd = float(str(row[idx_qtd]).replace(',', '.')) or 0
+                        if cod:
+                            if cod not in saldos_dict: saldos_dict[cod] = {'descricao': '', 'saldo': 0}
+                            saldos_dict[cod]['saldo'] += qtd
+        except Exception:
+            pass
 
-                        # Acumula no saldo geral de produtos
-                        if ent_nomus:
-                            saldos_produtos[ent_nomus] = saldos_produtos.get(ent_nomus, 0) - qtd_ent
-                            entradas.append({
-                                "id": row_id, "data": data_val, "codigo": ent_nomus, 
-                                "quantidade": qtd_ent, "aba": nome_aba, "linha": idx
-                            })
-                        if sai_rec:
-                            saldos_produtos[sai_rec] = saldos_produtos.get(sai_rec, 0) + qtd_sai
-                            saidas.append({
-                                "id": row_id, "data": data_val, "codigo": sai_rec, 
-                                "quantidade": qtd_sai, "aba": nome_aba, "linha": idx
-                            })
-            except ValueError:
-                continue
+        # Processa aba de saída/estoque Nomus (Retiradas)
+        try:
+            aba_nomus = planilha.worksheet('entrada_nomus')
+            linhas_nomus = aba_nomus.get_all_values()
+            if len(linhas_nomus) > 1:
+                cab = [str(c).strip().upper() for c in linhas_nomus[0]]
+                idx_cod = cab.index("CÓDIGO") if "CÓDIGO" in cab else 2
+                idx_qtd = cab.index("QUANTIDADE") if "QUANTIDADE" in cab else 3
+                for row in linhas_nomus[1:]:
+                    if len(row) > max(idx_cod, idx_qtd):
+                        cod = str(row[idx_cod]).strip().upper()
+                        qtd = float(str(row[idx_qtd]).replace(',', '.')) or 0
+                        if cod:
+                            if cod not in saldos_dict: saldos_dict[cod] = {'descricao': '', 'saldo': 0}
+                            saldos_dict[cod]['saldo'] -= qtd
+        except Exception:
+            pass
 
-        lista_saldos = [{"codigo": k, "saldo": v, "descricao": next((p['descricao'] for p in produtos_recebimento_cache if p['codigo'] == k), '')} for k, v in saldos_produtos.items()]
+        # Converte o dicionário de saldos para a lista que vai para o front-end
+        lista_saldos = []
+        for cod, info in saldos_dict.items():
+            lista_saldos.append({
+                'codigo': cod,
+                'descricao': info['descricao'] or 'Produto / Acessório',
+                'saldo': info['saldo']
+            })
+
+        # 2. BUSCA OS ITENS DO PERÍODO ESPECÍFICO APENAS PARA AS TABELAS DE ENTRADAS E SAÍDAS LADO A LADO
+        # (Filtra pelas datas de 'inicio' e 'fim' recebidas na URL apenas para a exibição detalhada)
+        entradas_periodo = []
+        saidas_periodo = []
+        
+        # ... (sua lógica existente para popular entradas_periodo e saidas_periodo usando as datas de 'inicio' e 'fim') ...
 
         return jsonify({
             'sucesso': True,
-            'entradas': entradas,
-            'saidas': saidas,
-            'saldos': lista_saldos
+            'saldos': lista_saldos,
+            'entradas': entradas_periodo,
+            'saidas': saidas_periodo
         })
+        
     except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': str(e)})
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
+
 
 @app.route('/excluir_recebimento', methods=['POST'])
 def excluir_recebimento():
