@@ -368,6 +368,9 @@
             <table id="tabela-inventario" class="table table-striped align-middle">
                 <thead>
                     <tr>
+                        <th style="text-align: center; width: 40px;">
+                            <input type="checkbox" onclick="alternarTodosItensInventario(this)" title="Selecionar Todos" style="width: 18px; height: 18px; cursor: pointer; vertical-align: middle;">
+                        </th>
                         <th>Data</th>
                         <th>Código</th>
                         <th>Quantidade</th>
@@ -382,13 +385,12 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="8" style="text-align: center; color: #777;">Defina o período e clique em Filtrar Inventário.</td>
+                        <td colspan="9" style="text-align: center; color: #777;">Defina o período e clique em Filtrar Inventário.</td>
                     </tr>
                 </tbody>
             </table>
         </div>
     </div>
-
 
     
     
@@ -2105,7 +2107,7 @@ function filtrarTabelaInventario() {
     }
 
     if (itensFiltrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #777;">Nenhum item corresponde aos filtros selecionados.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #777;">Nenhum item corresponde aos filtros selecionados.</td></tr>';
         return;
     }
 
@@ -2146,6 +2148,9 @@ function filtrarTabelaInventario() {
         let estiloCodigo = eRepetido ? 'color: #dc3545; font-weight: bold; background-color: #f8d7da;' : 'font-weight: bold;';
 
         tr.innerHTML = `
+            <td style="text-align: center;">
+                <input type="checkbox" class="check-item-inventario" data-aba="${item.Aba || ''}" data-linha="${item.Linha || ''}" style="width: 18px; height: 18px; cursor: pointer;">
+            </td>
             <td>${item.Data || ''}</td>
             <td style="${estiloCodigo}">
                 ${codigoItem} ${eRepetido ? '<span style="font-size: 0.75rem; background-color: #dc3545; color: white; padding: 1px 4px; border-radius: 3px; margin-left: 4px;">Repetido</span>' : ''}
@@ -2167,7 +2172,6 @@ function filtrarTabelaInventario() {
         tbody.appendChild(tr);
     });
 }
-
     
     
 
@@ -3219,78 +3223,102 @@ function alternarTodosIve(master) {
     });
 }
 
-// Aplica o status de Inventário Feito em massa para todos os itens visíveis
+// 1. Função para marcar/desmarcar todos os checkboxes da coluna de seleção em massa da tabela
+function alternarTodosItensInventario(masterCheckbox) {
+    let checkboxes = document.querySelectorAll('.check-item-inventario');
+    checkboxes.forEach(cb => {
+        cb.checked = masterCheckbox.checked;
+    });
+}
+
+// 2. Aplicar Inventário Feito em Massa (respeitando o ID e a Aba de cada linha selecionada)
 async function aplicarInventarioFeitoEmMassa() {
-    let novoStatus = document.getElementById('status-lote-inv').value;
-    let selects = document.querySelectorAll('#tabela-inventario tbody tr:not([style*="display: none"]) .status-inventario');
-    
-    if (selects.length === 0) {
-        alert('Não há itens visíveis na tabela para atualizar.');
+    let checkboxesSelecionados = document.querySelectorAll('.check-item-inventario:checked');
+    if (checkboxesSelecionados.length === 0) {
+        alert('Selecione pelo menos um item na tabela para aplicar.');
         return;
     }
 
-    if (!confirm(`Tem a certeza que deseja alterar o Inventário Feito para "${novoStatus}" em ${selects.length} item(ns) visíveis?`)) return;
+    let valorDesejado = document.getElementById('status-lote-inv').value; // 'Sim' ou 'Não'
+    let itensParaAtualizar = [];
 
-    let atualizacoes = [];
-    selects.forEach(select => {
-        let aba = select.getAttribute('data-aba');
-        let linha = select.getAttribute('data-linha');
+    checkboxesSelecionados.forEach(cb => {
+        let aba = cb.getAttribute('data-aba');
+        let linha = cb.getAttribute('data-linha');
         if (aba && linha) {
-            atualizacoes.push({ aba: aba, linha: parseInt(linha), inventarioFeito: novoStatus });
-            select.value = novoStatus;
-            select.style.color = novoStatus === 'Sim' ? 'green' : 'red';
+            itensParaAtualizar.push({ aba: aba, linha: parseInt(linha), status: valorDesejado });
         }
     });
 
-    // Envia em lote para o servidor
-    try {
-        for (let item of atualizacoes) {
-            await fetch('/atualizar_inventario', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(item)
-            });
-        }
-        alert('Inventário Feito atualizado em massa com sucesso!');
-        carregarInventario(); // Recarrega os dados atualizados
-    } catch (err) {
-        console.error(err);
-        alert('Erro ao comunicar com o servidor durante a atualização em lote.');
-    }
-}
+    if (itensParaAtualizar.length === 0) return;
 
-// Aplica o status do IVE em massa (Sim para os marcados, Não para os desmarcados visíveis)
-async function aplicarIveEmMassa() {
-    let checkboxes = document.querySelectorAll('#tabela-inventario tbody tr:not([style*="display: none"]) .check-linha-ive');
-    
-    if (checkboxes.length === 0) {
-        alert('Não há itens visíveis na tabela para atualizar.');
+    if (!confirm(`Deseja alterar o Inventário Feito para "${valorDesejado}" em ${itensParaAtualizar.length} item(ns) selecionado(s)?`)) {
         return;
     }
 
-    if (!confirm(`Tem a certeza que deseja atualizar o IVE para os itens selecionados?`)) return;
-
     try {
-        for (let cb of checkboxes) {
-            let aba = cb.getAttribute('data-aba');
-            let linha = cb.getAttribute('data-linha');
-            let novoValor = cb.checked ? 'Sim' : 'Não';
-
-            if (aba && linha) {
-                await fetch('/atualizar_ive', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ aba: aba, linha: parseInt(linha), ive_status: novoValor })
-                });
-            }
+        let res = await fetch('/atualizar_inventario_em_massa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itens: itensParaAtualizar, tipo: 'status' })
+        });
+        let r = await res.json();
+        if (r.sucesso) {
+            carregarInventario();
+        } else {
+            alert(r.mensagem || 'Erro ao atualizar em massa.');
         }
-        alert('IVE atualizado em massa com sucesso!');
-        carregarInventario();
-    } catch (err) {
-        console.error(err);
-        alert('Erro ao comunicar com o servidor ao atualizar o IVE.');
+    } catch (e) {
+        console.error(e);
+        alert('Erro de comunicação com o servidor.');
     }
 }
+
+
+
+    
+
+// 3. Aplicar IVE em Massa (respeitando o ID e a Aba de cada linha selecionada)
+async function aplicarIveEmMassa() {
+    let checkboxesSelecionados = document.querySelectorAll('.check-item-inventario:checked');
+    if (checkboxesSelecionados.length === 0) {
+        alert('Selecione pelo menos um item na tabela para aplicar.');
+        return;
+    }
+
+    let itensParaAtualizar = [];
+    checkboxesSelecionados.forEach(cb => {
+        let aba = cb.getAttribute('data-aba');
+        let linha = cb.getAttribute('data-linha');
+        if (aba && linha) {
+            // Se o lote diz para marcar Sim, definimos true, senão false
+            let valorIve = document.getElementById('status-lote-inv').value === 'Sim';
+            itensParaAtualizar.push({ aba: aba, linha: parseInt(linha), ive: valorIve });
+        }
+    });
+
+    if (itensParaAtualizar.length === 0) return;
+
+    try {
+        let res = await fetch('/atualizar_inventario_em_massa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itens: itensParaAtualizar, tipo: 'ive' })
+        });
+        let r = await res.json();
+        if (r.sucesso) {
+            carregarInventario();
+        } else {
+            alert(r.mensagem || 'Erro ao atualizar IVE em massa.');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Erro de comunicação com o servidor.');
+    }
+}
+
+
+    
 
 async function atualizarStatusInventario(selectEl, aba, linha) {
     let novoValor = selectEl.value;
