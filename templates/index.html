@@ -322,7 +322,16 @@
                     <option value="Sim">Sim</option>
                     <option value="Não">Não</option>
                 </select>
+            </div>
 
+            <!-- NOVO FILTRO DE STATUS ERP -->
+            <div class="form-group" style="max-width: 160px;">
+                <label for="filtro-status-erp-inv">Status ERP:</label>
+                <select id="filtro-status-erp-inv" onchange="filtrarTabelaInventario()">
+                    <option value="TODOS" selected>Todos</option>
+                    <option value="Suficiente">Suficiente (OK)</option>
+                    <option value="Insuficiente">Insuficiente</option>
+                </select>
             </div>
 
             <div class="col-md-3" style="display: flex; align-items: center; gap: 8px;">
@@ -381,6 +390,7 @@
     </div>
 
 
+    
     
 <!-- PAINEL ORDENS -->
 <div id="painel-ordens" class="painel">
@@ -2033,6 +2043,7 @@ function filtrarTabelaInventario() {
 
     let classificacaoFiltro = document.getElementById('filtro-classificacao-inv').value.toLowerCase();
     let inventarioFeitoFiltro = document.getElementById('filtro-status-inv').value.toLowerCase();
+    let statusErpFiltro = document.getElementById('filtro-status-erp-inv') ? document.getElementById('filtro-status-erp-inv').value.toLowerCase() : 'todos';
     let elCheckIve = document.getElementById('filtro-ive-check');
     let apenasIveMarcado = elCheckIve ? elCheckIve.checked : false;
 
@@ -2050,19 +2061,32 @@ function filtrarTabelaInventario() {
 
         let classificacaoItem = (item.Classificacao || ((isSucata || isAjusteEntrada) ? 'Entrada' : 'Baixa')).trim().toLowerCase();
 
-        // Filtro por Classificação (Todas / Entrada / Baixa)
+        // Pega o status ERP do item (seja da propriedade do objeto ou formatada)
+        let statusErpTexto = (item.Status_ERP || item.StatusERP || '').toLowerCase();
+
+        // Filtro por Classificação
         if (classificacaoFiltro !== 'todos' && classificacaoFiltro !== 'todas' && classificacaoFiltro !== '') {
             if (classificacaoItem !== classificacaoFiltro) {
                 return false;
             }
         }
 
-        // Filtro por Inventário Feito (Dropdown superior)
+        // Filtro por Inventário Feito
         if (inventarioFeitoFiltro === 'sim' && statusFeito !== 'sim') {
             return false;
         }
         if (inventarioFeitoFiltro === 'não' && statusFeito === 'sim') {
             return false;
+        }
+
+        // Filtro por Status ERP (Suficiente / Insuficiente)
+        if (statusErpFiltro !== 'todos') {
+            if (statusErpFiltro === 'suficiente' && !statusErpTexto.includes('suficiente')) {
+                return false;
+            }
+            if (statusErpFiltro === 'insuficiente' && !statusErpTexto.includes('insuficiente')) {
+                return false;
+            }
         }
 
         // Filtro IVE
