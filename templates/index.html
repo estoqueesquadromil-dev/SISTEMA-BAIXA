@@ -3270,26 +3270,34 @@ async function aplicarInventarioFeitoEmMassa() {
 
     
 
-// 3. Aplicar IVE em Massa (respeitando o ID e a Aba de cada linha selecionada)
+// Aplicar IVE em Massa (respeitando o ID e a Aba de cada linha selecionada)
 async function aplicarIveEmMassa() {
     let checkboxesSelecionados = document.querySelectorAll('.check-item-inventario:checked');
     if (checkboxesSelecionados.length === 0) {
-        alert('Selecione pelo menos um item na tabela para aplicar.');
+        alert('Selecione pelo menos um item na tabela para aplicar o IVE.');
         return;
     }
 
+    let valorDesejado = document.getElementById('status-lote-inv').value; // 'Sim' ou 'Não'
     let itensParaAtualizar = [];
+
     checkboxesSelecionados.forEach(cb => {
         let aba = cb.getAttribute('data-aba');
         let linha = cb.getAttribute('data-linha');
         if (aba && linha) {
-            // Se o lote diz para marcar Sim, definimos true, senão false
-            let valorIve = document.getElementById('status-lote-inv').value === 'Sim';
-            itensParaAtualizar.push({ aba: aba, linha: parseInt(linha), ive: valorIve });
+            itensParaAtualizar.push({ 
+                aba: aba, 
+                linha: parseInt(linha), 
+                ive_status: valorDesejado 
+            });
         }
     });
 
     if (itensParaAtualizar.length === 0) return;
+
+    if (!confirm(`Deseja alterar o IVE para "${valorDesejado}" em ${itensParaAtualizar.length} item(ns) selecionado(s)?`)) {
+        return;
+    }
 
     try {
         let res = await fetch('/atualizar_inventario_em_massa', {
