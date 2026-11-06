@@ -521,42 +521,52 @@ def consultar_inventario_periodo():
 
 @app.route('/atualizar_inventario', methods=['POST'])
 def atualizar_inventario():
-    dados = request.json
+    dados = request.get_json(force=True, silent=True) or {}
+    
     aba = dados.get('aba')
     linha = dados.get('linha')
-    novo_status = dados.get('inventarioFeito')
+    novo_status = dados.get('inventarioFeito') or dados.get('status')
     
-    if not aba or not linha or not novo_status:
+    if not aba or linha is None or not novo_status:
         return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos.'}), 400
         
     try:
+        # Garante que a linha seja um valor numérico inteiro
+        linha_int = int(linha)
+
         gc = conectar_google_sheets()
         if not gc:
-            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'})
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
 
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
         sheet_mov = planilha_mov.worksheet(aba)
         
-        cabecalho = [col.upper().strip() for col in sheet_mov.row_values(1)]
+        # Obtém os cabeçalhos da primeira linha
+        cabecalho = [str(col).upper().strip() for col in sheet_mov.row_values(1)]
         coluna_idx = None
         
         for idx, col in enumerate(cabecalho):
-            if col in ['INVENTARIO FEITO', 'INVENTARIO']:
+            if col in ['INVENTARIO FEITO', 'INVENTARIO', 'INVENTÁRIO FEITO']:
                 coluna_idx = idx + 1
                 break
                 
-        # Se a coluna não existir, cria-a na coluna 6
+        # Se a coluna não existir, define como coluna 6 e cria o cabeçalho
         if not coluna_idx:
             coluna_idx = 6
             if coluna_idx > sheet_mov.col_count:
                 sheet_mov.add_cols(1)
             sheet_mov.update_cell(1, coluna_idx, 'Inventario Feito')
             
-        sheet_mov.update_cell(linha, coluna_idx, novo_status)
+        # Atualiza a célula correspondente
+        sheet_mov.update_cell(linha_int, coluna_idx, str(novo_status))
         
         return jsonify({'sucesso': True, 'mensagem': 'Inventário atualizado com sucesso na planilha!'})
+        
     except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+        print(f"Erro ao atualizar inventário na planilha: {str(e)}")
+        return jsonify({'sucesso': False, 'mensagem': f"Erro interno: {str(e)}"}), 500
+
+
 
 
 @app.route('/exportar_excel_inventario', methods=['GET'])
