@@ -1485,50 +1485,112 @@ def validar_saldo_erp_inventario():
 
 
 
+# 1. Rota para alterar IVE de uma única linha (checkbox individual da tabela)
 @app.route('/atualizar_ive', methods=['POST'])
 def atualizar_ive():
+    dados = request.get_json(force=True, silent=True) or {}
+    aba = dados.get('aba')
+    linha = dados.get('linha')
+    ive_status = dados.get('ive_status') or dados.get('ive')
+    
+    if isinstance(ive_status, bool):
+        ive_status = 'Sim' if ive_status else 'Não'
+
+    if not aba or linha is None or not ive_status:
+        return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos.'}), 400
+
     try:
-        dados = request.get_json() if request.is_json else request.form
-        ive_marcado = dados.get('ive_status', 'Não')
-        aba_alvo = dados.get('aba')
-        linha_alvo = dados.get('linha')
-        
-        if not aba_alvo or not linha_alvo:
-            return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos.'}), 400
+        linha_int = int(linha)
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+
+        planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
+        sheet_mov = planilha_mov.worksheet(aba)
+
+        cabecalho = [str(col).upper().strip() for col in sheet_mov.row_values(1)]
+        coluna_idx = None
+
+        for idx, col in enumerate(cabecalho):
+            if col == 'IVE':
+                coluna_idx = idx + 1
+                break
+
+        # Se a coluna IVE não existir no cabeçalho, cria-a na coluna 7
+        if not coluna_idx:
+            coluna_idx = 7
+            if coluna_idx > sheet_mov.col_count:
+                sheet_mov.add_cols(1)
+            sheet_mov.update_cell(1, coluna_idx, 'IVE')
+
+        sheet_mov.update_cell(linha_int, coluna_idx, str(ive_status))
+
+        return jsonify({'sucesso': True, 'mensagem': 'IVE atualizado com sucesso!'})
+    except Exception as e:
+        print(f"Erro ao atualizar IVE: {str(e)}")
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+# 2. Rota para alterar em massa (Inventário Feito ou IVE) sem estourar limite da API
+@app.route('/atualizar_inventario_em_massa', methods=['POST'])
+def atualizar_inventario_em_massa():
+    try:
+        dados = request.get_json(force=True, silent=True) or {}
+        itens = dados.get('itens', [])
+        tipo_atualizacao = dados.get('tipo') # 'status' ou 'ive'
+
+        if not itens:
+            return jsonify({'sucesso': False, 'mensagem': 'Nenhum item selecionado.'}), 400
 
         gc = conectar_google_sheets()
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
 
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
-        sheet_mov = planilha_mov.worksheet(aba_alvo)
-        
-        cabecalho = [col.upper().strip() for col in sheet_mov.row_values(1)]
-        coluna_idx = None
-        
-        for idx, col in enumerate(cabecalho):
-            if col == 'IVE':
-                coluna_idx = idx + 1
-                break
-                
-        # Se a coluna IVE não existir, cria-a garantindo que a aba tem colunas suficientes
-        if not coluna_idx:
-            coluna_idx = len(cabecalho) + 1
-            if coluna_idx > sheet_mov.col_count:
-                sheet_mov.add_cols(coluna_idx - sheet_mov.col_count)
-            sheet_mov.update_cell(1, coluna_idx, 'IVE')
-            
-        sheet_mov.update_cell(int(linha_alvo), coluna_idx, "Sim" if ive_marcado == "Sim" else "Não")
-        
-        if request.is_json:
-            return jsonify({'sucesso': True, 'mensagem': 'IVE atualizado com sucesso!'})
-        else:
-            return redirect(url_for('index'))
-            
+        abas_cache = {}
+
+        for item in itens:
+            nome_aba = item.get('aba')
+            linha = int(item.get('linha'))
+
+            if nome_aba not in abas_cache:
+                try:
+                    abas_cache[nome_aba] = planilha_mov.worksheet(nome_aba)
+                except:
+                    continue
+
+            sheet_aba = abas_cache[nome_aba]
+            cabecalhos = [str(c).upper().strip() for c in sheet_aba.row_values(1)]
+
+            if tipo_atualizacao == 'status':
+                novo_valor = item.get('status')
+                col_name_targets = ['INVENTARIO FEITO', 'INVENTARIO', 'INVENTÁRIO FEITO']
+                fallback_col = 6
+            else: # 'ive'
+                novo_valor = item.get('ive_status') or item.get('ive')
+                if isinstance(novo_valor, bool):
+                    novo_valor = 'Sim' if novo_valor else 'Não'
+                col_name_targets = ['IVE']
+                fallback_col = 7
+
+            col_idx = None
+            for idx, col in enumerate(cabecalhos):
+                if col in col_name_targets:
+                    col_idx = idx + 1
+                    break
+
+            if not col_idx:
+                col_idx = fallback_col
+                if col_idx > sheet_aba.col_count:
+                    sheet_aba.add_cols(1)
+                sheet_aba.update_cell(1, col_idx, col_name_targets[0])
+
+            sheet_aba.update_cell(linha, col_idx, str(novo_valor))
+
+        return jsonify({'sucesso': True, 'mensagem': 'Atualização em massa concluída com sucesso!'})
     except Exception as e:
-        if request.is_json:
-            return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-        return f"Erro: {str(e)}", 500
+        print(f"Erro no processamento em massa: {str(e)}")
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
 
 
 
@@ -3011,15 +3073,5 @@ def verificar_acessorios_existentes():
 
 
 
-
-@app.route('/atualizar_inventario_em_massa', methods=['POST'])
-def atualizar_inventario_em_massa():
-    dados = request.get_json()
-    # Aqui você processa os dados recebidos (ex: atualizar a planilha do Google Sheets ou banco de dados)
-    # Exemplo de lógica:
-    # itens = dados.get('itens', [])
-    # ... atualizar os itens ...
-    
-    return jsonify({"sucesso": True, "mensagem": "Inventário atualizado com sucesso!"})
 
 
