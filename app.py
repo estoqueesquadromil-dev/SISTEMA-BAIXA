@@ -3000,3 +3000,16 @@ def verificar_acessorios_existentes():
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
 
 
+
+
+@app.route('/atualizar_inventario_em_massa', methods=['POST'])
+def atualizar_inventario_em_massa():
+    dados = request.get_json()
+    # Aqui você processa os dados recebidos (ex: atualizar a planilha do Google Sheets ou banco de dados)
+    # Exemplo de lógica:
+    # itens = dados.get('itens', [])
+    # ... atualizar os itens ...
+    
+    return jsonify({"sucesso": True, "mensagem": "Inventário atualizado com sucesso!"})
+
+
