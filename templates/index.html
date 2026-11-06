@@ -2962,8 +2962,8 @@ async function validarSaldoERP() {
     let contagemCodigos = {};
     linhasTabela.forEach(tr => {
         let tds = tr.querySelectorAll('td');
-        if (tds.length < 7) return;
-        let codigoItem = tds[1].innerText.trim().toUpperCase();
+        if (tds.length < 8) return;
+        let codigoItem = tds[2].innerText.trim().toUpperCase(); // Coluna 2 é o Código (com o novo checkbox na coluna 0)
         let selectInventario = tr.querySelector('.status-inventario');
         let statusVal = selectInventario ? selectInventario.value.trim().toLowerCase() : 'não';
         if (statusVal !== 'sim') {
@@ -2976,11 +2976,11 @@ async function validarSaldoERP() {
 
     linhasTabela.forEach(tr => {
         let tds = tr.querySelectorAll('td');
-        if (tds.length < 7) return;
+        if (tds.length < 8) return;
 
-        let codigoItem = tds[1].innerText.trim().toUpperCase();
-        let qtdTabela = parseFloat(tds[2].innerText.trim().replace(',', '.')) || 0;
-        let saldoErpTd = tds[5];
+        let codigoItem = tds[2].innerText.trim().toUpperCase();
+        let qtdTabela = parseFloat(tds[3].innerText.trim().replace(',', '.')) || 0; // Coluna 3 é Quantidade
+        let saldoErpTd = tds[6]; // Coluna 6 é o Saldo ERP
 
         let selectInventario = tr.querySelector('.status-inventario');
         let statusInventarioVal = selectInventario ? selectInventario.value.trim() : 'Não';
@@ -2997,7 +2997,6 @@ async function validarSaldoERP() {
 
         let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
 
-        // SE O CÓDIGO FOR REPETIDO NA TABELA, MOSTRA EXATAMENTE 0 (COMO ESTAVA ANTES)
         let eRepetido = (contagemCodigos[codigoItem] || 0) > 1;
 
         if (eRepetido) {
@@ -3020,27 +3019,20 @@ async function validarSaldoERP() {
         validadas++;
     });
 
-    if (validadas > 0) {
-        if (itensParaSalvar.length > 0) {
-            try {
-                let resposta = await fetch('/salvar_suficiente_erp', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ itens: itensParaSalvar })
-                });
-                let resultado = await resposta.json();
-                if (resultado.sucesso) {
-                    alert('Validação efetuada com sucesso!');
-                } else {
-                    alert('Erro ao gravar na planilha: ' + resultado.mensagem);
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Erro de comunicação ao tentar salvar na planilha.');
+    if (validadas > 0 && itensParaSalvar.length > 0) {
+        try {
+            let resposta = await fetch('/salvar_suficiente_erp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ itens: itensParaSalvar })
+            });
+            let resultado = await resposta.json();
+            if (resultado.sucesso) {
+                console.log('Validação gravada na planilha com sucesso.');
             }
+        } catch (err) {
+            console.error('Erro de comunicação ao tentar salvar na planilha:', err);
         }
-    } else {
-        alert('Nenhum item elegível encontrado para validar.');
     }
 }
 
