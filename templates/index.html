@@ -2883,7 +2883,7 @@ async function validarSaldoERP() {
     let campoTexto = document.getElementById('txt_saldos_erp');
     let textoSaldos = campoTexto ? campoTexto.value : '';
     
-    // Se o campo estiver vazio, apenas limpa as colunas e retorna silenciosamente (sem dar alert)
+    // Se o campo estiver vazio, apenas limpa as colunas e retorna silenciosamente
     if (!textoSaldos.trim()) {
         let tbodyVazio = document.querySelector('#tabela-inventario tbody');
         if (tbodyVazio) {
@@ -2939,6 +2939,7 @@ async function validarSaldoERP() {
 
         let codigoItem = tds[2].innerText.trim().toUpperCase();
         let qtdTabela = parseFloat(tds[3].innerText.trim().replace(',', '.')) || 0; 
+        let classificacao = tds[4] ? tds[4].innerText.trim().toLowerCase() : ''; // Coluna Tipo/Classificação (ajuste o índice se necessário)
         let saldoErpTd = tds[6]; 
 
         let selectInventario = tr.querySelector('.status-inventario');
@@ -2960,13 +2961,28 @@ async function validarSaldoERP() {
         }
 
         let saldoErp = saldosDict[codigoItem];
-        let resultadoCalculo = saldoErp + qtdTabela;
+        let resultadoCalculo;
+        let eValido = false;
+
+        // Identifica se é Entrada ou Baixa com base na classificação da linha
+        let isBaixa = classificacao.includes('baixa');
+
+        if (isBaixa) {
+            // Regra para BAIXA: Saldo - Quantidade (Suficiente se Saldo >= Quantidade)
+            resultadoCalculo = saldoErp - qtdTabela;
+            eValido = (saldoErp >= qtdTabela);
+        } else {
+            // Regra para ENTRADA: Saldo + Quantidade
+            resultadoCalculo = saldoErp + qtdTabela;
+            eValido = (resultadoCalculo >= 0);
+        }
+
         let eRepetido = (contagemCodigos[codigoItem] || 0) > 1;
 
         if (eRepetido) {
             saldoErpTd.innerHTML = `<span style="color: #dc3545; font-weight: bold;">Insuficiente (0)</span>`;
             if (itemCache) itemCache.Status_ERP = `Insuficiente (0)`;
-        } else if (resultadoCalculo >= 0) {
+        } else if (eValido) {
             saldoErpTd.innerHTML = `<span style="color: #28a745; font-weight: bold;">Suficiente (${resultadoCalculo})</span>`;
             if (itemCache) itemCache.Status_ERP = `Suficiente (${resultadoCalculo})`;
             if (linhaPlanilha && aba) {
@@ -2999,7 +3015,6 @@ async function validarSaldoERP() {
         }
     }
 }
-
 
 
     
