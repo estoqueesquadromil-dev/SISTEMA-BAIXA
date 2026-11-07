@@ -430,63 +430,71 @@ def consultar_inventario_periodo():
                         
                         linha_planilha = index + 1
                         
+                        # Tipo
+                        tipo_val = 'Baixa Diaria'
+                        if "TIPO" in cabecalhos and len(row) > cabecalhos.index("TIPO"):
+                            tipo_val = row[cabecalhos.index("TIPO")].strip()
+                        elif len(row) > 4:
+                            tipo_val = row[4].strip()
+
+                        # REGRA 1: Não permite que "Aproveitamento de Sucata" apareça no inventário
+                        if tipo_val.upper() == 'APROVEITAMENTO DE SUCATA':
+                            continue
+
                         # ID
                         row_id = ''
                         if "ID" in cabecalhos and len(row) > cabecalhos.index("ID"):
-                            row_id = row[cabecalhos.index("ID")]
+                            row_id = row[cabecalhos.index("ID")].strip()
                         if not row_id:
                             row_id = f"{nome_aba}_l{linha_planilha}"
 
                         # Código
                         codigo_val = ''
                         if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO"):
-                            codigo_val = row[cabecalhos.index("CÓDIGO")]
+                            codigo_val = row[cabecalhos.index("CÓDIGO")].strip()
                         elif "CODIGO" in cabecalhos and len(row) > cabecalhos.index("CODIGO"):
-                            codigo_val = row[cabecalhos.index("CODIGO")]
+                            codigo_val = row[cabecalhos.index("CODIGO")].strip()
                         elif len(row) > 2:
-                            codigo_val = row[2]
+                            codigo_val = row[2].strip()
 
                         # Quantidade
                         qtd_val = 1
                         if "QUANTIDADE" in cabecalhos and len(row) > cabecalhos.index("QUANTIDADE"):
-                            qtd_val = row[cabecalhos.index("QUANTIDADE")]
+                            qtd_val = row[cabecalhos.index("QUANTIDADE")].strip()
                         elif len(row) > 3:
-                            qtd_val = row[3]
-
-                        # Tipo
-                        tipo_val = 'Baixa Diaria'
-                        if "TIPO" in cabecalhos and len(row) > cabecalhos.index("TIPO"):
-                            tipo_val = row[cabecalhos.index("TIPO")]
-                        elif len(row) > 4:
-                            tipo_val = row[4]
+                            qtd_val = row[3].strip()
 
                         # Status
                         status_val = 'Não'
                         if "STATUS" in cabecalhos and len(row) > cabecalhos.index("STATUS"):
-                            status_val = row[cabecalhos.index("STATUS")]
+                            status_val = row[cabecalhos.index("STATUS")].strip() or 'Não'
                         elif len(row) > 5:
-                            status_val = row[5]
+                            status_val = row[5].strip() or 'Não'
                         
-                        # Inventário Feito
-                        inv_val = 'Não'
+                        # Inventário Feito (REGRA 2: se estiver vazio, padrão é 'Não')
+                        inv_val = ''
                         for h_nome in ['INVENTARIO FEITO', 'INVENTARIO']:
                             if h_nome in cabecalhos and len(row) > cabecalhos.index(h_nome):
-                                inv_val = row[cabecalhos.index(h_nome)] or 'Não'
+                                inv_val = row[cabecalhos.index(h_nome)].strip()
                                 break
-                        if inv_val == 'Não' and len(row) > 6:
-                            inv_val = row[6] or 'Não'
+                        if not inv_val and len(row) > 6:
+                            inv_val = row[6].strip()
+                        if not inv_val:
+                            inv_val = 'Não'
 
-                        # IVE
-                        ive_val = 'Não'
+                        # IVE (REGRA 2: se estiver vazio, padrão é 'Não')
+                        ive_val = ''
                         if "IVE" in cabecalhos and len(row) > cabecalhos.index("IVE"):
-                            ive_val = row[cabecalhos.index("IVE")] or 'Não'
+                            ive_val = row[cabecalhos.index("IVE")].strip()
+                        if not ive_val:
+                            ive_val = 'Não'
 
                         # Status ERP
                         erp_val = ''
                         if "STATUS_ERP" in cabecalhos and len(row) > cabecalhos.index("STATUS_ERP"):
-                            erp_val = row[cabecalhos.index("STATUS_ERP")] or ''
+                            erp_val = row[cabecalhos.index("STATUS_ERP")].strip()
 
-                        # Leitura da Coluna I (Coluna 9) para o Saldo ERP salvo
+                        # Saldo ERP (Coluna I / Coluna 9)
                         saldo_erp_val = ''
                         if len(row) >= 9:
                             saldo_erp_val = str(row[8]).strip()
@@ -515,6 +523,10 @@ def consultar_inventario_periodo():
     
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
+
 
 
 
