@@ -1525,10 +1525,10 @@ def atualizar_ive():
                 coluna_idx = idx + 1
                 break
 
-        # Se a coluna IVE não existir no cabeçalho, cria-a na coluna 7
+        # Se não existir, fixa obrigatoriamente na Coluna H (índice 8)
         if not coluna_idx:
-            coluna_idx = 7
-            if coluna_idx > sheet_mov.col_count:
+            coluna_idx = 8
+            while sheet_mov.col_count < coluna_idx:
                 sheet_mov.add_cols(1)
             sheet_mov.update_cell(1, coluna_idx, 'IVE')
 
@@ -1538,6 +1538,8 @@ def atualizar_ive():
     except Exception as e:
         print(f"Erro ao atualizar IVE: {str(e)}")
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
 
 
 # 2. Rota para alterar em massa (Inventário Feito ou IVE) sem estourar limite da API
