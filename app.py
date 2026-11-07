@@ -108,11 +108,8 @@ def salvar_lote():
             quantidade = int(item.get('QUANTIDADE', 1))
             tipo = item.get('TIPO', 'Baixa Diaria')
             
-            # Ajuste: Se o tipo for Aproveitamento de Sucata, o status começa vazio ("")
-            if tipo == 'Aproveitamento de Sucata':
-                status = ''
-            else:
-                status = 'Não'
+            # Todos os itens (incluindo Aproveitamento de Sucata) iniciam com status "Não"
+            status = 'Não'
                 
             inventario_feito = 'Não'
             
@@ -127,6 +124,10 @@ def salvar_lote():
     
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao processar: {str(e)}'})
+
+
+
+
 
 
 @app.route('/atualizar_status_lote_por_id', methods=['POST'])
@@ -543,7 +544,6 @@ def atualizar_inventario():
         return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos.'}), 400
         
     try:
-        # Garante que a linha seja um valor numérico inteiro
         linha_int = int(linha)
 
         gc = conectar_google_sheets()
@@ -553,23 +553,21 @@ def atualizar_inventario():
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
         sheet_mov = planilha_mov.worksheet(aba)
         
-        # Obtém os cabeçalhos da primeira linha
         cabecalho = [str(col).upper().strip() for col in sheet_mov.row_values(1)]
         coluna_idx = None
         
+        # Procura especificamente pelo cabeçalho de Inventário Feito
         for idx, col in enumerate(cabecalho):
-            if col in ['INVENTARIO FEITO', 'INVENTARIO', 'INVENTÁRIO FEITO']:
+            if col in ['INVENTARIO FEITO', 'INVENTÁRIO FEITO']:
                 coluna_idx = idx + 1
                 break
                 
-        # Se a coluna não existir, define como coluna 6 e cria o cabeçalho
+        # Se o cabeçalho não existir na aba, adiciona uma nova coluna no fim em vez de usar uma fixa
         if not coluna_idx:
-            coluna_idx = 6
-            if coluna_idx > sheet_mov.col_count:
-                sheet_mov.add_cols(1)
+            coluna_idx = len(cabecalho) + 1
+            sheet_mov.add_cols(1)
             sheet_mov.update_cell(1, coluna_idx, 'Inventario Feito')
             
-        # Atualiza a célula correspondente
         sheet_mov.update_cell(linha_int, coluna_idx, str(novo_status))
         
         return jsonify({'sucesso': True, 'mensagem': 'Inventário atualizado com sucesso na planilha!'})
@@ -577,7 +575,6 @@ def atualizar_inventario():
     except Exception as e:
         print(f"Erro ao atualizar inventário na planilha: {str(e)}")
         return jsonify({'sucesso': False, 'mensagem': f"Erro interno: {str(e)}"}), 500
-
 
 
 
