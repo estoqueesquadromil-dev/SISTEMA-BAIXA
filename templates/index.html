@@ -2939,7 +2939,6 @@ async function validarSaldoERP() {
 
         let codigoItem = tds[2].innerText.trim().toUpperCase();
         let qtdTabela = parseFloat(tds[3].innerText.trim().replace(',', '.')) || 0; 
-        let classificacao = tds[4] ? tds[4].innerText.trim().toLowerCase() : ''; // Coluna Tipo/Classificação (ajuste o índice se necessário)
         let saldoErpTd = tds[6]; 
 
         let selectInventario = tr.querySelector('.status-inventario');
@@ -2951,6 +2950,7 @@ async function validarSaldoERP() {
 
         let aba = selectInventario ? selectInventario.getAttribute('data-aba') : '';
         let linhaPlanilha = selectInventario ? selectInventario.getAttribute('data-linha') : '';
+        
         let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
 
         // Se o produto NÃO consta na lista colada do ERP
@@ -2964,17 +2964,20 @@ async function validarSaldoERP() {
         let resultadoCalculo;
         let eValido = false;
 
-        // Identifica se é Entrada ou Baixa com base na classificação da linha
-        let isBaixa = classificacao.includes('baixa');
+        // Pega o tipo exato do item (priorizando o cache, senão lê da coluna Tipo na tabela HTML)
+        let tipoItem = itemCache ? (itemCache.Tipo || '').trim().toLowerCase() : (tds[4] ? tds[4].innerText.trim().toLowerCase() : '');
 
-        if (isBaixa) {
-            // Regra para BAIXA: Saldo - Quantidade (Suficiente se Saldo >= Quantidade)
-            resultadoCalculo = saldoErp - qtdTabela;
-            eValido = (saldoErp >= qtdTabela);
-        } else {
-            // Regra para ENTRADA: Saldo + Quantidade
+        // Regra de negócio: Apenas "Ajuste Entrada" é considerado Entrada. Todo o resto é Baixa.
+        let isEntrada = tipoItem === 'ajuste entrada';
+
+        if (isEntrada) {
+            // Regra de ENTRADA: Saldo + Quantidade
             resultadoCalculo = saldoErp + qtdTabela;
             eValido = (resultadoCalculo >= 0);
+        } else {
+            // Regra de BAIXA: Saldo - Quantidade (Suficiente APENAS se Saldo do ERP >= Quantidade da tabela)
+            resultadoCalculo = saldoErp - qtdTabela;
+            eValido = (saldoErp >= qtdTabela);
         }
 
         let eRepetido = (contagemCodigos[codigoItem] || 0) > 1;
@@ -3015,7 +3018,6 @@ async function validarSaldoERP() {
         }
     }
 }
-
 
     
     
