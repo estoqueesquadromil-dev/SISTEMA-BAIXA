@@ -2030,12 +2030,16 @@ async function carregarInventario() {
 
         filtrarTabelaInventario();
 
+        // Valida o saldo ERP automaticamente logo após carregar e filtrar
+        if (typeof validarSaldoERP === 'function') {
+            validarSaldoERP();
+        }
+
     } catch (err) {
         console.error(err);
         tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">Erro ao carregar dados do inventário.</td></tr>';
     }
 }
-
 
     
 
