@@ -556,16 +556,17 @@ def atualizar_inventario():
         cabecalho = [str(col).upper().strip() for col in sheet_mov.row_values(1)]
         coluna_idx = None
         
-        # Procura especificamente pelo cabeçalho de Inventário Feito
+        # Procura exclusivamente pelo cabeçalho de Inventario Feito
         for idx, col in enumerate(cabecalho):
             if col in ['INVENTARIO FEITO', 'INVENTÁRIO FEITO']:
                 coluna_idx = idx + 1
                 break
                 
-        # Se o cabeçalho não existir na aba, adiciona uma nova coluna no fim em vez de usar uma fixa
+        # Se não existir, fixa obrigatoriamente na Coluna G (índice 7)
         if not coluna_idx:
-            coluna_idx = len(cabecalho) + 1
-            sheet_mov.add_cols(1)
+            coluna_idx = 7
+            while sheet_mov.col_count < coluna_idx:
+                sheet_mov.add_cols(1)
             sheet_mov.update_cell(1, coluna_idx, 'Inventario Feito')
             
         sheet_mov.update_cell(linha_int, coluna_idx, str(novo_status))
@@ -575,7 +576,6 @@ def atualizar_inventario():
     except Exception as e:
         print(f"Erro ao atualizar inventário na planilha: {str(e)}")
         return jsonify({'sucesso': False, 'mensagem': f"Erro interno: {str(e)}"}), 500
-
 
 
 @app.route('/exportar_excel_inventario', methods=['GET'])
