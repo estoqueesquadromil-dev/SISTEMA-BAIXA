@@ -2880,9 +2880,20 @@ async function excluirDefinitivo(id) {
 }
 
 async function validarSaldoERP() {
-    let textoSaldos = document.getElementById('txt_saldos_erp').value;
+    let campoTexto = document.getElementById('txt_saldos_erp');
+    let textoSaldos = campoTexto ? campoTexto.value : '';
+    
+    // Se o campo estiver vazio, apenas limpa as colunas e retorna silenciosamente (sem dar alert)
     if (!textoSaldos.trim()) {
-        alert('Por favor, cole os saldos do ERP.');
+        let tbodyVazio = document.querySelector('#tabela-inventario tbody');
+        if (tbodyVazio) {
+            tbodyVazio.querySelectorAll('tr').forEach(tr => {
+                let tds = tr.querySelectorAll('td');
+                if (tds.length >= 7) {
+                    tds[6].innerHTML = '<span style="color: #777;">Não informado</span>';
+                }
+            });
+        }
         return;
     }
 
@@ -2911,7 +2922,7 @@ async function validarSaldoERP() {
     linhasTabela.forEach(tr => {
         let tds = tr.querySelectorAll('td');
         if (tds.length < 8) return;
-        let codigoItem = tds[2].innerText.trim().toUpperCase(); // Coluna 2 é o Código (com o novo checkbox na coluna 0)
+        let codigoItem = tds[2].innerText.trim().toUpperCase(); 
         let selectInventario = tr.querySelector('.status-inventario');
         let statusVal = selectInventario ? selectInventario.value.trim().toLowerCase() : 'não';
         if (statusVal !== 'sim') {
@@ -2927,8 +2938,8 @@ async function validarSaldoERP() {
         if (tds.length < 8) return;
 
         let codigoItem = tds[2].innerText.trim().toUpperCase();
-        let qtdTabela = parseFloat(tds[3].innerText.trim().replace(',', '.')) || 0; // Coluna 3 é Quantidade
-        let saldoErpTd = tds[6]; // Coluna 6 é o Saldo ERP
+        let qtdTabela = parseFloat(tds[3].innerText.trim().replace(',', '.')) || 0; 
+        let saldoErpTd = tds[6]; 
 
         let selectInventario = tr.querySelector('.status-inventario');
         let statusInventarioVal = selectInventario ? selectInventario.value.trim() : 'Não';
@@ -2939,12 +2950,17 @@ async function validarSaldoERP() {
 
         let aba = selectInventario ? selectInventario.getAttribute('data-aba') : '';
         let linhaPlanilha = selectInventario ? selectInventario.getAttribute('data-linha') : '';
-
-        let saldoErp = saldosDict.hasOwnProperty(codigoItem) ? saldosDict[codigoItem] : 0;
-        let resultadoCalculo = saldoErp + qtdTabela;
-
         let itemCache = dadosInventarioCache.find(i => (i.Codigo || '').trim().toUpperCase() === codigoItem && String(i.Linha) === String(linhaPlanilha));
 
+        // Se o produto NÃO consta na lista colada do ERP
+        if (!saldosDict.hasOwnProperty(codigoItem)) {
+            saldoErpTd.innerHTML = `<span style="color: #777; font-weight: bold;">Não informado</span>`;
+            if (itemCache) itemCache.Status_ERP = `Não informado`;
+            return;
+        }
+
+        let saldoErp = saldosDict[codigoItem];
+        let resultadoCalculo = saldoErp + qtdTabela;
         let eRepetido = (contagemCodigos[codigoItem] || 0) > 1;
 
         if (eRepetido) {
@@ -2983,8 +2999,6 @@ async function validarSaldoERP() {
         }
     }
 }
-
-
 
 
 
