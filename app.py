@@ -98,9 +98,9 @@ def salvar_lote():
         try:
             sheet_mov = planilha_mov.worksheet(data_lote)
         except gspread.exceptions.WorksheetNotFound:
-            # Cria a aba com 7 colunas para incluir o ID na primeira coluna
-            sheet_mov = planilha_mov.add_worksheet(title=data_lote, rows="1000", cols="7")
-            sheet_mov.append_row(["ID", "Data", "Código", "Quantidade", "Tipo", "Status", "Inventario Feito"])
+            # Cria a aba com 9 colunas na ordem correta (A até I)
+            sheet_mov = planilha_mov.add_worksheet(title=data_lote, rows="1000", cols="9")
+            sheet_mov.append_row(["ID", "Data", "Código", "Quantidade", "Tipo", "Status", "Inventario Feito", "IVE", "Saldo ERP"])
 
         linhas_para_adicionar = []
         for item in itens:
@@ -108,15 +108,17 @@ def salvar_lote():
             quantidade = int(item.get('QUANTIDADE', 1))
             tipo = item.get('TIPO', 'Baixa Diaria')
             
-            # Todos os itens (incluindo Aproveitamento de Sucata) iniciam com status "Não"
+            # Todos os itens nascem com o padrão "Não"
             status = 'Não'
-                
             inventario_feito = 'Não'
+            ive_val = 'Não'
+            saldo_erp = ''
             
-            # Gera um ID único curto para esta linha específica
+            # Gera um ID único curto para esta linha
             row_id = str(uuid.uuid4())[:8]
             
-            linhas_para_adicionar.append([row_id, data_lote, codigo, quantidade, tipo, status, inventario_feito])
+            # Insere exatamente os 9 valores nas 9 colunas correspondentes
+            linhas_para_adicionar.append([row_id, data_lote, codigo, quantidade, tipo, status, inventario_feito, ive_val, saldo_erp])
 
         sheet_mov.append_rows(linhas_para_adicionar)
         
@@ -124,8 +126,6 @@ def salvar_lote():
     
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao processar: {str(e)}'})
-
-
 
 
 
