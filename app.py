@@ -1698,74 +1698,59 @@ def validar_saldo_erp():
 @app.route('/salvar_suficiente_erp', methods=['POST'])
 def salvar_suficiente_erp():
     try:
-        dados = request.get_json()
+        dados = request.get_json(force=True, silent=True) or {}
         itens = dados.get('itens', [])
         
         if not itens:
-            return jsonify({'sucesso': True, 'mensagem': 'Nenhum item para salvar.'})
-            
+            return jsonify({'sucesso': False, 'mensagem': 'Nenhum item enviado para salvar.'}), 400
+
         gc = conectar_google_sheets()
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
-            
+
         planilha_mov = gc.open(NOME_PLANILHA_MOVIMENTACAO)
-        
-        atualizacoes_por_aba = {}
+        abas_cache = {}
+
         for item in itens:
             nome_aba = item.get('aba')
-            linha_idx = int(item.get('linha'))
-            valor_suficiente = item.get('valor')
-            
+            linha = int(item.get('linha'))
+            valor_erp = item.get('valor') # Ex: "Suficiente (15)" ou o número do saldo
+
             if not nome_aba:
                 continue
-                
-            if nome_aba not in atualizacoes_por_aba:
-                atualizacoes_por_aba[nome_aba] = []
-            atualizacoes_por_aba[nome_aba].append((linha_idx, valor_suficiente))
-            
-        for nome_aba, lista_valores in atualizacoes_por_aba.items():
-            try:
-                worksheet = planilha_mov.worksheet(nome_aba)
-            except Exception:
-                continue
-            
-            # Garante que a aba tem pelo menos 9 colunas (Coluna I)
-            if worksheet.col_count < 9:
-                worksheet.add_cols(9 - worksheet.col_count)
-                
-            cell_updates = []
 
-            # Inclui o cabeçalho 'Saldo ERP' na célula I1 no mesmo lote de atualização
-            cell_updates.append({
-                'range': 'I1',
-                'values': [['Saldo ERP']]
-            })
-
-            for linha_idx, valor in lista_valores:
+            if nome_aba not in abas_cache:
                 try:
-                    # Extrai apenas os dígitos do valor recebido para evitar qualquer sujeira de texto ou notação
-                    s_val = str(valor)
-                    # Se vier no formato "Suficiente (10.752)" ou similar, extrai os números
-                    apenas_digitos = ''.join(c for c in s_val if c.isdigit())
-                    if apenas_digitos:
-                        val_limpo = int(apenas_digitos)
-                    else:
-                        val_limpo = 0
-                except (ValueError, TypeError):
-                    val_limpo = 0
+                    abas_cache[nome_aba] = planilha_mov.worksheet(nome_aba)
+                except:
+                    continue
 
-                cell_address = gspread.utils.rowcol_to_a1(linha_idx, 9)
-                cell_updates.append({
-                    'range': cell_address,
-                    'values': [[val_limpo]]
-                })
-                
-            if cell_updates:
-                worksheet.batch_update(cell_updates, value_input_option='USER_ENTERED')
-            
-        return jsonify({'sucesso': True, 'mensagem': 'Valores suficientes e cabeçalho Saldo ERP salvos na coluna I com sucesso!'})
+            sheet_aba = abas_cache[nome_aba]
+            cabecalhos = [str(c).upper().strip() for c in sheet_aba.row_values(1)]
+
+            # Procura pela coluna de Saldo ERP pelo nome ou define fixamente na Coluna I (índice 9)
+            coluna_idx = None
+            for idx, col in enumerate(cabecalhos):
+                if 'SALDO' in col or 'ERP' in col:
+                    coluna_idx = idx + 1
+                    break
+
+            if not coluna_idx:
+                coluna_idx = 9  # Coluna I para o Saldo ERP
+                while sheet_aba.col_count < coluna_idx:
+                    sheet_aba.add_cols(1)
+                sheet_aba.update_cell(1, coluna_idx, 'Saldo ERP')
+
+            # Atualiza apenas a célula correspondente ao saldo na linha da aba, preservando F e G intactas
+            sheet_aba.update_cell(linha, coluna_idx, str(valor_erp))
+
+        return jsonify({'sucesso': True, 'mensagem': 'Saldos do ERP gravados com sucesso!'})
+        
     except Exception as e:
+        print(f"Erro ao salvar saldo ERP: {str(e)}")
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
 
 
 
