@@ -2740,27 +2740,47 @@ def editar_recebimento():
         dados = request.json
         aba = dados.get('aba')
         id_alvo = str(dados.get('id')).strip()
-        nova_qtd = float(dados.get('quantidade'))
+        nova_qtd = float(str(dados.get('quantidade')).replace(',', '.'))
         
         gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+            
         planilha = gc.open(NOME_PLANILHA_RECEBIMENTO)
         sheet = planilha.worksheet(aba)
         
         linhas = sheet.get_all_values()
-        for idx, row in enumerate(linhas[1:], start=2):
-            if str(row[0]).strip() == id_alvo:
-                # Se for entrada (col 5 / índice 4 > 0), atualiza Qtd Entrada e Total
-                if row[4] != '':
-                    sheet.update_cell(idx, 5, nova_qtd)
-                    sheet.update_cell(idx, 7, -nova_qtd)
-                else: # Saída
-                    sheet.update_cell(idx, 6, nova_qtd)
-                    sheet.update_cell(idx, 7, nova_qtd)
-                return jsonify({'sucesso': True, 'mensagem': 'Atualizado com sucesso!'})
-        return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado.'}), 404
-    except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': str(e)})
+        if not linhas or len(linhas) < 2:
+            return jsonify({'sucesso': False, 'mensagem': 'Aba vazia.'}), 404
+            
+        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+        
+        # Identifica os índices corretos das colunas com base no cabeçalho
+        idx_id = cabecalhos.index("ID") + 1 if "ID" in cabecalhos else 1
+        idx_qtd_ent = cabecalhos.index("QTD ENTRADA") + 1 if "QTD ENTRADA" in cabecalhos else 5
+        idx_qtd_sai = cabecalhos.index("QTD SAIDA") + 1 if "QTD SAIDA" in cabecalhos else 6
+        idx_total = cabecalhos.index("TOTAL") + 1 if "TOTAL" in cabecalhos else 7
 
+        for idx, row in enumerate(linhas[1:], start=2):
+            val_id = str(row[idx_id - 1]).strip() if len(row) >= idx_id else ""
+            if val_id == id_alvo:
+                # Verifica se é uma Entrada (Qtd Entrada preenchida) ou Saída (Qtd Saída preenchida)
+                val_ent_atual = row[idx_qtd_ent - 1] if len(row) >= idx_qtd_ent else ""
+                
+                if val_ent_atual != '':
+                    # Atualiza Qtd Entrada e Total (positivo para recebido)
+                    sheet.update_cell(idx, idx_qtd_ent, nova_qtd)
+                    sheet.update_cell(idx, idx_total, nova_qtd)
+                else:
+                    # Atualiza Qtd Saída e Total (negativo para estoque nomus)
+                    sheet.update_cell(idx, idx_qtd_sai, nova_qtd)
+                    sheet.update_cell(idx, idx_total, -nova_qtd)
+                    
+                return jsonify({'sucesso': True, 'mensagem': 'Atualizado com sucesso!'})
+                
+        return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado pelo ID.'}), 404
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
 
 
 
