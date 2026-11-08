@@ -4138,8 +4138,12 @@ async function excluirRec(aba, id) {
 async function editarRec(aba, id, qtdAtual) {
     let novaQtd = prompt("Editar quantidade:", qtdAtual);
     if(novaQtd === null) return;
-    let qtdNum = parseFloat(novaQtd);
-    if(isNaN(qtdNum) || qtdNum <= 0) { alert('Quantidade inválida.'); return; }
+    
+    let qtdNum = parseFloat(novaQtd.replace(',', '.'));
+    if(isNaN(qtdNum) || qtdNum <= 0) { 
+        alert('Quantidade inválida.'); 
+        return; 
+    }
 
     try {
         let res = await fetch('/editar_recebimento', {
@@ -4148,16 +4152,15 @@ async function editarRec(aba, id, qtdAtual) {
             body: JSON.stringify({ aba: aba, id: id, quantidade: qtdNum })
         });
         let r = await res.json();
-        if(r.sucesso) carregarDadosRecebimento();
-        else alert(r.mensagem);
-    } catch(e) { alert('Erro ao editar.'); }
+        if(r.sucesso) {
+            carregarDadosRecebimento();
+        } else {
+            alert(r.mensagem);
+        }
+    } catch(e) { 
+        alert('Erro ao editar.'); 
+    }
 }
-
-// Atualize também a função mudarAba para carregar os dados ao clicar no botão correspondente:
-// Dentro da função mudarAba existente, adicione:
-// if (aba === 'recebimento') { carregarDadosRecebimento(); }
-
-
 
 
 
