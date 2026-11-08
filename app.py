@@ -2753,27 +2753,27 @@ def editar_recebimento():
         if not linhas or len(linhas) < 2:
             return jsonify({'sucesso': False, 'mensagem': 'Aba vazia.'}), 404
             
-        cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+        cabecalhos = [str(c).strip().lower() for c in linhas[0]]
         
-        # Identifica os índices corretos das colunas com base no cabeçalho
-        idx_id = cabecalhos.index("ID") + 1 if "ID" in cabecalhos else 1
-        idx_qtd_ent = cabecalhos.index("QTD ENTRADA") + 1 if "QTD ENTRADA" in cabecalhos else 5
-        idx_qtd_sai = cabecalhos.index("QTD SAIDA") + 1 if "QTD SAIDA" in cabecalhos else 6
-        idx_total = cabecalhos.index("TOTAL") + 1 if "TOTAL" in cabecalhos else 7
+        # Mapeia exatamente com os nomes reais da sua planilha do print
+        idx_id = cabecalhos.index("id") + 1 if "id" in cabecalhos else 1
+        idx_qtd_nomus = cabecalhos.index("qtd nomus") + 1 if "qtd nomus" in cabecalhos else 5
+        idx_qtd_recebido = cabecalhos.index("qtd recebido") + 1 if "qtd recebido" in cabecalhos else 6
+        idx_total = cabecalhos.index("total") + 1 if "total" in cabecalhos else 7
 
         for idx, row in enumerate(linhas[1:], start=2):
             val_id = str(row[idx_id - 1]).strip() if len(row) >= idx_id else ""
             if val_id == id_alvo:
-                # Verifica se é uma Entrada (Qtd Entrada preenchida) ou Saída (Qtd Saída preenchida)
-                val_ent_atual = row[idx_qtd_ent - 1] if len(row) >= idx_qtd_ent else ""
+                # Verifica se é uma Entrada (qtd recebido preenchida ou maior que zero) ou Saída (qtd nomus)
+                val_recebido_atual = str(row[idx_qtd_recebido - 1]).strip() if len(row) >= idx_qtd_recebido else ""
                 
-                if val_ent_atual != '':
-                    # Atualiza Qtd Entrada e Total (positivo para recebido)
-                    sheet.update_cell(idx, idx_qtd_ent, nova_qtd)
+                if val_recebido_atual != '' and float(val_recebido_atual.replace(',', '.') or 0) > 0:
+                    # Atualiza Qtd Recebido e Total (positivo)
+                    sheet.update_cell(idx, idx_qtd_recebido, nova_qtd)
                     sheet.update_cell(idx, idx_total, nova_qtd)
                 else:
-                    # Atualiza Qtd Saída e Total (negativo para estoque nomus)
-                    sheet.update_cell(idx, idx_qtd_sai, nova_qtd)
+                    # Atualiza Qtd Nomus e Total (negativo)
+                    sheet.update_cell(idx, idx_qtd_nomus, nova_qtd)
                     sheet.update_cell(idx, idx_total, -nova_qtd)
                     
                 return jsonify({'sucesso': True, 'mensagem': 'Atualizado com sucesso!'})
@@ -2781,7 +2781,6 @@ def editar_recebimento():
         return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado pelo ID.'}), 404
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
 
 
 
