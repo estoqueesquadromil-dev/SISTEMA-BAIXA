@@ -2755,7 +2755,6 @@ def editar_recebimento():
             
         cabecalhos = [str(c).strip().lower() for c in linhas[0]]
         
-        # Mapeia exatamente com os nomes reais da sua planilha do print
         idx_id = cabecalhos.index("id") + 1 if "id" in cabecalhos else 1
         idx_qtd_nomus = cabecalhos.index("qtd nomus") + 1 if "qtd nomus" in cabecalhos else 5
         idx_qtd_recebido = cabecalhos.index("qtd recebido") + 1 if "qtd recebido" in cabecalhos else 6
@@ -2764,16 +2763,16 @@ def editar_recebimento():
         for idx, row in enumerate(linhas[1:], start=2):
             val_id = str(row[idx_id - 1]).strip() if len(row) >= idx_id else ""
             if val_id == id_alvo:
-                # Verifica se é uma Entrada (qtd recebido preenchida ou maior que zero) ou Saída (qtd nomus)
                 val_recebido_atual = str(row[idx_qtd_recebido - 1]).strip() if len(row) >= idx_qtd_recebido else ""
                 
+                # Se a linha original pertencia aos "Recebidos", atualiza ela e zera a do Nomus. Caso contrário, faz o oposto.
                 if val_recebido_atual != '' and float(val_recebido_atual.replace(',', '.') or 0) > 0:
-                    # Atualiza Qtd Recebido e Total (positivo)
                     sheet.update_cell(idx, idx_qtd_recebido, nova_qtd)
+                    sheet.update_cell(idx, idx_qtd_nomus, 0)
                     sheet.update_cell(idx, idx_total, nova_qtd)
                 else:
-                    # Atualiza Qtd Nomus e Total (negativo)
                     sheet.update_cell(idx, idx_qtd_nomus, nova_qtd)
+                    sheet.update_cell(idx, idx_qtd_recebido, 0)
                     sheet.update_cell(idx, idx_total, -nova_qtd)
                     
                 return jsonify({'sucesso': True, 'mensagem': 'Atualizado com sucesso!'})
@@ -2781,7 +2780,6 @@ def editar_recebimento():
         return jsonify({'sucesso': False, 'mensagem': 'Item não encontrado pelo ID.'}), 404
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
 
 
 @app.route('/atualizar_tipo_lote_por_id', methods=['POST'])
