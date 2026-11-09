@@ -2317,34 +2317,48 @@ def salvar_lote_acessorios():
             tipo = str(linha[col_tipo_idx - 1]).strip() if len(linha) >= col_tipo_idx else ""
             if cod:
                 chave = f"{cod}_{tipo}"
+                
+                # Lê a quantidade atual convertendo com segurança para int
+                qtd_str = str(linha[col_qtd_idx - 1]).replace(',', '.').strip() if len(linha) >= col_qtd_idx else ""
+                try:
+                    qtd_existente = int(float(qtd_str)) if qtd_str else 0
+                except ValueError:
+                    qtd_existente = 0
+
                 mapa_existentes[chave] = {
                     'row': idx + 1,
-                    'qtd_atual': float(str(linha[col_qtd_idx - 1]).replace(',', '.')) if len(linha) >= col_qtd_idx and linha[col_qtd_idx - 1] != '' else 0
+                    'qtd_atual': qtd_existente
                 }
 
         for item in itens:
             codigo = str(item.get('CODIGO', item.get('codigo', ''))).strip().upper()
-            quantidade = float(str(item.get('QUANTIDADE', item.get('quantidade', 1))).replace(',', '.'))
+            
+            # Converte a quantidade recebida para número inteiro puro
+            try:
+                quantidade = int(float(str(item.get('QUANTIDADE', item.get('quantidade', 1))).replace(',', '.')))
+            except (ValueError, TypeError):
+                quantidade = 1
+
             tipo = str(item.get('TIPO', item.get('tipo', 'Baixa Acessórios'))).strip()
             
             chave = f"{codigo}_{tipo}"
             
             if chave in mapa_existentes:
-                # Se já existe, soma à quantidade atual na planilha
+                # Se já existe, soma à quantidade atual na planilha como inteiro
                 info = mapa_existentes[chave]
                 nova_qtd = info['qtd_atual'] + quantidade
                 cell_address = gspread.utils.rowcol_to_a1(info['row'], col_qtd_idx)
                 
                 cell_updates.append({
                     'range': cell_address,
-                    'values': [[str(nova_qtd).replace('.', ',')]]
+                    'values': [[nova_qtd]]  # Grava número inteiro puro
                 })
                 itens_somados.append(f"{codigo} ({tipo})")
             else:
                 # Se não existe, gera um ID único e adiciona como nova linha
                 import uuid
                 novo_id = str(uuid.uuid4())[:8]
-                novas_linhas.append([novo_id, data_mov, codigo, str(quantidade).replace('.', ','), tipo, "Não"])
+                novas_linhas.append([novo_id, data_mov, codigo, quantidade, tipo, "Não"])  # Grava número inteiro puro
                 # Adiciona ao mapa local para evitar duplicidade no mesmo envio em lote
                 mapa_existentes[chave] = {'row': len(linhas) + len(novas_linhas), 'qtd_atual': quantidade}
 
