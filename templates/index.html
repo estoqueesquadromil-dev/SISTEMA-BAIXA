@@ -1550,8 +1550,10 @@ function renderizarTabelaConsulta(itens) {
 
     itens.forEach(item => {
         let tr = document.createElement('tr');
+        tr.setAttribute('data-id', item.ID || '');
+        tr.setAttribute('data-data', item.Data || '');
         
-        // Estrutura exata de 7 colunas (Checkbox, Data, Código, Quantidade, Tipo, Status, Ações)
+        # Estrutura exata de 7 colunas chamando as funções corretas de consulta
         tr.innerHTML = `
             <td style="text-align: center;"><input type="checkbox" class="check-item" data-id="${item.ID || ''}"></td>
             <td>${item.Data || ''}</td>
@@ -1560,13 +1562,15 @@ function renderizarTabelaConsulta(itens) {
             <td>${item.Tipo || ''}</td>
             <td>${item.Status || 'Não'}</td>
             <td>
-                <button class="btn-editar" onclick="editarItem('${item.ID}')" style="background: #ffc107; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 4px;">Editar</button>
-                <button class="btn-excluir" onclick="excluirItem('${item.ID}')" style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold;">Excluir</button>
+                <button class="btn-editar" onclick="editarConsulta('${item.Data}', '${item.ID}', '${item.Código}', ${item.Quantidade})" style="background: #ffc107; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 4px;">Editar</button>
+                <button class="btn-excluir" onclick="excluirConsulta('${item.Data}', '${item.ID}', '${item.Código}')" style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold;">Excluir</button>
             </td>
         `;
         tbody.appendChild(tr);
     });
 }
+
+
     
     function adicionarItemLista() {
         let codigoDigitado = inputCodigo.value.trim();
