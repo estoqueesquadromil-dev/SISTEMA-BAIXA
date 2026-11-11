@@ -1747,7 +1747,7 @@ function filtrarTabelaConsulta() {
     linhas.forEach(tr => {
         let tdCodigo = tr.children[2];
         let tdTipo = tr.children[4];
-        let tdStatus = tr.children[6];
+        let tdStatus = tr.children[5]; // Corrigido para o índice 5 (Coluna Status)
         if (!tdTipo || !tdCodigo || !tdStatus) return;
 
         let codigoTexto = tdCodigo.innerText.trim().toUpperCase();
@@ -1787,6 +1787,8 @@ function filtrarTabelaConsulta() {
     }
 }
 
+
+    
 function alternarTodasSelecoes(master) {
     let checkboxes = document.querySelectorAll('.check-item');
     checkboxes.forEach(cb => cb.checked = master.checked);
