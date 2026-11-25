@@ -882,6 +882,19 @@
         </div>
     </div>
 
+
+    <div style="margin-top: 16px; padding: 12px; border: 1px solid #ddd; border-radius: 6px; background: #fafafa;">
+    <label for="pasteValoresAcessorios" style="font-weight: bold; display: block; margin-bottom: 6px;">
+        Colar Código e Valor Unitário (aba "Valor" da planilha):
+    </label>
+    <textarea id="pasteValoresAcessorios" rows="5" placeholder="Exemplo:&#10;COM40DB	12,50&#10;FC47PD	3,80" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace;"></textarea>
+    <div style="margin-top: 8px;">
+        <button type="button" onclick="salvarTabelaValoresAcessorios()" style="background-color: #28a745; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+            Salvar Valores na Aba "Valor"
+        </button>
+    </div>
+    </div>
+
     <!-- Consulta com Filtros de Código, Tipo e Status -->
     <h3 style="margin-top: 30px;">Consultar Acessórios Lançados</h3>
     <div class="form-row">
@@ -4373,7 +4386,61 @@ async function editarOrdemCriada(id, dataOrdem, codigoPrincipal, qtdAtual) {
 }
 
 
+async function salvarTabelaValoresAcessorios() {
+    const textarea = document.getElementById('pasteValoresAcessorios');
+    const texto = (textarea ? textarea.value : '').trim();
 
+    if (!texto) {
+        alert('Cole pelo menos uma linha com código e valor unitário.');
+        return;
+    }
+
+    const itens = [];
+    const linhas = texto.split(/\r?\n/);
+
+    for (const linha of linhas) {
+        const limpo = linha.trim();
+        if (!limpo) continue;
+
+        // Aceita TAB (padrão ao copiar do Excel/Sheets), ponto e vírgula ou múltiplos espaços
+        let partes = limpo.split(/\t|;/);
+        if (partes.length < 2) {
+            partes = limpo.trim().split(/\s+/);
+        }
+        if (partes.length < 2) continue;
+
+        const codigo = String(partes[0]).trim().toUpperCase();
+        const valorRaw = String(partes.slice(1).join(' ')).replace('R$', '').trim();
+
+        if (codigo && valorRaw) {
+            itens.push({ codigo, valor_unitario: valorRaw });
+        }
+    }
+
+    if (itens.length === 0) {
+        alert('Não foi possível identificar código e valor unitário nas linhas coladas.');
+        return;
+    }
+
+    try {
+        const resp = await fetch('/salvar_valores_acessorios', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itens })
+        });
+        const res = await resp.json();
+
+        if (res.sucesso) {
+            alert(res.mensagem || 'Valores salvos na aba Valor!');
+            textarea.value = '';
+        } else {
+            alert('Erro ao salvar valores: ' + (res.mensagem || 'Falha desconhecida.'));
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Erro de comunicação com o servidor.');
+    }
+}
     
 
 </script>
