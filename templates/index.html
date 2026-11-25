@@ -3795,7 +3795,7 @@ async function salvarLoteAcessorios() {
             }
         }
 
-        // Altera o texto para indicando o salvamento real
+        // Altera o texto indicando o salvamento real
         if (btnSalvar) {
             btnSalvar.innerHTML = '⏳ Salvando na planilha...';
         }
@@ -3808,7 +3808,11 @@ async function salvarLoteAcessorios() {
         let r = await res.json();
 
         if (r.sucesso) {
-            alert(r.mensagem);
+            if (r.alerta_sem_valor) {
+                alert(r.alerta_sem_valor);
+            } else {
+                alert(r.mensagem);
+            }
             listaAcessoriosTemp = [];
             atualizarTabelaTempAcessorios();
             carregarDadosAcessorios();
@@ -3826,8 +3830,10 @@ async function salvarLoteAcessorios() {
             btnSalvar.style.cursor = 'pointer';
         }
     }
-}    
+}
 
+
+    
 async function carregarDadosAcessorios() {
     let inicio = document.getElementById('filtro-inicio-acessorios').value;
     let fim = document.getElementById('filtro-fim-acessorios').value;
