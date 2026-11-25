@@ -3166,3 +3166,87 @@ def editar_ordem_criada():
     except Exception as e:
         return jsonify({'sucesso': False, 'mensagem': f'Erro ao editar ordem: {str(e)}'}), 500
 
+
+
+
+def _parse_valor_unitario(valor):
+    if valor is None:
+        return None
+    s = str(valor).replace("R$", "").strip()
+    if not s:
+        return None
+    # Trata formatos pt-BR (1.234,56) e padrão ponto (12.50)
+    if "," in s and "." in s:
+        s = s.replace(".", "").replace(",", ".")
+    elif "," in s:
+        s = s.replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+@app.route("/salvar_valores_acessorios", methods=["POST"])
+def salvar_valores_acessorios():
+    try:
+        dados = request.get_json(force=True, silent=True) or {}
+        itens = dados.get("itens") or []
+        if not itens:
+            return jsonify({"sucesso": False, "mensagem": "Nenhum item enviado."}), 400
+
+        gc = conectar_google_sheets()
+        planilha = gc.open("acessorios_movimentacao")
+
+        try:
+            aba_valor = planilha.worksheet("Valor")
+        except Exception:
+            aba_valor = planilha.add_worksheet(title="Valor", rows=200, cols=5)
+
+        linhas = aba_valor.get_all_values()
+        if not linhas:
+            aba_valor.append_row(["codigo", "valor unitario"])
+            linhas = [["codigo", "valor unitario"]]
+
+        mapa_linhas = {}
+        for idx, row in enumerate(linhas[1:], start=2):
+            cod = str(row[0]).strip().upper() if len(row) >= 1 else ""
+            if cod:
+                mapa_linhas[cod] = idx
+
+        novas_linhas = []
+        for item in itens:
+            cod = str(item.get("codigo", "")).strip().upper()
+            val_num = _parse_valor_unitario(item.get("valor_unitario"))
+            if not cod or val_num is None:
+                continue
+
+            if cod in mapa_linhas:
+                aba_valor.update_cell(mapa_linhas[cod], 2, val_num)
+            else:
+                novas_linhas.append([cod, val_num])
+
+        if novas_linhas:
+            aba_valor.append_rows(novas_linhas, value_input_option="USER_ENTERED")
+
+        return jsonify({"sucesso": True, "mensagem": "Valores atualizados na aba Valor!"})
+    except Exception as e:
+        return jsonify({"sucesso": False, "mensagem": str(e)}), 500
+
+
+
+def buscar_valor_unitario_acessorio(planilha, codigo):
+    cod_alvo = str(codigo or "").strip().upper()
+    if not cod_alvo:
+        return ""
+    try:
+        aba_valor = planilha.worksheet("Valor")
+        linhas = aba_valor.get_all_values()
+        for row in linhas[1:]:
+            cod = str(row[0]).strip().upper() if len(row) >= 1 else ""
+            if cod == cod_alvo and len(row) >= 2:
+                val_num = _parse_valor_unitario(row[1])
+                return val_num if val_num is not None else ""
+    except Exception:
+        pass
+    return ""
+
