@@ -4,6 +4,7 @@ import pandas as pd
 import gspread
 from datetime import datetime, timedelta
 import uuid
+import time
 
 
 app = Flask(__name__)
@@ -2351,14 +2352,24 @@ def preencher_valores_anteriores_acessorios():
             if not linhas or len(linhas) < 2:
                 continue
 
+            updates_aba = []
             for idx, row in enumerate(linhas[1:], start=2):
                 codigo = str(row[2]).strip().upper() if len(row) >= 3 else ""
                 tipo = str(row[4]).strip() if len(row) >= 5 else ""
                 valor_atual_g = str(row[6]).strip() if len(row) >= 7 else ""
 
                 if tipo == "Baixa Acessórios" and not valor_atual_g and codigo in mapa_valores:
-                    aba.update_cell(idx, 7, mapa_valores[codigo])  # Coluna G = 7
+                    updates_aba.append({
+                        "range": f"G{idx}",
+                        "values": [[mapa_valores[codigo]]]
+                    })
                     atualizadas += 1
+
+            if updates_aba:
+                aba.batch_update(updates_aba, value_input_option="USER_ENTERED")
+
+            # Respiro curto para não estourar o limite de leituras/escritas por minuto
+            time.sleep(1.5)
 
         return jsonify({
             "sucesso": True,
