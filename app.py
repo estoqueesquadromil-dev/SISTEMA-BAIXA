@@ -2273,109 +2273,99 @@ def buscar_produtos_acessorios():
                 break
     return jsonify(resultados)
 
-@app.route('/salvar_lote_acessorios', methods=['POST'])
+@app.route("/salvar_lote_acessorios", methods=["POST"])
 def salvar_lote_acessorios():
     try:
-        dados = request.get_json()
-        data_mov = dados.get('data')
-        itens = dados.get('itens', [])
-        
-        if not data_mov or not itens:
-            return jsonify({'sucesso': False, 'mensagem': 'Dados incompletos.'}), 400
-            
+        dados = request.get_json(force=True, silent=True) or {}
+        data_str = str(dados.get("data", "")).strip()
+        itens = dados.get("itens") or []
+
+        if not data_str or not itens:
+            return jsonify({"sucesso": False, "mensagem": "Data ou itens não informados."}), 400
+
         gc = conectar_google_sheets()
-        if not gc:
-            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
-            
-        planilha = gc.open(NOME_PLANILHA_ACESSORIOS)
-        
-        # Nome da aba baseado na data (ex: '2026-11-05')
-        nome_aba = data_mov
-        try:
-            aba = planilha.worksheet(nome_aba)
-        except Exception:
-            # Se a aba do dia não existir, cria com os cabeçalhos padrão
-            aba = planilha.add_worksheet(title=nome_aba, rows="1000", cols="10")
-            aba.append_row(["ID", "Data", "Código", "Quantidade", "Tipo", "Status"])
-            
-        linhas = aba.get_all_values()
-        cabecalhos = [str(c).strip().upper() for c in linhas[0]] if linhas else []
-        
-        col_cod_idx = cabecalhos.index("CÓDIGO") + 1 if "CÓDIGO" in cabecalhos else (cabecalhos.index("CODIGO") + 1 if "CODIGO" in cabecalhos else 3)
-        col_qtd_idx = cabecalhos.index("QUANTIDADE") + 1 if "QUANTIDADE" in cabecalhos else 4
-        col_tipo_idx = cabecalhos.index("TIPO") + 1 if "TIPO" in cabecalhos else 5
-        
-        cell_updates = []
-        novas_linhas = []
-        itens_somados = []
+        planilha = gc.open("acessorios_movimentacao")
+        aba_dia = planilha.worksheet(data_str)
 
-        # Mapeia os itens já existentes na aba do dia (Chave: Código + Tipo)
-        mapa_existentes = {}
-        for idx, linha in enumerate(linhas):
-            if idx == 0: continue
-            cod = str(linha[col_cod_idx - 1]).strip().upper() if len(linha) >= col_cod_idx else ""
-            tipo = str(linha[col_tipo_idx - 1]).strip() if len(linha) >= col_tipo_idx else ""
-            if cod:
-                chave = f"{cod}_{tipo}"
-                
-                # Lê a quantidade atual convertendo com segurança para int
-                qtd_str = str(linha[col_qtd_idx - 1]).replace(',', '.').strip() if len(linha) >= col_qtd_idx else ""
-                try:
-                    qtd_existente = int(float(qtd_str)) if qtd_str else 0
-                except ValueError:
-                    qtd_existente = 0
-
-                mapa_existentes[chave] = {
-                    'row': idx + 1,
-                    'qtd_atual': qtd_existente
-                }
+        mapa_valores = carregar_mapa_valores_acessorios(planilha)
+        codigos_sem_valor = []
+        linhas_para_adicionar = []
 
         for item in itens:
-            codigo = str(item.get('CODIGO', item.get('codigo', ''))).strip().upper()
-            
-            # Converte a quantidade recebida para número inteiro puro
-            try:
-                quantidade = int(float(str(item.get('QUANTIDADE', item.get('quantidade', 1))).replace(',', '.')))
-            except (ValueError, TypeError):
-                quantidade = 1
+            codigo = str(item.get("CODIGO", item.get("codigo", ""))).strip().upper()
+            quantidade = item.get("QUANTIDADE", item.get("quantidade", 0))
+            tipo = str(item.get("TIPO", item.get("tipo", ""))).strip()
+            id_mov = str(item.get("ID", item.get("id", ""))).strip()
+            status = str(item.get("STATUS", item.get("status", "Não"))).strip()
 
-            tipo = str(item.get('TIPO', item.get('tipo', 'Baixa Acessórios'))).strip()
-            
-            chave = f"{codigo}_{tipo}"
-            
-            if chave in mapa_existentes:
-                # Se já existe, soma à quantidade atual na planilha como inteiro
-                info = mapa_existentes[chave]
-                nova_qtd = info['qtd_atual'] + quantidade
-                cell_address = gspread.utils.rowcol_to_a1(info['row'], col_qtd_idx)
-                
-                cell_updates.append({
-                    'range': cell_address,
-                    'values': [[nova_qtd]]  # Grava número inteiro puro
-                })
-                itens_somados.append(f"{codigo} ({tipo})")
+            if tipo == "Baixa Acessórios":
+                if codigo in mapa_valores:
+                    valor_unit = mapa_valores[codigo]
+                else:
+                    valor_unit = ""
+                    if codigo and codigo not in codigos_sem_valor:
+                        codigos_sem_valor.append(codigo)
             else:
-                # Se não existe, gera um ID único e adiciona como nova linha
-                import uuid
-                novo_id = str(uuid.uuid4())[:8]
-                novas_linhas.append([novo_id, data_mov, codigo, quantidade, tipo, "Não"])  # Grava número inteiro puro
-                # Adiciona ao mapa local para evitar duplicidade no mesmo envio em lote
-                mapa_existentes[chave] = {'row': len(linhas) + len(novas_linhas), 'qtd_atual': quantidade}
+                valor_unit = ""
 
-        if cell_updates:
-            aba.batch_update(cell_updates)
-            
-        if novas_linhas:
-            aba.append_rows(novas_linhas)
-            
-        msg = "Lote salvo com sucesso!"
-        if itens_somados:
-            msg += f" Os seguintes itens já existiam na data e tiveram as quantidades somadas: {', '.join(itens_somados)}."
-            
-        return jsonify({'sucesso': True, 'mensagem': msg})
-        
+            # Colunas: A=ID, B=Data, C=Código, D=Quantidade, E=Tipo, F=Status, G=Valor Unitário
+            linhas_para_adicionar.append([id_mov, data_str, codigo, quantidade, tipo, status, valor_unit])
+
+        if linhas_para_adicionar:
+            aba_dia.append_rows(linhas_para_adicionar, value_input_option="USER_ENTERED")
+
+        alerta_sem_valor = ""
+        if codigos_sem_valor:
+            alerta_sem_valor = (
+                "O produto não tem valor cadastrado na aba Valor: "
+                + ", ".join(codigos_sem_valor)
+            )
+
+        return jsonify({
+            "sucesso": True,
+            "mensagem": "Acessórios salvos com sucesso!",
+            "alerta_sem_valor": alerta_sem_valor
+        })
     except Exception as e:
-        return jsonify({'sucesso': False, 'mensagem': f'Erro interno: {str(e)}'}), 500
+        return jsonify({"sucesso": False, "mensagem": str(e)}), 500
+
+
+@app.route("/preencher_valores_anteriores_acessorios", methods=["POST"])
+def preencher_valores_anteriores_acessorios():
+    try:
+        gc = conectar_google_sheets()
+        planilha = gc.open("acessorios_movimentacao")
+        mapa_valores = carregar_mapa_valores_acessorios(planilha)
+
+        if not mapa_valores:
+            return jsonify({"sucesso": False, "mensagem": "Nenhum valor encontrado na aba Valor."}), 400
+
+        atualizadas = 0
+        abas_ignoradas = {"VALOR", "LIXEIRA", "DADOS", "SALDOS"}
+
+        for aba in planilha.worksheets():
+            if aba.title.strip().upper() in abas_ignoradas:
+                continue
+
+            linhas = aba.get_all_values()
+            if not linhas or len(linhas) < 2:
+                continue
+
+            for idx, row in enumerate(linhas[1:], start=2):
+                codigo = str(row[2]).strip().upper() if len(row) >= 3 else ""
+                tipo = str(row[4]).strip() if len(row) >= 5 else ""
+                valor_atual_g = str(row[6]).strip() if len(row) >= 7 else ""
+
+                if tipo == "Baixa Acessórios" and not valor_atual_g and codigo in mapa_valores:
+                    aba.update_cell(idx, 7, mapa_valores[codigo])  # Coluna G = 7
+                    atualizadas += 1
+
+        return jsonify({
+            "sucesso": True,
+            "mensagem": f"Valores aplicados em {atualizadas} linha(s) anterior(es) de Baixa Acessórios."
+        })
+    except Exception as e:
+        return jsonify({"sucesso": False, "mensagem": str(e)}), 500
 
 
 
