@@ -895,6 +895,17 @@
     </div>
     </div>
 
+    <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" onclick="salvarTabelaValoresAcessorios()" style="background-color: #28a745; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+            Salvar Valores na Aba "Valor"
+        </button>
+        <button type="button" onclick="aplicarValoresAcessoriosAnteriores()" style="background-color: #0056b3; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+            Aplicar em Lançamentos Anteriores
+        </button>
+    </div>
+
+
+    
     <!-- Consulta com Filtros de Código, Tipo e Status -->
     <h3 style="margin-top: 30px;">Consultar Acessórios Lançados</h3>
     <div class="form-row">
@@ -4447,6 +4458,34 @@ async function salvarTabelaValoresAcessorios() {
         alert('Erro de comunicação com o servidor.');
     }
 }
+
+async function aplicarValoresAcessoriosAnteriores() {
+    if (!confirm('Deseja preencher o valor unitário (coluna G) nos lançamentos anteriores de "Baixa Acessórios" que ainda estão sem valor?')) {
+        return;
+    }
+
+    try {
+        const resp = await fetch('/preencher_valores_anteriores_acessorios', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const res = await resp.json();
+
+        if (res.sucesso) {
+            alert(res.mensagem);
+            if (typeof carregarDadosAcessorios === 'function') {
+                carregarDadosAcessorios();
+            }
+        } else {
+            alert('Erro: ' + (res.mensagem || 'Falha ao atualizar lançamentos anteriores.'));
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Erro de comunicação com o servidor.');
+    }
+}
+
+
     
 
 </script>
