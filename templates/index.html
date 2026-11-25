@@ -2553,7 +2553,8 @@ async function carregarOrdensCriadas() {
                 <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
                     <span style="${statusCor}">${isFeito ? 'Sim' : 'Não'}</span>
                 </td>
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center; white-space: nowrap;">
+                    <button onclick="editarOrdemCriada('${ordem.id}', '${ordem.data}', '${ordem.codigoPrincipal}', ${ordem.quantidadeOrdem})" style="background-color: #17a2b8; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 4px;">Editar</button>
                     <button onclick="moverParaLixeira('${ordem.id}')" style="background-color: #ffc107; color: #333; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">Mover p/ Lixeira</button>
                 </td>
             `;
@@ -4335,6 +4336,44 @@ async function processarSaldoLoteAcessorio() {
         botao.disabled = false;
     }
 }
+
+
+async function editarOrdemCriada(id, dataOrdem, codigoPrincipal, qtdAtual) {
+    let novaQtdStr = prompt(`Editar quantidade da ordem (${codigoPrincipal}):`, qtdAtual);
+    if (novaQtdStr === null) return;
+
+    let novaQtd = parseInt(String(novaQtdStr).replace(',', '.').trim(), 10);
+    if (isNaN(novaQtd) || novaQtd <= 0) {
+        alert('Quantidade inválida. Digite um número maior que zero.');
+        return;
+    }
+
+    try {
+        let resposta = await fetch('/editar_ordem_criada', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: String(id).trim(),
+                data: String(dataOrdem).trim(),
+                quantidade: novaQtd
+            })
+        });
+        let resultado = await resposta.json();
+
+        if (resultado.sucesso) {
+            alert(resultado.mensagem || 'Quantidade atualizada com sucesso!');
+            carregarOrdensCriadas();
+        } else {
+            alert('Erro ao atualizar: ' + (resultado.mensagem || 'Falha desconhecida.'));
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Erro de comunicação com o servidor.');
+    }
+}
+
+
+
     
 
 </script>
