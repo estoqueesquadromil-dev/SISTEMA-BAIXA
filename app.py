@@ -3100,5 +3100,69 @@ def verificar_acessorios_existentes():
 
 
 
+@app.route('/editar_ordem_criada', methods=['POST'])
+def editar_ordem_criada():
+    try:
+        dados = request.get_json(force=True, silent=True) or {}
+        id_ordem = str(dados.get('id', '')).strip()
+        data_ordem = str(dados.get('data', '')).strip()
+        nova_qtd = dados.get('quantidade')
 
+        if not id_ordem or nova_qtd is None:
+            return jsonify({'sucesso': False, 'mensagem': 'ID ou quantidade não informados.'}), 400
+
+        try:
+            nova_qtd_num = int(float(str(nova_qtd).replace(',', '.').strip()))
+            if nova_qtd_num <= 0:
+                return jsonify({'sucesso': False, 'mensagem': 'A quantidade deve ser maior que zero.'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'sucesso': False, 'mensagem': 'Quantidade inválida.'}), 400
+
+        gc = conectar_google_sheets()
+        if not gc:
+            return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
+
+        planilha = gc.open(PLANILHA_CRIAR_ORDENS)
+
+        abas_para_buscar = []
+        if data_ordem:
+            try:
+                abas_para_buscar.append(planilha.worksheet(data_ordem))
+            except Exception:
+                pass
+
+        if not abas_para_buscar:
+            for aba in planilha.worksheets():
+                if aba.title.upper() not in ["LIXEIRA", "DADOS"]:
+                    abas_para_buscar.append(aba)
+
+        for aba in abas_para_buscar:
+            linhas = aba.get_all_values()
+            if not linhas or len(linhas) < 2:
+                continue
+
+            cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+            if "ID" not in cabecalhos:
+                continue
+
+            col_id_idx = cabecalhos.index("ID") + 1
+            col_qtd_idx = None
+            for h in ["QUANTIDADE ORDEM", "QUANTIDADE"]:
+                if h in cabecalhos:
+                    col_qtd_idx = cabecalhos.index(h) + 1
+                    break
+
+            if not col_qtd_idx:
+                return jsonify({'sucesso': False, 'mensagem': 'Coluna Quantidade Ordem não encontrada na aba.'}), 400
+
+            for idx, row in enumerate(linhas[1:], start=2):
+                val_id = str(row[col_id_idx - 1]).strip() if len(row) >= col_id_idx else ""
+                if val_id == id_ordem:
+                    aba.update_cell(idx, col_qtd_idx, nova_qtd_num)
+                    return jsonify({'sucesso': True, 'mensagem': 'Quantidade da ordem atualizada na planilha!'})
+
+        return jsonify({'sucesso': False, 'mensagem': 'Ordem não encontrada pelo ID na planilha.'}), 404
+
+    except Exception as e:
+        return jsonify({'sucesso': False, 'mensagem': f'Erro ao editar ordem: {str(e)}'}), 500
 
