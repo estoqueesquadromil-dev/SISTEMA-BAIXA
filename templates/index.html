@@ -891,14 +891,18 @@
 
    
 
-    <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
-        <button type="button" onclick="salvarTabelaValoresAcessorios()" style="background-color: #28a745; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+    <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+        <button type="button" onclick="salvarTabelaValoresAcessorios()" style="background-color: #28a745; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: bold;">
             Salvar Valores na Aba "Valor"
         </button>
-        <button type="button" onclick="aplicarValoresAcessoriosAnteriores()" style="background-color: #0056b3; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-weight: bold;">
-            Aplicar em Lançamentos Anteriores
-        </button>
-    </div>
+
+        <div style="display: flex; align-items: center; gap: 6px; background: #e9ecef; padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc;">
+            <label for="data-aplicar-valor-anterior" style="margin: 0; font-size: 13px; font-weight: bold; color: #333;">Data da Aba:</label>
+            <input type="date" id="data-aplicar-valor-anterior" style="padding: 4px 6px; border: 1px solid #bbb; border-radius: 4px; font-size: 13px;">
+            <button type="button" id="btn-aplicar-valores-anteriores" onclick="aplicarValoresAcessoriosAnteriores()" style="background-color: #0056b3; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">
+                Aplicar nessa Data
+            </button>
+        </div>
     </div>
 
 
@@ -4457,14 +4461,30 @@ async function salvarTabelaValoresAcessorios() {
 }
 
 async function aplicarValoresAcessoriosAnteriores() {
-    if (!confirm('Deseja preencher o valor unitário (coluna G) nos lançamentos anteriores de "Baixa Acessórios" que ainda estão sem valor?')) {
+    const inputData = document.getElementById('data-aplicar-valor-anterior');
+    const dataSelecionada = inputData ? inputData.value : '';
+
+    if (!dataSelecionada) {
+        alert('Por favor, selecione a data da aba que deseja atualizar.');
         return;
+    }
+
+    if (!confirm(`Deseja preencher o valor unitário (coluna G) nos lançamentos de "Baixa Acessórios" da aba "${dataSelecionada}"?`)) {
+        return;
+    }
+
+    const btn = document.getElementById('btn-aplicar-valores-anteriores');
+    const textoOriginal = btn ? btn.innerText : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = 'Aplicando...';
     }
 
     try {
         const resp = await fetch('/preencher_valores_anteriores_acessorios', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: dataSelecionada })
         });
         const res = await resp.json();
 
@@ -4474,14 +4494,18 @@ async function aplicarValoresAcessoriosAnteriores() {
                 carregarDadosAcessorios();
             }
         } else {
-            alert('Erro: ' + (res.mensagem || 'Falha ao atualizar lançamentos anteriores.'));
+            alert('Atenção: ' + (res.mensagem || 'Falha ao atualizar a aba.'));
         }
     } catch (e) {
         console.error(e);
         alert('Erro de comunicação com o servidor.');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = textoOriginal;
+        }
     }
 }
-
 
     
 
