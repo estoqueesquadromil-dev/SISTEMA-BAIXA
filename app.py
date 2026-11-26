@@ -2309,7 +2309,12 @@ def salvar_lote_acessorios():
             aba_dia = planilha.add_worksheet(title=data_str, rows=500, cols=10)
             aba_nova = True
 
-        mapa_valores = carregar_mapa_valores_acessorios(planilha)
+        tem_baixa_acessorios = any(
+            str(item.get("TIPO", item.get("tipo", ""))).strip() == "Baixa Acessórios"
+            for item in itens
+        )
+        mapa_valores = carregar_mapa_valores_acessorios(planilha) if tem_baixa_acessorios else {}
+
         codigos_sem_valor = []
         linhas_para_adicionar = []
 
@@ -3195,6 +3200,9 @@ def editar_ordem_criada():
 
 
 
+_CACHE_VALOR_ACESSORIO = {"timestamp": 0.0, "mapa": {}}
+
+
 def _parse_valor_unitario(valor):
     if valor is None:
         return None
@@ -3213,7 +3221,11 @@ def _parse_valor_unitario(valor):
         return None
 
 
-def carregar_mapa_valores_acessorios(planilha):
+def carregar_mapa_valores_acessorios(planilha, ttl_segundos=60):
+    agora = time.time()
+    if _CACHE_VALOR_ACESSORIO["mapa"] and (agora - _CACHE_VALOR_ACESSORIO["timestamp"]) < ttl_segundos:
+        return _CACHE_VALOR_ACESSORIO["mapa"]
+
     mapa = {}
     try:
         aba_valor = planilha.worksheet("Valor")
@@ -3224,6 +3236,8 @@ def carregar_mapa_valores_acessorios(planilha):
                 val_num = _parse_valor_unitario(row[1])
                 if val_num is not None:
                     mapa[cod] = val_num
+        _CACHE_VALOR_ACESSORIO["timestamp"] = agora
+        _CACHE_VALOR_ACESSORIO["mapa"] = mapa
     except Exception:
         pass
     return mapa
