@@ -2274,6 +2274,21 @@ def buscar_produtos_acessorios():
                 break
     return jsonify(resultados)
 
+
+
+def _converter_qtd_acessorio(valor):
+    if isinstance(valor, (int, float)):
+        return valor
+    texto = str(valor or "").strip().replace(",", ".")
+    try:
+        num = float(texto)
+        return int(num) if num.is_integer() else num
+    except ValueError:
+        return 0
+
+
+
+
 @app.route("/salvar_lote_acessorios", methods=["POST"])
 def salvar_lote_acessorios():
     try:
@@ -2286,7 +2301,13 @@ def salvar_lote_acessorios():
 
         gc = conectar_google_sheets()
         planilha = gc.open("acessorios_movimentacao")
-        aba_dia = planilha.worksheet(data_str)
+
+        aba_nova = False
+        try:
+            aba_dia = planilha.worksheet(data_str)
+        except Exception:
+            aba_dia = planilha.add_worksheet(title=data_str, rows=500, cols=10)
+            aba_nova = True
 
         mapa_valores = carregar_mapa_valores_acessorios(planilha)
         codigos_sem_valor = []
@@ -2294,9 +2315,9 @@ def salvar_lote_acessorios():
 
         for item in itens:
             codigo = str(item.get("CODIGO", item.get("codigo", ""))).strip().upper()
-            quantidade = item.get("QUANTIDADE", item.get("quantidade", 0))
+            quantidade = _converter_qtd_acessorio(item.get("QUANTIDADE", item.get("quantidade", 0)))
             tipo = str(item.get("TIPO", item.get("tipo", ""))).strip()
-            id_mov = str(item.get("ID", item.get("id", ""))).strip()
+            id_mov = str(item.get("ID") or item.get("id") or uuid.uuid4().hex[:8]).strip()
             status = str(item.get("STATUS", item.get("status", "Não"))).strip()
 
             if tipo == "Baixa Acessórios":
@@ -2313,7 +2334,11 @@ def salvar_lote_acessorios():
             linhas_para_adicionar.append([id_mov, data_str, codigo, quantidade, tipo, status, valor_unit])
 
         if linhas_para_adicionar:
-            aba_dia.append_rows(linhas_para_adicionar, value_input_option="USER_ENTERED")
+            if aba_nova:
+                cabecalho = ["ID", "Data", "Código", "Quantidade", "Tipo", "Status", "Valor Unitário"]
+                aba_dia.append_rows([cabecalho] + linhas_para_adicionar, value_input_option="USER_ENTERED")
+            else:
+                aba_dia.append_rows(linhas_para_adicionar, value_input_option="USER_ENTERED")
 
         alerta_sem_valor = ""
         if codigos_sem_valor:
