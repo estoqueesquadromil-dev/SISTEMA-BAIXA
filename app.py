@@ -3264,7 +3264,7 @@ def salvar_valores_acessorios():
 
         linhas = aba_valor.get_all_values()
         if not linhas:
-            aba_valor.append_row(["codigo", "valor unitario"])
+            aba_valor.append_rows([["codigo", "valor unitario"]], value_input_option="USER_ENTERED")
             linhas = [["codigo", "valor unitario"]]
 
         mapa_linhas = {}
@@ -3273,22 +3273,39 @@ def salvar_valores_acessorios():
             if cod:
                 mapa_linhas[cod] = idx
 
+        updates_lote = []
         novas_linhas = []
+        codigos_vistos = set()
+
         for item in itens:
             cod = str(item.get("codigo", "")).strip().upper()
             val_num = _parse_valor_unitario(item.get("valor_unitario"))
-            if not cod or val_num is None:
+            if not cod or val_num is None or cod in codigos_vistos:
                 continue
+            codigos_vistos.add(cod)
 
             if cod in mapa_linhas:
-                aba_valor.update_cell(mapa_linhas[cod], 2, val_num)
+                linha_idx = mapa_linhas[cod]
+                updates_lote.append({
+                    "range": f"B{linha_idx}",
+                    "values": [[val_num]]
+                })
             else:
                 novas_linhas.append([cod, val_num])
 
+        if updates_lote:
+            aba_valor.batch_update(updates_lote, value_input_option="USER_ENTERED")
         if novas_linhas:
             aba_valor.append_rows(novas_linhas, value_input_option="USER_ENTERED")
 
-        return jsonify({"sucesso": True, "mensagem": "Valores atualizados na aba Valor!"})
+        if "_CACHE_VALOR_ACESSORIO" in globals():
+            _CACHE_VALOR_ACESSORIO["timestamp"] = 0.0
+            _CACHE_VALOR_ACESSORIO["mapa"] = {}
+
+        return jsonify({
+            "sucesso": True,
+            "mensagem": f"Valores salvos na aba Valor! ({len(updates_lote)} atualizado(s), {len(novas_linhas)} novo(s))"
+        })
     except Exception as e:
         return jsonify({"sucesso": False, "mensagem": str(e)}), 500
 
