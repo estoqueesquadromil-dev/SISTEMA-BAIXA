@@ -3198,18 +3198,35 @@ def editar_ordem_criada():
 def _parse_valor_unitario(valor):
     if valor is None:
         return None
-    s = str(valor).replace("R$", "").strip()
-    if not s:
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    texto = str(valor).replace("R$", "").strip()
+    if not texto:
         return None
-    # Trata formatos pt-BR (1.234,56) e padrão ponto (12.50)
-    if "," in s and "." in s:
-        s = s.replace(".", "").replace(",", ".")
-    elif "," in s:
-        s = s.replace(",", ".")
+    if "," in texto and "." in texto:
+        texto = texto.replace(".", "").replace(",", ".")
+    elif "," in texto:
+        texto = texto.replace(",", ".")
     try:
-        return float(s)
+        return float(texto)
     except ValueError:
         return None
+
+
+def carregar_mapa_valores_acessorios(planilha):
+    mapa = {}
+    try:
+        aba_valor = planilha.worksheet("Valor")
+        linhas = aba_valor.get_all_values()
+        for row in linhas[1:]:
+            cod = str(row[0]).strip().upper() if len(row) >= 1 else ""
+            if cod and len(row) >= 2:
+                val_num = _parse_valor_unitario(row[1])
+                if val_num is not None:
+                    mapa[cod] = val_num
+    except Exception:
+        pass
+    return mapa
 
 
 @app.route("/salvar_valores_acessorios", methods=["POST"])
