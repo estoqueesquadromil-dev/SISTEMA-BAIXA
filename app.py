@@ -2364,50 +2364,53 @@ def salvar_lote_acessorios():
 @app.route("/preencher_valores_anteriores_acessorios", methods=["POST"])
 def preencher_valores_anteriores_acessorios():
     try:
+        dados = request.get_json(force=True, silent=True) or {}
+        data_alvo = str(dados.get("data", "")).strip()
+
+        if not data_alvo:
+            return jsonify({"sucesso": False, "mensagem": "Selecione a data da aba."}), 400
+
         gc = conectar_google_sheets()
         planilha = gc.open("acessorios_movimentacao")
+
+        try:
+            aba = planilha.worksheet(data_alvo)
+        except Exception:
+            return jsonify({"sucesso": False, "mensagem": f"A aba '{data_alvo}' não foi encontrada na planilha."}), 404
+
         mapa_valores = carregar_mapa_valores_acessorios(planilha)
-
         if not mapa_valores:
-            return jsonify({"sucesso": False, "mensagem": "Nenhum valor encontrado na aba Valor."}), 400
+            return jsonify({"sucesso": False, "mensagem": "Nenhum valor cadastrado na aba Valor."}), 400
 
-        atualizadas = 0
-        abas_ignoradas = {"VALOR", "LIXEIRA", "DADOS", "SALDOS"}
+        linhas = aba.get_all_values()
+        if not linhas or len(linhas) < 2:
+            return jsonify({"sucesso": False, "mensagem": f"A aba '{data_alvo}' está vazia."}), 400
 
-        for aba in planilha.worksheets():
-            if aba.title.strip().upper() in abas_ignoradas:
-                continue
+        updates_aba = []
+        for idx, row in enumerate(linhas[1:], start=2):
+            codigo = str(row[2]).strip().upper() if len(row) >= 3 else ""
+            tipo = str(row[4]).strip() if len(row) >= 5 else ""
 
-            linhas = aba.get_all_values()
-            if not linhas or len(linhas) < 2:
-                continue
+            if tipo == "Baixa Acessórios" and codigo in mapa_valores:
+                updates_aba.append({
+                    "range": f"G{idx}",
+                    "values": [[mapa_valores[codigo]]]
+                })
 
-            updates_aba = []
-            for idx, row in enumerate(linhas[1:], start=2):
-                codigo = str(row[2]).strip().upper() if len(row) >= 3 else ""
-                tipo = str(row[4]).strip() if len(row) >= 5 else ""
-                valor_atual_g = str(row[6]).strip() if len(row) >= 7 else ""
+        if updates_aba:
+            aba.batch_update(updates_aba, value_input_option="USER_ENTERED")
+            return jsonify({
+                "sucesso": True,
+                "mensagem": f"Sucesso! {len(updates_aba)} item(ns) de 'Baixa Acessórios' atualizado(s) na aba {data_alvo}."
+            })
+        else:
+            return jsonify({
+                "sucesso": True,
+                "mensagem": f"Nenhum item de 'Baixa Acessórios' com valor cadastrado foi encontrado na aba {data_alvo}."
+            })
 
-                if tipo == "Baixa Acessórios" and not valor_atual_g and codigo in mapa_valores:
-                    updates_aba.append({
-                        "range": f"G{idx}",
-                        "values": [[mapa_valores[codigo]]]
-                    })
-                    atualizadas += 1
-
-            if updates_aba:
-                aba.batch_update(updates_aba, value_input_option="USER_ENTERED")
-
-            # Respiro curto para não estourar o limite de leituras/escritas por minuto
-            time.sleep(1.5)
-
-        return jsonify({
-            "sucesso": True,
-            "mensagem": f"Valores aplicados em {atualizadas} linha(s) anterior(es) de Baixa Acessórios."
-        })
     except Exception as e:
         return jsonify({"sucesso": False, "mensagem": str(e)}), 500
-
 
 
 
