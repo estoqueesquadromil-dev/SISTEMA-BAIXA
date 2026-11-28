@@ -4092,18 +4092,6 @@ async function salvarMovimentoRecebimento(tipoMov, dataId, resId, inputId, qtdId
     }
 }
 
-
-
-let _timerFiltroRec = null;
-
-function filtrarRecebimentoDebounced() {
-    clearTimeout(_timerFiltroRec);
-    _timerFiltroRec = setTimeout(() => {
-        carregarDadosRecebimento();
-    }, 300);
-}
-
-
     
 
 async function carregarDadosRecebimento() {
