@@ -2414,28 +2414,18 @@ def preencher_valores_anteriores_acessorios():
 
 
 
-_CACHE_ACESSORIOS = {}
-_TTL_ACESSORIOS = 20
-
-
 @app.route('/consultar_acessorios', methods=['GET'])
 def consultar_acessorios():
-    inicio_str = request.args.get('inicio', '').strip()
-    fim_str = request.args.get('fim', '').strip()
-
+    inicio_str = request.args.get('inicio')
+    fim_str = request.args.get('fim')
+    
     if not inicio_str or not fim_str:
         return jsonify({'sucesso': False, 'mensagem': 'Datas obrigatórias.'}), 400
-
+    
     try:
-        chave = f"{inicio_str}|{fim_str}"
-        agora = time.time()
-        cached = _CACHE_ACESSORIOS.get(chave)
-        if cached and (agora - cached['ts']) < _TTL_ACESSORIOS:
-            return jsonify(cached['payload'])
-
-        data_inicio = datetime.strptime(inicio_str, '%Y-%m-%d')
-        data_fim = datetime.strptime(fim_str, '%Y-%m-%d')
-
+        data_inicio = datetime.strptime(inicio_str.strip(), '%Y-%m-%d')
+        data_fim = datetime.strptime(fim_str.strip(), '%Y-%m-%d')
+        
         gc = conectar_google_sheets()
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão.'}), 500
@@ -2446,68 +2436,45 @@ def consultar_acessorios():
 
         for aba in todas_abas:
             nome_aba = aba.title.strip()
-            if nome_aba.upper() in ['PRODUTOS', 'MOVIMENTACAO', 'LIXEIRA', 'VALOR', 'SALDO_ACESSORIOS']:
+            if nome_aba.upper() in ['PRODUTOS', 'MOVIMENTACAO', 'LIXEIRA']:
                 continue
-
-            aba_data_str = nome_aba.split(' ')[0].split('T')[0]
+            
+            aba_data_str = nome_aba.split(' ')[0]
             try:
                 data_aba = datetime.strptime(aba_data_str, '%Y-%m-%d')
+                if data_inicio <= data_aba <= data_fim:
+                    linhas = aba.get_all_values()
+                    if not linhas or len(linhas) < 2:
+                        continue
+                    
+                    cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+                    for index in range(1, len(linhas)):
+                        row = linhas[index]
+                        if not any(row):
+                            continue
+                        
+                        row_id = row[cabecalhos.index("ID")] if "ID" in cabecalhos and len(row) > cabecalhos.index("ID") else f"{aba_data_str}_{index}"
+                        codigo_val = row[cabecalhos.index("CÓDIGO")] if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO") else (row[cabecalhos.index("CODIGO")] if "CODIGO" in cabecalhos else row[2])
+                        qtd_val = int(float(str(row[cabecalhos.index("QUANTIDADE")]).replace(',', '.'))) if "QUANTIDADE" in cabecalhos else 1
+                        tipo_val = row[cabecalhos.index("TIPO")] if "TIPO" in cabecalhos else "Baixa Acessórios"
+                        status_val = row[cabecalhos.index("STATUS")] if "STATUS" in cabecalhos else "Não"
+
+                        lista_itens.append({
+                            "id": row_id,
+                            "data": aba_data_str,
+                            "codigo": codigo_val,
+                            "quantidade": qtd_val,
+                            "tipo": tipo_val,
+                            "status": status_val,
+                            "aba": nome_aba,
+                            "linha": index + 1
+                        })
             except ValueError:
                 continue
 
-            if not (data_inicio <= data_aba <= data_fim):
-                continue
-
-            linhas = aba.get_all_values()
-            if not linhas or len(linhas) < 2:
-                continue
-
-            cabecalhos = [str(c).strip().upper() for c in linhas[0]]
-            idx_id = cabecalhos.index("ID") if "ID" in cabecalhos else 0
-            idx_cod = cabecalhos.index("CÓDIGO") if "CÓDIGO" in cabecalhos else (cabecalhos.index("CODIGO") if "CODIGO" in cabecalhos else 2)
-            idx_qtd = cabecalhos.index("QUANTIDADE") if "QUANTIDADE" in cabecalhos else 3
-            idx_tipo = cabecalhos.index("TIPO") if "TIPO" in cabecalhos else 4
-            idx_status = cabecalhos.index("STATUS") if "STATUS" in cabecalhos else 5
-
-            for index in range(1, len(linhas)):
-                row = linhas[index]
-                if not any(row):
-                    continue
-
-                row_id = str(row[idx_id]).strip() if len(row) > idx_id and str(row[idx_id]).strip() else f"{aba_data_str}_{index}"
-                codigo_val = str(row[idx_cod]).strip() if len(row) > idx_cod else ""
-                if not codigo_val:
-                    continue
-
-                try:
-                    raw_q = str(row[idx_qtd]).replace(',', '.').strip() if len(row) > idx_qtd else "1"
-                    qtd_val = int(float(raw_q)) if raw_q else 1
-                except ValueError:
-                    qtd_val = 1
-
-                tipo_val = str(row[idx_tipo]).strip() if len(row) > idx_tipo and str(row[idx_tipo]).strip() else "Baixa Acessórios"
-                status_val = str(row[idx_status]).strip() if len(row) > idx_status and str(row[idx_status]).strip() else "Não"
-
-                lista_itens.append({
-                    "id": row_id,
-                    "data": aba_data_str,
-                    "codigo": codigo_val,
-                    "quantidade": qtd_val,
-                    "tipo": tipo_val,
-                    "status": status_val,
-                    "aba": nome_aba,
-                    "linha": index + 1
-                })
-
-        payload = {'sucesso': True, 'itens': lista_itens}
-        _CACHE_ACESSORIOS[chave] = {'ts': agora, 'payload': payload}
-        return jsonify(payload)
+        return jsonify({'sucesso': True, 'itens': lista_itens})
     except Exception as e:
-        print(f"[ERRO] /consultar_acessorios: {e}")
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
-
-
-
 
 @app.route('/excluir_acessorio', methods=['POST'])
 def excluir_acessorio():
@@ -2668,172 +2635,128 @@ def salvar_recebimento():
 
 
 
-
-
-_CACHE_RECEBIMENTO = {}
-_TTL_RECEBIMENTO = 20  # segundos
-
-
 @app.route('/consultar_recebimento', methods=['GET'])
 def consultar_recebimento():
     try:
-        inicio = request.args.get('inicio', '').strip()
-        fim = request.args.get('fim', '').strip()
-        chave_cache = f"{inicio}|{fim}"
-        agora = time.time()
-
-        cached = _CACHE_RECEBIMENTO.get(chave_cache)
-        if cached and (agora - cached['ts']) < _TTL_RECEBIMENTO:
-            return jsonify(cached['payload'])
-
+        inicio = request.args.get('inicio')
+        fim = request.args.get('fim')
+        
         gc = conectar_google_sheets()
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão com o Google Sheets.'}), 500
-
+            
         planilha = gc.open(NOME_PLANILHA_RECEBIMENTO)
-
+        
+        # 1. Carrega todos os produtos oficiais da base
         produtos_base = {}
         try:
             sheet_prods = planilha.worksheet('PRODUTOS')
-        except Exception:
-            sheet_prods = planilha.sheet1
+        except:
+            try:
+                sheet_prods = planilha.sheet1
+            except:
+                sheet_prods = None
 
-        linhas_prods = sheet_prods.get_all_values()
-        if linhas_prods and len(linhas_prods) >= 2:
-            cab_prods = [str(c).strip().upper() for c in linhas_prods[0]]
-            idx_cod_p = next((cab_prods.index(n) for n in ['CODIGO', 'CÓDIGO'] if n in cab_prods), 0)
-            idx_desc_p = next((cab_prods.index(n) for n in ['DESCRICAO', 'DESCRIÇÃO'] if n in cab_prods), 1)
-
-            for row_p in linhas_prods[1:]:
-                if not any(row_p):
-                    continue
-                cod = str(row_p[idx_cod_p]).strip().upper() if len(row_p) > idx_cod_p else ''
-                desc = (
-                    str(row_p[idx_desc_p]).strip()
-                    if len(row_p) > idx_desc_p and str(row_p[idx_desc_p]).strip()
-                    else 'Produto / Opcional'
-                )
+        if sheet_prods:
+            registos_prods = sheet_prods.get_all_records()
+            for r in registos_prods:
+                cod = str(r.get('CODIGO') or r.get('Código') or list(r.values)[0] or '').strip().upper()
+                desc = str(r.get('DESCRICAO') or r.get('Descrição') or 'Produto / Opcional').strip()
                 if cod and cod != 'NAN':
                     produtos_base[cod] = desc
 
         saldos_dict = {cod: 0.0 for cod in produtos_base.keys()}
         entradas_lista = []
         saidas_lista = []
+        
+        dt_inicio = datetime.strptime(inicio.strip(), '%Y-%m-%d') if inicio else None
+        dt_fim = datetime.strptime(fim.strip(), '%Y-%m-%d') if fim else None
 
-        dt_inicio = datetime.strptime(inicio, '%Y-%m-%d') if inicio else None
-        dt_fim = datetime.strptime(fim, '%Y-%m-%d') if fim else None
-
-        for aba in planilha.worksheets():
+        todas_abas = planilha.worksheets()
+        for aba in todas_abas:
             nome_aba = aba.title.strip()
             if nome_aba.upper() in ['PRODUTOS', 'SALDOS', 'LIXEIRA']:
                 continue
-
-            aba_data_str = nome_aba.split(' ')[0].split('T')[0]
+                
             try:
-                data_aba = datetime.strptime(aba_data_str, '%Y-%m-%d')
+                data_aba = datetime.strptime(nome_aba.split(' ')[0], '%Y-%m-%d')
             except ValueError:
                 continue
-
+                
             linhas = aba.get_all_values()
             if not linhas or len(linhas) < 2:
                 continue
-
+                
             cabecalhos = [str(c).strip().upper() for c in linhas[0]]
             idx_id = cabecalhos.index("ID") if "ID" in cabecalhos else 0
             idx_data = cabecalhos.index("DATA") if "DATA" in cabecalhos else 1
             idx_ent_nomus = cabecalhos.index("ENTRADA NOMUS") if "ENTRADA NOMUS" in cabecalhos else 2
-            idx_rec = (
-                cabecalhos.index("RECEBIDOS")
-                if "RECEBIDOS" in cabecalhos
-                else (cabecalhos.index("SAIDA RECEBIDO") if "SAIDA RECEBIDO" in cabecalhos else 3)
-            )
-            idx_qtd_nomus = (
-                cabecalhos.index("QTD NOMUS")
-                if "QTD NOMUS" in cabecalhos
-                else (cabecalhos.index("QTD ENTRADA") if "QTD ENTRADA" in cabecalhos else 4)
-            )
-            idx_qtd_rec = (
-                cabecalhos.index("QTD RECEBIDO")
-                if "QTD RECEBIDO" in cabecalhos
-                else (cabecalhos.index("QTD SAIDA") if "QTD SAIDA" in cabecalhos else 5)
-            )
-
+            idx_sai_rec = cabecalhos.index("SAIDA RECEBIDO") if "SAIDA RECEBIDO" in cabecalhos else 3
+            idx_qtd_ent = cabecalhos.index("QTD ENTRADA") if "QTD ENTRADA" in cabecalhos else 4
+            idx_qtd_sai = cabecalhos.index("QTD SAIDA") if "QTD SAIDA" in cabecalhos else 5
+            
             for row_idx, row in enumerate(linhas[1:], start=2):
                 if not any(row):
                     continue
-
+                    
                 row_id = str(row[idx_id]).strip() if len(row) > idx_id else f"{nome_aba}_{row_idx}"
-                data_item = (
-                    str(row[idx_data]).strip()
-                    if len(row) > idx_data and str(row[idx_data]).strip()
-                    else nome_aba
-                )
-
-                cod_nomus = str(row[idx_ent_nomus]).strip().upper() if len(row) > idx_ent_nomus else ""
-                cod_rec = str(row[idx_rec]).strip().upper() if len(row) > idx_rec else ""
-
+                data_item = str(row[idx_data]).strip() if len(row) > idx_data else nome_aba
+                
+                cod_entrada = str(row[idx_ent_nomus]).strip().upper() if len(row) > idx_ent_nomus else ""
+                cod_saida = str(row[idx_sai_rec]).strip().upper() if len(row) > idx_sai_rec else ""
+                
                 try:
-                    raw_qn = str(row[idx_qtd_nomus]).replace(',', '.').strip() if len(row) > idx_qtd_nomus else ""
-                    qtd_nomus = float(raw_qn) if raw_qn != "" else 0.0
-                except ValueError:
-                    qtd_nomus = 0.0
-
+                    qtd_ent = float(str(row[idx_qtd_ent]).replace(',', '.')) if len(row) > idx_qtd_ent and row[idx_qtd_ent] != '' else 0.0
+                except:
+                    qtd_ent = 0.0
+                    
                 try:
-                    raw_qr = str(row[idx_qtd_rec]).replace(',', '.').strip() if len(row) > idx_qtd_rec else ""
-                    qtd_rec = float(raw_qr) if raw_qr != "" else 0.0
-                except ValueError:
-                    qtd_rec = 0.0
+                    qtd_sai = float(str(row[idx_qtd_sai]).replace(',', '.')) if len(row) > idx_qtd_sai and row[idx_qtd_sai] != '' else 0.0
+                except:
+                    qtd_sai = 0.0
 
-                if cod_rec and qtd_rec > 0:
-                    if cod_rec not in saldos_dict:
-                        saldos_dict[cod_rec] = 0.0
-                        produtos_base[cod_rec] = 'Produto / Opcional'
-                    saldos_dict[cod_rec] += qtd_rec
-
+                # Correção da visualização:
+                # ENTRADAS (Produtos Recebidos / Coluna D) -> Vão para a tabela verde de Entradas
+                if cod_saida and qtd_sai > 0:
+                    if cod_saida not in saldos_dict:
+                        saldos_dict[cod_saida] = 0.0
+                        produtos_base[cod_saida] = 'Produto / Opcional'
+                    saldos_dict[cod_saida] += qtd_sai
+                    
                     if not dt_inicio or not dt_fim or (dt_inicio <= data_aba <= dt_fim):
                         entradas_lista.append({
-                            'aba': nome_aba,
-                            'id': row_id,
-                            'data': data_item,
-                            'codigo': cod_rec,
-                            'quantidade': qtd_rec
+                            'aba': nome_aba, 'id': row_id, 'data': data_item, 'codigo': cod_saida, 'quantidade': qtd_sai
                         })
 
-                if cod_nomus and qtd_nomus > 0:
-                    if cod_nomus not in saldos_dict:
-                        saldos_dict[cod_nomus] = 0.0
-                        produtos_base[cod_nomus] = 'Produto / Opcional'
-                    saldos_dict[cod_nomus] -= qtd_nomus
-
+                # SAÍDAS (Estoque Nomus / Coluna C) -> Vão para a tabela azul de Saídas
+                if cod_entrada and qtd_ent > 0:
+                    if cod_entrada not in saldos_dict:
+                        saldos_dict[cod_entrada] = 0.0
+                        produtos_base[cod_entrada] = 'Produto / Opcional'
+                    saldos_dict[cod_entrada] -= qtd_ent
+                    
                     if not dt_inicio or not dt_fim or (dt_inicio <= data_aba <= dt_fim):
                         saidas_lista.append({
-                            'aba': nome_aba,
-                            'id': row_id,
-                            'data': data_item,
-                            'codigo': cod_nomus,
-                            'quantidade': qtd_nomus
+                            'aba': nome_aba, 'id': row_id, 'data': data_item, 'codigo': cod_entrada, 'quantidade': qtd_ent
                         })
 
-        lista_saldos = [
-            {
+        lista_saldos = []
+        for cod, desc in produtos_base.items():
+            saldo_total = saldos_dict.get(cod, 0.0)
+            lista_saldos.append({
                 'codigo': cod,
                 'descricao': desc,
-                'saldo': saldos_dict.get(cod, 0.0)
-            }
-            for cod, desc in produtos_base.items()
-        ]
+                'saldo': saldo_total
+            })
 
-        payload = {
+        return jsonify({
             'sucesso': True,
             'saldos': lista_saldos,
             'entradas': entradas_lista,
             'saidas': saidas_lista
-        }
-        _CACHE_RECEBIMENTO[chave_cache] = {'ts': agora, 'payload': payload}
-        return jsonify(payload)
-
+        })
+        
     except Exception as e:
-        print(f"[ERRO] /consultar_recebimento: {e}")
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
 
 
@@ -3403,4 +3326,3 @@ def buscar_valor_unitario_acessorio(planilha, codigo):
     except Exception:
         pass
     return ""
-
