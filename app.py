@@ -2414,18 +2414,28 @@ def preencher_valores_anteriores_acessorios():
 
 
 
+_CACHE_ACESSORIOS = {}
+_TTL_ACESSORIOS = 20
+
+
 @app.route('/consultar_acessorios', methods=['GET'])
 def consultar_acessorios():
-    inicio_str = request.args.get('inicio')
-    fim_str = request.args.get('fim')
-    
+    inicio_str = request.args.get('inicio', '').strip()
+    fim_str = request.args.get('fim', '').strip()
+
     if not inicio_str or not fim_str:
         return jsonify({'sucesso': False, 'mensagem': 'Datas obrigatórias.'}), 400
-    
+
     try:
-        data_inicio = datetime.strptime(inicio_str.strip(), '%Y-%m-%d')
-        data_fim = datetime.strptime(fim_str.strip(), '%Y-%m-%d')
-        
+        chave = f"{inicio_str}|{fim_str}"
+        agora = time.time()
+        cached = _CACHE_ACESSORIOS.get(chave)
+        if cached and (agora - cached['ts']) < _TTL_ACESSORIOS:
+            return jsonify(cached['payload'])
+
+        data_inicio = datetime.strptime(inicio_str, '%Y-%m-%d')
+        data_fim = datetime.strptime(fim_str, '%Y-%m-%d')
+
         gc = conectar_google_sheets()
         if not gc:
             return jsonify({'sucesso': False, 'mensagem': 'Erro de conexão.'}), 500
@@ -2436,45 +2446,68 @@ def consultar_acessorios():
 
         for aba in todas_abas:
             nome_aba = aba.title.strip()
-            if nome_aba.upper() in ['PRODUTOS', 'MOVIMENTACAO', 'LIXEIRA']:
+            if nome_aba.upper() in ['PRODUTOS', 'MOVIMENTACAO', 'LIXEIRA', 'VALOR', 'SALDO_ACESSORIOS']:
                 continue
-            
-            aba_data_str = nome_aba.split(' ')[0]
+
+            aba_data_str = nome_aba.split(' ')[0].split('T')[0]
             try:
                 data_aba = datetime.strptime(aba_data_str, '%Y-%m-%d')
-                if data_inicio <= data_aba <= data_fim:
-                    linhas = aba.get_all_values()
-                    if not linhas or len(linhas) < 2:
-                        continue
-                    
-                    cabecalhos = [str(c).strip().upper() for c in linhas[0]]
-                    for index in range(1, len(linhas)):
-                        row = linhas[index]
-                        if not any(row):
-                            continue
-                        
-                        row_id = row[cabecalhos.index("ID")] if "ID" in cabecalhos and len(row) > cabecalhos.index("ID") else f"{aba_data_str}_{index}"
-                        codigo_val = row[cabecalhos.index("CÓDIGO")] if "CÓDIGO" in cabecalhos and len(row) > cabecalhos.index("CÓDIGO") else (row[cabecalhos.index("CODIGO")] if "CODIGO" in cabecalhos else row[2])
-                        qtd_val = int(float(str(row[cabecalhos.index("QUANTIDADE")]).replace(',', '.'))) if "QUANTIDADE" in cabecalhos else 1
-                        tipo_val = row[cabecalhos.index("TIPO")] if "TIPO" in cabecalhos else "Baixa Acessórios"
-                        status_val = row[cabecalhos.index("STATUS")] if "STATUS" in cabecalhos else "Não"
-
-                        lista_itens.append({
-                            "id": row_id,
-                            "data": aba_data_str,
-                            "codigo": codigo_val,
-                            "quantidade": qtd_val,
-                            "tipo": tipo_val,
-                            "status": status_val,
-                            "aba": nome_aba,
-                            "linha": index + 1
-                        })
             except ValueError:
                 continue
 
-        return jsonify({'sucesso': True, 'itens': lista_itens})
+            if not (data_inicio <= data_aba <= data_fim):
+                continue
+
+            linhas = aba.get_all_values()
+            if not linhas or len(linhas) < 2:
+                continue
+
+            cabecalhos = [str(c).strip().upper() for c in linhas[0]]
+            idx_id = cabecalhos.index("ID") if "ID" in cabecalhos else 0
+            idx_cod = cabecalhos.index("CÓDIGO") if "CÓDIGO" in cabecalhos else (cabecalhos.index("CODIGO") if "CODIGO" in cabecalhos else 2)
+            idx_qtd = cabecalhos.index("QUANTIDADE") if "QUANTIDADE" in cabecalhos else 3
+            idx_tipo = cabecalhos.index("TIPO") if "TIPO" in cabecalhos else 4
+            idx_status = cabecalhos.index("STATUS") if "STATUS" in cabecalhos else 5
+
+            for index in range(1, len(linhas)):
+                row = linhas[index]
+                if not any(row):
+                    continue
+
+                row_id = str(row[idx_id]).strip() if len(row) > idx_id and str(row[idx_id]).strip() else f"{aba_data_str}_{index}"
+                codigo_val = str(row[idx_cod]).strip() if len(row) > idx_cod else ""
+                if not codigo_val:
+                    continue
+
+                try:
+                    raw_q = str(row[idx_qtd]).replace(',', '.').strip() if len(row) > idx_qtd else "1"
+                    qtd_val = int(float(raw_q)) if raw_q else 1
+                except ValueError:
+                    qtd_val = 1
+
+                tipo_val = str(row[idx_tipo]).strip() if len(row) > idx_tipo and str(row[idx_tipo]).strip() else "Baixa Acessórios"
+                status_val = str(row[idx_status]).strip() if len(row) > idx_status and str(row[idx_status]).strip() else "Não"
+
+                lista_itens.append({
+                    "id": row_id,
+                    "data": aba_data_str,
+                    "codigo": codigo_val,
+                    "quantidade": qtd_val,
+                    "tipo": tipo_val,
+                    "status": status_val,
+                    "aba": nome_aba,
+                    "linha": index + 1
+                })
+
+        payload = {'sucesso': True, 'itens': lista_itens}
+        _CACHE_ACESSORIOS[chave] = {'ts': agora, 'payload': payload}
+        return jsonify(payload)
     except Exception as e:
+        print(f"[ERRO] /consultar_acessorios: {e}")
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+
+
 
 @app.route('/excluir_acessorio', methods=['POST'])
 def excluir_acessorio():
